@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, X, ChevronDown, Check, Upload, Calendar, MapPin, Filter, FileText, Trash2, Clock, FileWarning, Bold, Italic, Underline, Link, AlignLeft } from 'lucide-react';
 import Swal from 'sweetalert2';
 
-// --- MOCK DATA (Fallback) ---
+// --- MOCK DATA ---
 const initialCaseData = [
   { type: 'LUPON', status: 'SETTLED', caseNo: '01-166-01-2025', resident: 'Dela Cruz, Juan', contact: '0912-000-0001', date: '01-15-2025' },
   { type: 'VAWC', status: 'PENDING', caseNo: '02-166-05-2025', resident: 'Santos, Maria', contact: '0912-000-0002', date: '05-20-2025' },
@@ -34,9 +34,7 @@ const getTypeStyle = (type) => {
 const gradientBtnClass = "bg-gradient-to-r from-[#0066FF] to-[#0099FF] hover:from-[#0055EE] hover:to-[#0088DD] text-white shadow-md transition-all active:scale-95";
 
 export default function CaseLogs() {
-  // --- MAIN STATES ---
   const [view, setView] = useState('TABLE'); 
-  
   const [cases, setCases] = useState(() => {
     const saved = localStorage.getItem('cases');
     return saved ? JSON.parse(saved) : initialCaseData;
@@ -44,11 +42,11 @@ export default function CaseLogs() {
 
   useEffect(() => {
     localStorage.setItem('cases', JSON.stringify(cases));
+    window.dispatchEvent(new Event('storage'));
   }, [cases]);
   
   const [isModalOpen, setIsModalOpen] = useState(false); 
   const [isModeratorModalOpen, setIsModeratorModalOpen] = useState(false);
-
   const [selectedReportType, setSelectedReportType] = useState('');
   const [selectedRole, setSelectedRole] = useState('Lupon Head');
   
@@ -59,15 +57,12 @@ export default function CaseLogs() {
   const [sortYear, setSortYear] = useState('All Years');
 
   const [formData, setFormData] = useState({
-    caseNo: '', dateFiled: '',
-    complainantName: '', complainantContact: '', complainantAddress: '',
-    defendantName: '', defendantContact: '', defendantAddress: '',
-    incidentDate: '', incidentLocation: '', incidentDesc: ''
+    caseNo: '', dateFiled: '', complainantName: '', complainantContact: '', complainantAddress: '',
+    defendantName: '', defendantContact: '', defendantAddress: '', incidentDate: '', incidentLocation: '', incidentDesc: ''
   });
   
   const [summonData, setSummonData] = useState({
-    caseNo: '', residentName: '', summonDate: '', summonTime: '',
-    summonType: '', summonReason: '', notedBy: ''
+    caseNo: '', residentName: '', summonDate: '', summonTime: '', summonType: '', summonReason: '', notedBy: ''
   });
 
   const editorRef = useRef(null);
@@ -81,12 +76,29 @@ export default function CaseLogs() {
   const currentYear = new Date().getFullYear();
   const yearOptions = ['All Years', ...Array.from({length: 7}, (_, i) => (currentYear - i).toString())];
   const roles = ['Lupon Head', 'Lupon Tagapamayapa', 'Administration']; 
-  const statusOptions = [{ label: 'Settled', color: 'bg-green-500' }, { label: 'Pending', color: 'bg-yellow-500' }, { label: 'Escalated', color: 'bg-red-500' }, { label: 'Blacklisted', color: 'bg-black' }];
+  
+  // ADDED "All Status" HERE SO IT APPEARS IN THE DROPDOWN
+  const statusOptions = [
+    { label: 'All Status', color: 'bg-gray-400' },
+    { label: 'Settled', color: 'bg-green-500' }, 
+    { label: 'Pending', color: 'bg-yellow-500' }, 
+    { label: 'Escalated', color: 'bg-red-500' }, 
+    { label: 'Blacklisted', color: 'bg-black' }
+  ];
 
+  // --- FILTER LOGIC ---
   const filteredData = cases.filter((item) => {
+    // 1. FILTER BY STATUS
+    // If 'All Status' is selected, HIDE Settled cases (Active view only).
+    if (sortStatus === 'All Status' && item.status === 'SETTLED') return false;
+    
+    // Normal matching for specific selections
     const matchesStatus = sortStatus === 'All Status' || item.status === sortStatus.toUpperCase();
+    
+    // 2. FILTER BY YEAR
     const itemYear = item.date.split('-')[2]; 
     const matchesYear = sortYear === 'All Years' || itemYear === sortYear;
+    
     return matchesStatus && matchesYear;
   });
 
@@ -225,7 +237,6 @@ export default function CaseLogs() {
   };
   const handleFileZoneClick = () => fileInputRef.current.click();
   const handleFileChange = (e) => { if (e.target.files?.length) setAttachedFiles([...attachedFiles, ...Array.from(e.target.files)]); };
-  const handleRemoveFile = (i) => setAttachedFiles(attachedFiles.filter((_, idx) => idx !== i));
   const handleStatusSelect = (o) => { setSortStatus(o); setIsStatusSortOpen(false); };
   const handleYearSelect = (o) => { setSortYear(o); setIsYearSortOpen(false); };
 
@@ -240,13 +251,24 @@ export default function CaseLogs() {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-3xl font-bold text-blue-600 tracking-wide uppercase">CASES LOGS</h2>
             <div className="flex items-center space-x-4">
+              {/* Year Filter */}
               <div className="relative">
                 <button type="button" onClick={() => setIsYearSortOpen(!isYearSortOpen)} className="flex items-center bg-white px-5 py-3 rounded-lg shadow-sm border border-gray-200"><Calendar size={18} className="mr-2 text-gray-500" /> <span className="text-sm font-bold">{sortYear}</span> <ChevronDown size={16} className="ml-2" /></button>
                 {isYearSortOpen && (<div className="absolute top-full right-0 mt-2 w-32 bg-white border rounded-xl shadow-xl z-50">{yearOptions.map(y => <div key={y} onClick={() => handleYearSelect(y)} className="px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer">{y}</div>)}</div>)}
               </div>
+              
+              {/* Status Filter */}
               <div className="relative">
                 <button type="button" onClick={() => setIsStatusSortOpen(!isStatusSortOpen)} className="flex items-center bg-white px-5 py-3 rounded-lg shadow-sm border border-gray-200"><Filter size={18} className="mr-2 text-gray-500" /> <span className="text-sm font-bold">{sortStatus}</span> <ChevronDown size={16} className="ml-2" /></button>
-                {isStatusSortOpen && (<div className="absolute top-full right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl z-50">{statusOptions.map(o => <div key={o.label} onClick={() => handleStatusSelect(o.label)} className="px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer flex items-center"><span className={`w-2 h-2 rounded-full ${o.color} mr-2`} />{o.label}</div>)}</div>)}
+                {isStatusSortOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl z-50">
+                        {statusOptions.map(o => (
+                            <div key={o.label} onClick={() => handleStatusSelect(o.label)} className="px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer flex items-center">
+                                <span className={`w-2 h-2 rounded-full ${o.color} mr-2`} />{o.label}
+                            </div>
+                        ))}
+                    </div>
+                )}
               </div>
               <button onClick={() => setIsModalOpen(true)} className={`flex items-center pr-6 pl-2 py-1.5 rounded-lg ${gradientBtnClass}`}><div className="relative w-8 h-9 mr-2 flex items-center justify-center"><div className="absolute w-6 h-7 bg-white/30 rounded-[2px] rotate-6"></div><div className="absolute w-6 h-7 bg-white rounded-[2px] flex items-center justify-center shadow-sm z-10"><Plus className="text-[#0066FF]" size={18} strokeWidth={4} /></div></div><span className="text-xl font-bold pt-1">New Case</span></button>
             </div>
@@ -264,9 +286,15 @@ export default function CaseLogs() {
                     <td className="py-5 px-4 text-gray-600">{item.contact}</td>
                     <td className="py-5 px-4 text-gray-600">{item.date}</td>
                     <td className="py-5 px-4"><span className={`${getStatusStyle(item.status)} px-3 py-1 rounded-full text-[10px] font-bold shadow-sm`}>{item.status}</span></td>
-                    <td className="py-5 px-4"><button onClick={() => handleAssignSummonClick(item)} className={`text-xs font-bold px-4 py-2 rounded ${gradientBtnClass}`}>Assign Summon</button></td>
+                    <td className="py-5 px-4">
+                        <div className="flex gap-2 justify-center">
+                            <button onClick={() => handleAssignSummonClick(item)} className={`text-xs font-bold px-3 py-1.5 rounded ${gradientBtnClass}`}>
+                                Assign Summon
+                            </button>
+                        </div>
+                    </td>
                   </tr>
-                )) : <tr><td colSpan="7" className="py-10 text-gray-400">No cases found.</td></tr>}
+                )) : <tr><td colSpan="7" className="py-10 text-gray-400">No records found.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -327,10 +355,9 @@ export default function CaseLogs() {
           </div>
         )}
 
-        {/* MODERATOR MODAL - FIXED CORNER ROUNDING */}
+        {/* MODERATOR MODAL */}
         {isModeratorModalOpen && (
           <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4">
-            {/* FIXED: Changed rounded-xl to rounded-2xl to match "Report Type" modal proportions */}
             <div className="bg-white rounded-2xl w-full max-w-md overflow-visible shadow-2xl border border-blue-100 flex flex-col">
               <div className="bg-blue-700 p-6 text-center text-white relative rounded-t-2xl">
                 <h3 className="text-2xl font-bold">ASSIGN ROLE</h3>
@@ -352,7 +379,6 @@ export default function CaseLogs() {
                         <div 
                           key={r} 
                           onClick={() => handleRoleSelect(r)} 
-                          // FIXED: Hover is blue bg + white text
                           className={`p-4 cursor-pointer border-b last:border-0 font-medium hover:bg-blue-600 hover:text-white ${selectedRole === r ? 'text-blue-600 bg-blue-50' : 'text-gray-700'}`}
                         >
                           {r}
@@ -450,7 +476,22 @@ export default function CaseLogs() {
         <div className="bg-blue-700 p-8 text-white"><h2 className="text-3xl font-bold">Case Report Form</h2><p className="opacity-80">Enter information for {selectedReportType} report</p></div>
         <div className="p-10 space-y-8">
           <div className="grid grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-500 mb-2">REPORT TYPE</label><div className="bg-gray-100 p-4 rounded-lg font-bold text-blue-800">{selectedReportType}</div></div><div><label className="block text-sm font-bold text-gray-500 mb-2">ASSIGNED ROLE</label><div className="bg-gray-100 p-4 rounded-lg font-bold text-blue-800">{selectedRole}</div></div></div>
-          <div className="grid grid-cols-2 gap-6"><div><label className="font-bold">Case Number</label><input type="text" value={formData.caseNo} readOnly className="w-full bg-slate-100 border p-3 rounded-lg cursor-not-allowed font-mono font-bold" /></div><div><label className="font-bold">Date Filed</label><input type="date" name="dateFiled" value={formData.dateFiled} onChange={handleInputChange} max={today} className={getInputClass('dateFiled')} /></div></div>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className="font-bold">Case Number</label>
+              <input type="text" value={formData.caseNo} readOnly className="w-full bg-slate-100 border p-3 rounded-lg cursor-not-allowed font-mono font-bold" />
+            </div>
+            <div>
+              <label className="font-bold">Date Filed</label>
+              <input 
+                type="date" 
+                name="dateFiled" 
+                value={formData.dateFiled} 
+                readOnly 
+                className="w-full bg-slate-100 border p-3 rounded-lg cursor-not-allowed font-bold text-gray-600" 
+              />
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-8"><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">Complainant</h4><input type="text" name="complainantName" placeholder="Full Name" onChange={handleInputChange} className={getInputClass('complainantName')} /><input type="text" name="complainantContact" placeholder="Contact #" onChange={handleInputChange} className="w-full border p-3 rounded-lg" /><input type="text" name="complainantAddress" placeholder="Address" onChange={handleInputChange} className="w-full border p-3 rounded-lg" /></div><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">Defendant</h4><input type="text" name="defendantName" placeholder="Full Name" onChange={handleInputChange} className={getInputClass('defendantName')} /><input type="text" name="defendantContact" placeholder="Contact #" onChange={handleInputChange} className="w-full border p-3 rounded-lg" /><input type="text" name="defendantAddress" placeholder="Address" onChange={handleInputChange} className="w-full border p-3 rounded-lg" /></div></div>
           <div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">Incident Details</h4><div className="grid grid-cols-2 gap-6"><input type="date" name="incidentDate" onChange={handleInputChange} className={getInputClass('incidentDate')} /><input type="text" name="incidentLocation" placeholder="Location" onChange={handleInputChange} className={getInputClass('incidentLocation')} /></div><textarea name="incidentDesc" rows="4" placeholder="Description" onChange={handleInputChange} className={getInputClass('incidentDesc')}></textarea></div>
           <div><h4 className="text-blue-600 font-bold border-b pb-2 mb-4">Attachments</h4><input type="file" ref={fileInputRef} className="hidden" multiple onChange={handleFileChange} /><div onClick={handleFileZoneClick} className={`border-2 border-dashed p-10 rounded-xl text-center cursor-pointer transition-all ${formErrors.attachment ? 'border-red-500 bg-red-50' : 'border-slate-200 hover:bg-slate-50'}`}>{attachedFiles.length > 0 ? (<div className="space-y-2">{attachedFiles.map((f, i) => <div key={i} className="text-blue-600 font-bold">{f.name}</div>)}</div>) : (<div className="text-gray-400"><Upload className="mx-auto mb-2" /> Click or Drag files to attach</div>)}</div></div>

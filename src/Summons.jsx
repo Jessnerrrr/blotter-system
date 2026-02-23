@@ -1,51 +1,82 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Folder, List, MoreVertical, ChevronLeft, Plus, ClipboardList, Edit, Calendar, Save, X, Bold, Italic, Underline, Link, Clock, Eye, ChevronDown } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { useLanguage } from './LanguageContext'; // TRANSLATION HOOK
 
-// Reusable Gradient Class
 const gradientBgClass = "bg-gradient-to-r from-[#0066FF] to-[#0099FF]";
 
+const initialSummonsData = [
+  {
+    caseNo: '06-166-02-2026',
+    residentName: 'Jade',
+    complainantName: 'Diesta MARIA',
+    summonDate: '2026-02-25',
+    summonTime: '10:00',
+    summonType: '1',
+    summonReason: 'Initial hearing regarding the reported disturbance.',
+    notedBy: 'Lupon Head',
+    status: 'Pending'
+  },
+  {
+    caseNo: '02-166-05-2025',
+    residentName: 'Santos, Maria',
+    complainantName: 'Santos, Jose',
+    summonDate: '2025-05-25',
+    summonTime: '14:00',
+    summonType: '2',
+    summonReason: 'Second notice due to failure to appear in the first schedule.',
+    notedBy: 'Lupon Tagapamayapa',
+    status: 'Pending'
+  }
+];
+
 export default function Summons() {
-  // --- STATE ---
+  const { t } = useLanguage(); // INIT TRANSLATOR
   const [summonsList, setSummonsList] = useState([]);
-  const [view, setView] = useState('LIST'); // 'LIST', 'FOLDER', 'OVERVIEW', 'NOTE_DETAIL', 'NOTE_EDIT'
+  const [view, setView] = useState('LIST'); 
   const [selectedCase, setSelectedCase] = useState(null);
   const [selectedSummon, setSelectedSummon] = useState(null);
   
-  // NOTE LOGIC STATE
-  // We initialize with the existing notes shown in your screenshots (1, 2, 4, 5, 6)
   const [caseNotes, setCaseNotes] = useState([1, 2, 4, 5, 6]); 
   const [selectedNote, setSelectedNote] = useState(null); 
   
   const [activeActionDropdown, setActiveActionDropdown] = useState(null);
 
-  // Modal State for Action Confirmation
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, action: null, caseNo: null });
-  
-  // Modal State for View Status
   const [previewModal, setPreviewModal] = useState({ isOpen: false, data: null });
   const [previewEditing, setPreviewEditing] = useState(false); 
   const [tempStatus, setTempStatus] = useState(''); 
 
-  // Form State for Editing Notes
   const [editDate, setEditDate] = useState('');
   
-  // Ref for the contentEditable div
   const editorRef = useRef(null);
   const [savedSummaryHtml, setSavedSummaryHtml] = useState('');
 
-  // --- LOAD DATA & NORMALIZE STATUS ---
   useEffect(() => {
-    const rawData = JSON.parse(localStorage.getItem('summons') || '[]');
+    let rawDataStr = localStorage.getItem('summons');
+    const casesDataStr = localStorage.getItem('cases');
+    const allCases = casesDataStr ? JSON.parse(casesDataStr) : [];
+    
+    if (!rawDataStr || rawDataStr === '[]') {
+        localStorage.setItem('summons', JSON.stringify(initialSummonsData));
+        rawDataStr = JSON.stringify(initialSummonsData);
+    }
+
+    let rawData = JSON.parse(rawDataStr);
+
     const normalizedData = rawData.map(item => {
         let status = item.status || 'Pending';
         if (status === 'Active' || status === 'PENDING') status = 'Pending';
-        return { ...item, status };
+        
+        const matchedCase = allCases.find(c => c.caseNo === item.caseNo);
+        const complainantName = matchedCase ? matchedCase.complainantName : (item.complainantName || item.residentName || 'N/A');
+
+        return { ...item, status, complainantName };
     });
+    
     setSummonsList(normalizedData);
   }, []);
 
-  // --- LOGIC: GROUP BY CASE NUMBER ---
   const uniqueCases = Object.values(summonsList.reduce((acc, current) => {
     if (!acc[current.caseNo]) {
       acc[current.caseNo] = current;
@@ -53,7 +84,6 @@ export default function Summons() {
     return acc;
   }, {}));
 
-  // --- HANDLERS ---
   const handleOpenFolder = (caseItem) => {
     setSelectedCase(caseItem);
     setView('FOLDER');
@@ -64,31 +94,25 @@ export default function Summons() {
     setView('OVERVIEW');
   };
 
-  // --- AUTO-INCREMENT ADD NOTE LOGIC ---
   const handleAddNote = () => {
-    // Calculate the next number: Max existing number + 1
     const maxNote = caseNotes.length > 0 ? Math.max(...caseNotes) : 0;
     const nextId = maxNote + 1;
 
-    setSelectedNote(nextId); // Set the new ID (e.g., 7)
+    setSelectedNote(nextId); 
     
-    // Set Realtime Date
     const today = new Date().toISOString().split('T')[0]; 
     setEditDate(today); 
     
-    setSavedSummaryHtml(''); // Start blank
+    setSavedSummaryHtml(''); 
     setView('NOTE_EDIT');
   };
 
-  // Handler for VIEWING an existing note
   const handleOpenNoteDetail = (noteId) => {
     setSelectedNote(noteId);
-    // Default date if none exists
     if (!editDate) {
         const today = new Date().toISOString().split('T')[0];
         setEditDate(today);
     }
-    // Mock content if empty
     if (!savedSummaryHtml || selectedNote !== noteId) {
         setSavedSummaryHtml('This section provides an overview of the selected case.<br><br>It records the facts, responses of parties, and any next steps identified during mediation.');
     }
@@ -109,7 +133,6 @@ export default function Summons() {
         setSavedSummaryHtml(editorRef.current.innerHTML);
     }
 
-    // If this is a new note (not in the list yet), add it
     if (!caseNotes.includes(selectedNote)) {
         setCaseNotes(prev => [...prev, selectedNote].sort((a,b) => a - b));
     }
@@ -120,7 +143,6 @@ export default function Summons() {
       icon: 'success',
       confirmButtonColor: '#0066FF'
     });
-    // Go back to overview after saving (acting as OK)
     setView('OVERVIEW'); 
   };
 
@@ -136,7 +158,6 @@ export default function Summons() {
       cancelButtonText: 'No, keep editing'
     }).then((result) => {
       if (result.isConfirmed) {
-        // If it was a new note that wasn't saved, we don't add it to the list
         setView('OVERVIEW'); 
       }
     });
@@ -145,7 +166,6 @@ export default function Summons() {
   const handleBackToList = () => { setSelectedCase(null); setView('LIST'); };
   const handleBackToFolder = () => { setSelectedSummon(null); setView('FOLDER'); };
   
-  // Simple Back handler for View Mode
   const handleCloseNote = () => { setView('OVERVIEW'); };
 
   const toggleActionDropdown = (caseNo) => {
@@ -156,7 +176,6 @@ export default function Summons() {
     }
   };
 
-  // --- MODAL HANDLERS ---
   const handleActionSelect = (action, caseItem) => {
     if (caseItem.status !== 'Pending') return; 
     setActiveActionDropdown(null); 
@@ -170,7 +189,6 @@ export default function Summons() {
     setPreviewModal({ isOpen: true, data: caseItem });
   };
 
-  // --- ARCHIVE LOGIC ---
   const archiveCase = (caseNo) => {
     const caseToArchive = summonsList.find(item => item.caseNo === caseNo);
     if (!caseToArchive) return;
@@ -188,7 +206,6 @@ export default function Summons() {
     localStorage.setItem('summons', JSON.stringify(updatedList));
   };
 
-  // --- EXECUTE STATUS UPDATE ---
   const executeStatusUpdate = () => {
     setConfirmModal({ isOpen: false, action: null, caseNo: null });
 
@@ -259,7 +276,6 @@ export default function Summons() {
     }
   };
 
-  // --- EDITOR TOOLBAR FUNCTIONS ---
   const applyCommand = (e, command, value = null) => {
     e.preventDefault(); 
     document.execCommand(command, false, value);
@@ -298,28 +314,28 @@ export default function Summons() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border-2 border-[#0066FF] transform scale-100 transition-all">
                 <div className="p-10">
-                    <h3 className="text-3xl font-bold text-[#0066FF] mb-8">Case Preview</h3>
+                    <h3 className="text-3xl font-bold text-[#0066FF] mb-8">{t('case_preview')}</h3>
                     <div className="bg-slate-50 rounded-xl p-8 border border-gray-100 space-y-6">
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4">
-                            <span className="text-gray-500 font-medium text-lg">Case Number</span>
+                            <span className="text-gray-500 font-medium text-lg">{t('case_no')}</span>
                             <span className="text-[#0066FF] font-bold text-xl tracking-wide">{data.caseNo}</span>
                         </div>
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4">
-                            <span className="text-gray-500 font-medium text-lg">Resident Name</span>
-                            <span className="text-gray-800 font-extrabold text-xl">{data.residentName}</span>
+                            <span className="text-gray-500 font-medium text-lg">{t('complainant_name')}</span>
+                            <span className="text-gray-800 font-extrabold text-xl">{data.complainantName}</span>
                         </div>
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4">
-                            <span className="text-gray-500 font-medium text-lg">Filed Date</span>
+                            <span className="text-gray-500 font-medium text-lg">{t('date_filed')}</span>
                             <span className="text-gray-800 font-medium text-xl">{data.summonDate || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between items-center pt-2 min-h-[50px]">
-                            <span className="text-gray-500 font-medium text-lg">Current Status</span>
+                            <span className="text-gray-500 font-medium text-lg">{t('current_status')}</span>
                             {previewEditing ? (
                                 <div className="relative">
                                     <select value={tempStatus} onChange={(e) => setTempStatus(e.target.value)} className="appearance-none bg-white border-2 border-[#0066FF] text-gray-900 font-bold text-lg py-2 pl-6 pr-12 rounded-lg cursor-pointer outline-none shadow-sm hover:bg-blue-50 transition-colors">
-                                        <option value="Settled">Settled</option>
-                                        <option value="Escalated">Escalated</option>
-                                        <option value="Blacklisted">Blacklisted</option>
+                                        <option value="Settled">{t('settled')}</option>
+                                        <option value="Escalated">{t('escalated')}</option>
+                                        <option value="Blacklisted">{t('blacklisted')}</option>
                                     </select>
                                     <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#0066FF] pointer-events-none" size={20} strokeWidth={3} />
                                 </div>
@@ -333,18 +349,18 @@ export default function Summons() {
                     <div className="flex justify-center space-x-4 mt-10">
                         {previewEditing ? (
                             <>
-                                <button onClick={() => { setPreviewEditing(false); setTempStatus(data.status); }} className="px-10 py-3 rounded-xl border-2 border-gray-300 text-gray-500 font-bold hover:bg-blue-50 hover:text-[#0066FF] hover:border-[#0066FF] transition-colors text-sm uppercase tracking-wide">Cancel</button>
-                                <button onClick={handlePreviewSaveClick} className={`${gradientBgClass} text-white px-12 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all text-sm uppercase tracking-wide flex items-center`}><Save size={18} className="mr-2"/> Save Changes</button>
+                                <button onClick={() => { setPreviewEditing(false); setTempStatus(data.status); }} className="px-10 py-3 rounded-xl border-2 border-gray-300 text-gray-500 font-bold hover:bg-blue-50 hover:text-[#0066FF] hover:border-[#0066FF] transition-colors text-sm uppercase tracking-wide">{t('cancel')}</button>
+                                <button onClick={handlePreviewSaveClick} className={`${gradientBgClass} text-white px-12 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all text-sm uppercase tracking-wide flex items-center`}><Save size={18} className="mr-2"/> {t('save_changes')}</button>
                             </>
                         ) : isPending ? (
                             <>
-                                <button onClick={() => setPreviewModal({ isOpen: false, data: null })} className="px-10 py-3 rounded-xl border-2 border-gray-300 text-gray-500 font-bold hover:bg-blue-50 hover:text-[#0066FF] hover:border-[#0066FF] transition-colors text-sm uppercase tracking-wide">Cancel</button>
-                                <button onClick={() => setPreviewModal({ isOpen: false, data: null })} className={`${gradientBgClass} text-white px-12 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all text-sm uppercase tracking-wide`}>OK</button>
+                                <button onClick={() => setPreviewModal({ isOpen: false, data: null })} className="px-10 py-3 rounded-xl border-2 border-gray-300 text-gray-500 font-bold hover:bg-blue-50 hover:text-[#0066FF] hover:border-[#0066FF] transition-colors text-sm uppercase tracking-wide">{t('cancel')}</button>
+                                <button onClick={() => setPreviewModal({ isOpen: false, data: null })} className={`${gradientBgClass} text-white px-12 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all text-sm uppercase tracking-wide`}>{t('ok')}</button>
                             </>
                         ) : (
                             <>
-                                <button onClick={() => setPreviewModal({ isOpen: false, data: null })} className="px-10 py-3 rounded-xl border-2 border-gray-300 text-gray-500 font-bold hover:bg-blue-50 hover:text-[#0066FF] hover:border-[#0066FF] transition-colors text-sm uppercase tracking-wide">Cancel</button>
-                                <button onClick={() => setPreviewEditing(true)} className="bg-[#0066FF] hover:bg-[#0055EE] text-white px-12 py-3 rounded-xl font-bold shadow-md transition-all text-sm uppercase tracking-wide flex items-center"><Edit size={18} className="mr-2"/> Edit Status</button>
+                                <button onClick={() => setPreviewModal({ isOpen: false, data: null })} className="px-10 py-3 rounded-xl border-2 border-gray-300 text-gray-500 font-bold hover:bg-blue-50 hover:text-[#0066FF] hover:border-[#0066FF] transition-colors text-sm uppercase tracking-wide">{t('cancel')}</button>
+                                <button onClick={() => setPreviewEditing(true)} className="bg-[#0066FF] hover:bg-[#0055EE] text-white px-12 py-3 rounded-xl font-bold shadow-md transition-all text-sm uppercase tracking-wide flex items-center"><Edit size={18} className="mr-2"/> {t('edit_status')}</button>
                             </>
                         )}
                     </div>
@@ -363,18 +379,18 @@ export default function Summons() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border-2 border-[#0066FF] transform scale-100 transition-all">
                 <div className="p-8">
-                    <h3 className="text-2xl font-bold text-[#0066FF] mb-4">Confirm Status Update</h3>
+                    <h3 className="text-2xl font-bold text-[#0066FF] mb-4">{t('confirm_status_update')}</h3>
                     <p className="text-gray-600 text-lg leading-relaxed mb-2">
-                        Are you sure you want to mark case <span className="font-bold text-[#0066FF] whitespace-nowrap">{confirmModal.caseNo}</span> as <span className="font-bold text-gray-800">{confirmModal.action}</span>?
+                        {t('are_you_sure_mark')} <span className="font-bold text-[#0066FF] whitespace-nowrap">{confirmModal.caseNo}</span> {t('as')} <span className="font-bold text-gray-800">{confirmModal.action}</span>?
                     </p>
                     {confirmModal.action === 'Settled' && (
                         <p className="text-green-600 font-bold text-sm bg-green-50 p-2 rounded-lg border border-green-100 mb-4 text-center">
-                            This case will be moved to the Archive.
+                            {t('moved_to_archive')}
                         </p>
                     )}
                     <div className="flex justify-end space-x-3 mt-8">
-                        <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="px-6 py-2.5 rounded-lg border-2 border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors text-sm uppercase tracking-wide">Cancel</button>
-                        <button onClick={executeStatusUpdate} className={`${gradientBgClass} text-white px-8 py-2.5 rounded-lg font-bold shadow-md hover:opacity-90 transition-all text-sm uppercase tracking-wide`}>Confirm</button>
+                        <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="px-6 py-2.5 rounded-lg border-2 border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors text-sm uppercase tracking-wide">{t('cancel')}</button>
+                        <button onClick={executeStatusUpdate} className={`${gradientBgClass} text-white px-8 py-2.5 rounded-lg font-bold shadow-md hover:opacity-90 transition-all text-sm uppercase tracking-wide`}>{t('confirm')}</button>
                     </div>
                 </div>
             </div>
@@ -390,14 +406,14 @@ export default function Summons() {
       <div className="flex-1 overflow-y-auto bg-slate-50 p-10 flex items-center justify-center">
         <div className="max-w-[1200px] w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
           <div className={`${gradientBgClass} p-10 text-white`}>
-            <h2 className="text-3xl font-extrabold tracking-wide uppercase mb-2">CASE {selectedNote} OVERVIEW</h2>
-            <p className="text-blue-100 text-lg font-medium">Official summary of the conducted summon session</p>
+            <h2 className="text-3xl font-extrabold tracking-wide uppercase mb-2">{t('case_overview_title')}</h2>
+            <p className="text-blue-100 text-lg font-medium">{t('case_overview_subtitle')}</p>
           </div>
           <div className="p-10">
             <div className="flex items-center justify-between mb-8">
-               <span className="bg-white border-2 border-blue-100 text-[#0066FF] px-6 py-2 rounded-lg font-bold text-sm shadow-sm uppercase tracking-wide">CASE NO. {selectedNote}</span>
+               <span className="bg-white border-2 border-blue-100 text-[#0066FF] px-6 py-2 rounded-lg font-bold text-sm shadow-sm uppercase tracking-wide">{t('case_no')} {selectedNote}</span>
                <div className="flex items-center space-x-4">
-                  <label className="text-[#0066FF] font-bold uppercase text-sm">Date</label>
+                  <label className="text-[#0066FF] font-bold uppercase text-sm">{t('date')}</label>
                   <div className="relative">
                     <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="border-2 border-gray-200 rounded-lg py-2 px-4 pr-10 text-gray-600 font-medium focus:outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]" />
                     <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
@@ -405,7 +421,7 @@ export default function Summons() {
                </div>
             </div>
             <div className="mb-8">
-               <h3 className="text-[#0066FF] font-bold text-sm uppercase mb-2">CASE OVERVIEW</h3>
+               <h3 className="text-[#0066FF] font-bold text-sm uppercase mb-2">{t('case_overview_title')}</h3>
                <div className="border-2 border-[#0066FF] rounded-lg overflow-hidden shadow-sm flex flex-col h-72">
                  <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center space-x-5 text-gray-500">
                     <button onMouseDown={(e) => applyCommand(e, 'bold')} className="hover:text-[#0066FF] p-1 rounded" title="Bold"><Bold size={18} /></button>
@@ -420,10 +436,9 @@ export default function Summons() {
                  </div>
                </div>
             </div>
-            {/* UPDATED BUTTONS FOR EDIT MODE - JUST CANCEL AND OK */}
             <div className="flex justify-end space-x-3">
-                <button onClick={handleCancelEdit} className="bg-gray-400 hover:bg-gray-500 text-white px-8 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-md transition-colors">Cancel</button>
-                <button onClick={handleSaveNote} className={`${gradientBgClass} text-white px-10 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-md hover:opacity-90 transition-opacity`}>OK</button>
+                <button onClick={handleCancelEdit} className="bg-gray-400 hover:bg-gray-500 text-white px-8 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-md transition-colors">{t('cancel')}</button>
+                <button onClick={handleSaveNote} className={`${gradientBgClass} text-white px-10 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-md hover:opacity-90 transition-opacity`}>{t('ok')}</button>
             </div>
           </div>
         </div>
@@ -439,22 +454,21 @@ export default function Summons() {
       <div className="flex-1 overflow-y-auto bg-slate-50 p-10 flex items-center justify-center">
         <div className="max-w-[1200px] w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
           <div className={`${gradientBgClass} p-10 text-white`}>
-            <h2 className="text-3xl font-extrabold tracking-wide uppercase mb-2">CASE {selectedNote} OVERVIEW</h2>
-            <p className="text-blue-100 text-lg font-medium">Official summary of the conducted summon session</p>
+            <h2 className="text-3xl font-extrabold tracking-wide uppercase mb-2">{t('case_overview_title')}</h2>
+            <p className="text-blue-100 text-lg font-medium">{t('case_overview_subtitle')}</p>
           </div>
           <div className="p-10">
             <div className="flex items-center justify-between mb-8">
               <div className="flex space-x-4">
-                <span className="bg-white border-2 border-blue-100 text-[#0066FF] px-6 py-2 rounded-full font-bold text-sm shadow-sm uppercase tracking-wide">CASE NO. {selectedNote}</span>
-                <span className="bg-white border-2 border-blue-100 text-gray-500 px-6 py-2 rounded-full font-bold text-sm shadow-sm uppercase tracking-wide">DATE: {editDate}</span>
+                <span className="bg-white border-2 border-blue-100 text-[#0066FF] px-6 py-2 rounded-full font-bold text-sm shadow-sm uppercase tracking-wide">{t('case_no')} {selectedNote}</span>
+                <span className="bg-white border-2 border-blue-100 text-gray-500 px-6 py-2 rounded-full font-bold text-sm shadow-sm uppercase tracking-wide">{t('date')}: {editDate}</span>
               </div>
-              <button onClick={handleEditNote} className="flex items-center text-[#0066FF] border-2 border-[#0066FF] px-6 py-2 rounded-lg font-bold hover:bg-blue-50 transition-colors"><Edit size={18} className="mr-2" /> Edit Case Overview</button>
+              <button onClick={handleEditNote} className="flex items-center text-[#0066FF] border-2 border-[#0066FF] px-6 py-2 rounded-lg font-bold hover:bg-blue-50 transition-colors"><Edit size={18} className="mr-2" /> {t('edit_case_overview')}</button>
             </div>
             <div className="bg-white border-2 border-gray-200 rounded-xl p-8 mb-10 h-64 shadow-inner text-gray-600 text-lg leading-relaxed overflow-y-auto" dangerouslySetInnerHTML={{ __html: savedSummaryHtml }}></div>
-            {/* UPDATED BUTTONS FOR DETAIL MODE */}
             <div className="flex justify-end space-x-4">
-                <button onClick={handleCloseNote} className="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wider shadow-md transition-colors">Cancel</button>
-                <button onClick={handleCloseNote} className={`${gradientBgClass} text-white px-10 py-3 rounded-lg font-bold text-sm uppercase tracking-wider shadow-md hover:opacity-90 transition-opacity`}>OK</button>
+                <button onClick={handleCloseNote} className="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wider shadow-md transition-colors">{t('cancel')}</button>
+                <button onClick={handleCloseNote} className={`${gradientBgClass} text-white px-10 py-3 rounded-lg font-bold text-sm uppercase tracking-wider shadow-md hover:opacity-90 transition-opacity`}>{t('ok')}</button>
             </div>
           </div>
         </div>
@@ -473,46 +487,44 @@ export default function Summons() {
           <div className="mb-8">
              <div className="flex items-center mb-6">
                 <button onClick={handleBackToFolder} className="flex items-center text-gray-500 hover:text-blue-700 transition-colors mr-4"><ChevronLeft size={32} /></button>
-                <h2 className="text-4xl font-bold text-[#0066FF] tracking-wide uppercase">SUMMON {selectedSummon.summonType} OVERVIEW</h2>
+                <h2 className="text-4xl font-bold text-[#0066FF] tracking-wide uppercase">{t('summon_overview')}</h2>
              </div>
              <div className="flex space-x-4">
-                <div className={`${gradientBgClass} text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide shadow-md`}>CASE NO. : {selectedCase.caseNo}</div>
-                <div className={`${gradientBgClass} text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide shadow-md opacity-90`}>RESIDENT NAME : {selectedCase.residentName}</div>
+                <div className={`${gradientBgClass} text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide shadow-md`}>{t('case_no')} : {selectedCase.caseNo}</div>
+                <div className={`${gradientBgClass} text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide shadow-md opacity-90`}>{t('complainant_name')} : {selectedCase.complainantName}</div>
              </div>
           </div>
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-8 mb-10 shadow-sm relative">
-            <h3 className="text-[#0066FF] font-extrabold text-lg uppercase mb-3">SUMMON REASON :</h3>
+            <h3 className="text-[#0066FF] font-extrabold text-lg uppercase mb-3">{t('summon_reason')} :</h3>
             <p className="text-gray-700 text-lg leading-relaxed font-medium">{selectedSummon.summonReason || "No reason provided."}</p>
           </div>
           <div className="relative">
             <div className="flex items-end mb-0 w-full filter drop-shadow-md">
                <div className={`${gradientBgClass} text-white py-6 pl-12 pr-20 flex-1 relative z-10 h-[80px] flex items-center`} style={{ clipPath: 'polygon(0 0, calc(100% - 40px) 0, 100% 100%, 0% 100%)', borderTopLeftRadius: '1.5rem' }}>
-                   <h3 className="text-3xl font-bold tracking-wide uppercase">CASE FOLDERS</h3>
+                   <h3 className="text-3xl font-bold tracking-wide uppercase">{t('case_folders')}</h3>
                </div>
-               {/* ADD NOTE BUTTON - Triggers Logic */}
                <button onClick={handleAddNote} className={`${gradientBgClass} text-white py-6 pl-16 pr-10 flex items-center hover:brightness-110 transition-all active:scale-95 h-[80px] -ml-2`} style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 40px 100%)', borderTopRightRadius: '1.5rem' }}>
                   <div className="relative w-9 h-10 mr-4 flex items-center justify-center">
                     <div className="absolute w-7 h-8 bg-white/30 rounded-[3px] rotate-6"></div>
                     <div className="absolute w-7 h-8 bg-white rounded-[3px] flex items-center justify-center shadow-sm z-10"><Plus className="text-[#0066FF]" size={20} strokeWidth={4} /></div>
                   </div>
-                  <span className="text-xl font-bold pt-1 whitespace-nowrap">Add Case Notes</span>
+                  <span className="text-xl font-bold pt-1 whitespace-nowrap">{t('add_case_notes')}</span>
                </button>
             </div>
             <div className="bg-white rounded-b-2xl shadow-xl border border-gray-200 relative pb-24 z-0 mt-[-1px]">
               <div className="divide-y divide-gray-100">
-                {/* DYNAMIC CASE NOTES */}
                 {caseNotes.map((num) => (
                   <div key={num} onClick={() => handleOpenNoteDetail(num)} className="flex items-center justify-between p-6 hover:bg-slate-50 cursor-pointer group transition-colors">
                     <div className="flex items-center space-x-6">
                       <ClipboardList size={36} className="text-[#0066FF]" strokeWidth={1.5} />
-                      <span className="text-xl font-bold text-gray-800 uppercase">CASE NOTE {num}</span>
+                      <span className="text-xl font-bold text-gray-800 uppercase">{t('case_note')} {num}</span>
                     </div>
                     <button className="text-gray-400 hover:text-[#0066FF]"><MoreVertical size={28} /></button>
                   </div>
                 ))}
               </div>
               <div className="absolute bottom-8 right-8">
-                <button onClick={handleBackToFolder} className="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wider shadow-md transition-colors">Back to Summons</button>
+                <button onClick={handleBackToFolder} className="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wider shadow-md transition-colors">{t('back_to_summons')}</button>
               </div>
             </div>
           </div>
@@ -536,14 +548,14 @@ export default function Summons() {
         <div className="max-w-[1600px] mx-auto">
           <div className="flex items-center mb-8">
             <button onClick={handleBackToList} className="flex items-center text-gray-500 hover:text-blue-700 transition-colors mr-4"><ChevronLeft size={32} /></button>
-            <h2 className="text-4xl font-bold text-gray-800 tracking-wide uppercase">SUMMONS / HEARING</h2>
+            <h2 className="text-4xl font-bold text-gray-800 tracking-wide uppercase">{t('summons_hearing')}</h2>
           </div>
           <div className="flex space-x-4 mb-8">
-            <div className={`${gradientBgClass} text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide shadow-md`}>CASE NO. : {selectedCase.caseNo}</div>
-            <div className={`${gradientBgClass} text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide shadow-md opacity-90`}>RESIDENT NAME : {selectedCase.residentName}</div>
+            <div className={`${gradientBgClass} text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide shadow-md`}>{t('case_no')} : {selectedCase.caseNo}</div>
+            <div className={`${gradientBgClass} text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide shadow-md opacity-90`}>{t('complainant_name')} : {selectedCase.complainantName}</div>
           </div>
           <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden min-h-[500px]">
-            <div className={`${gradientBgClass} text-white px-8 py-5`}><h3 className="text-xl font-bold tracking-wide uppercase">SUMMONS FOLDER</h3></div>
+            <div className={`${gradientBgClass} text-white px-8 py-5`}><h3 className="text-xl font-bold tracking-wide uppercase">{t('summons_folder')}</h3></div>
             <div className="p-4">
               {caseSummons.length > 0 ? (
                 caseSummons.map((summon, index) => (
@@ -553,7 +565,7 @@ export default function Summons() {
                         <img src="/icon-summons/folder-summon.png" alt="Folder" className="w-full h-full object-contain drop-shadow-sm" onError={(e) => {e.target.onerror = null; e.target.src = "https://cdn-icons-png.flaticon.com/512/3767/3767084.png"}} />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-lg font-extrabold text-gray-800 tracking-wide uppercase group-hover:text-[#0066FF] transition-colors">SUMMON {summon.summonType}</span>
+                        <span className="text-lg font-extrabold text-gray-800 tracking-wide uppercase group-hover:text-[#0066FF] transition-colors">{t('nav_summons')} {summon.summonType}</span>
                         <span className="text-xs text-gray-500 font-bold mt-1">{summon.summonDate} • {summon.summonTime}</span>
                       </div>
                     </div>
@@ -561,7 +573,7 @@ export default function Summons() {
                   </div>
                 ))
               ) : (
-                <div className="p-16 text-center text-gray-400 text-lg font-medium">No summons found in this folder.</div>
+                <div className="p-16 text-center text-gray-400 text-lg font-medium">{t('no_summons_in_folder')}</div>
               )}
             </div>
           </div>
@@ -579,15 +591,15 @@ export default function Summons() {
       {renderPreviewModal()}
       <div className="max-w-[1600px] mx-auto">
         <div className="flex flex-col mb-10">
-          <h2 className="text-4xl font-bold text-[#0066FF] tracking-wide uppercase mb-2">SUMMONS</h2>
-          <p className="text-gray-500 text-base font-medium">List of summons</p>
+          <h2 className="text-4xl font-bold text-[#0066FF] tracking-wide uppercase mb-2">{t('nav_summons')}</h2>
+          <p className="text-gray-500 text-base font-medium">{t('list_of_summons')}</p>
         </div>
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-visible relative min-h-[600px] flex flex-col">
           <div className={`${gradientBgClass} text-white font-bold text-xl uppercase tracking-wider grid grid-cols-12 py-6 px-8 text-center items-center shadow-md`}>
-            <div className="col-span-4 text-left pl-8">Case no.</div>
-            <div className="col-span-4 text-left">Resident name</div>
-            <div className="col-span-2">Date Assigned</div>
-            <div className="col-span-2">Action</div>
+            <div className="col-span-4 text-left pl-8">{t('case_no')}</div>
+            <div className="col-span-4 text-left">{t('complainant_name')}</div>
+            <div className="col-span-2">{t('date_assigned')}</div>
+            <div className="col-span-2">{t('action')}</div>
           </div>
           <div className="divide-y divide-gray-100 flex-1 bg-white">
             {uniqueCases.length > 0 ? (
@@ -599,16 +611,16 @@ export default function Summons() {
                       <div className={`${gradientBgClass} text-white p-3 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center w-12 h-12`}><Folder size={24} fill="currentColor" /></div>
                       <span className="font-bold text-gray-700 text-xl tracking-tight">{item.caseNo}</span>
                     </div>
-                    <div className="col-span-4 text-left font-semibold text-gray-600 pl-1 text-xl">{item.residentName}</div>
+                    <div className="col-span-4 text-left font-semibold text-gray-600 pl-1 text-xl">{item.complainantName}</div>
                     <div className="col-span-2 text-gray-500 font-medium text-xl">{item.summonDate}</div>
                     <div className="col-span-2 flex justify-center relative">
                       <button onClick={(e) => { e.stopPropagation(); toggleActionDropdown(item.caseNo); }} className="text-gray-400 hover:text-[#0066FF] p-3 rounded-full hover:bg-blue-50"><List size={32} strokeWidth={2.5} /></button>
                       {activeActionDropdown === item.caseNo && (
                         <div className="absolute top-14 right-10 w-56 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 cursor-default">
-                          <div onClick={(e) => { e.stopPropagation(); handleViewStatus(item); }} className="px-6 py-4 text-lg text-left text-gray-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer font-bold border-b border-gray-100 transition-colors flex items-center"><Eye size={20} className="mr-2"/> View Status</div>
-                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Escalated', item); }} className={`px-6 py-4 text-lg text-left font-bold border-b border-gray-100 transition-colors ${!isPending ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-red-50 hover:text-red-600 cursor-pointer'}`}>Escalated</div>
-                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Blacklisted', item); }} className={`px-6 py-4 text-lg text-left font-bold border-b border-gray-100 transition-colors ${!isPending ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer'}`}>Blacklisted</div>
-                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Settled', item); }} className={`px-6 py-4 text-lg text-left font-bold transition-colors ${!isPending ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-green-50 hover:text-green-600 cursor-pointer'}`}>Settled</div>
+                          <div onClick={(e) => { e.stopPropagation(); handleViewStatus(item); }} className="px-6 py-4 text-lg text-left text-gray-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer font-bold border-b border-gray-100 transition-colors flex items-center"><Eye size={20} className="mr-2"/> {t('view_status')}</div>
+                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Escalated', item); }} className={`px-6 py-4 text-lg text-left font-bold border-b border-gray-100 transition-colors ${!isPending ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-red-50 hover:text-red-600 cursor-pointer'}`}>{t('escalate')}</div>
+                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Blacklisted', item); }} className={`px-6 py-4 text-lg text-left font-bold border-b border-gray-100 transition-colors ${!isPending ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer'}`}>{t('blacklist')}</div>
+                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Settled', item); }} className={`px-6 py-4 text-lg text-left font-bold transition-colors ${!isPending ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-green-50 hover:text-green-600 cursor-pointer'}`}>{t('settle')}</div>
                         </div>
                       )}
                     </div>
@@ -617,15 +629,15 @@ export default function Summons() {
               })
             ) : (
               <div className="py-32 text-center">
-                <p className="text-gray-400 font-medium text-2xl">No summons records found.</p>
-                <p className="text-gray-300 text-lg mt-2">Go to Case Logs to assign a summon.</p>
+                <p className="text-gray-400 font-medium text-2xl">{t('no_summons_found')}</p>
+                <p className="text-gray-300 text-lg mt-2">{t('go_to_case_logs')}</p>
               </div>
             )}
           </div>
           <div className="py-12 text-center bg-gray-50/50 border-t border-gray-100">
             <div className="flex items-center justify-center space-x-6">
               <div className="h-px w-40 bg-gray-300"></div>
-              <span className="text-gray-400 font-bold text-base uppercase tracking-widest">NOTHING FOLLOWS</span>
+              <span className="text-gray-400 font-bold text-base uppercase tracking-widest">{t('nothing_follows')}</span>
               <div className="h-px w-40 bg-gray-300"></div>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { FileText, UserX, Download, User, X } from 'lucide-react';
+import { FileText, UserX, Download, User } from 'lucide-react';
+import { useLanguage } from './LanguageContext'; // TRANSLATION HOOK
 
 // --- MOCK DATA ---
 const REPORT_DATA = [
@@ -10,13 +11,30 @@ const REPORT_DATA = [
 ];
 
 export default function Analytics() {
+  const { t } = useLanguage(); // INIT TRANSLATOR
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  
+  // --- REAL-TIME CALENDAR LOGIC ---
+  const [currentDate, setCurrentDate] = useState(new Date());
+  
+  const monthYearString = currentDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  const firstDayIndex = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+
+  const calendarGrid = [];
+  for (let i = 0; i < firstDayIndex; i++) {
+    calendarGrid.push(null);
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    calendarGrid.push(i);
+  }
+  const remainingCells = (7 - (calendarGrid.length % 7)) % 7;
+  for (let i = 0; i < remainingCells; i++) {
+    calendarGrid.push(null);
+  }
 
   const handleOpenPrint = () => setIsPrintModalOpen(true);
-  
-  const handlePrintSubmit = () => {
-    window.print();
-  };
+  const handlePrintSubmit = () => window.print();
 
   // --- RENDER PRINT MODAL ---
   const renderPrintModal = () => {
@@ -24,57 +42,39 @@ export default function Analytics() {
 
     return (
       <div className="fixed inset-0 z-[999] bg-black/50 backdrop-blur-sm flex justify-center overflow-y-auto font-sans py-10 print:p-0 print:overflow-visible print:block">
-        
-        {/* --- THE PAPER CONTAINER --- */}
-        {/* Added 'flex flex-col justify-between' to push footer to bottom naturally */}
         <div 
             id="printable-content"
             className="bg-white shadow-2xl relative flex flex-col justify-between text-black font-sans shrink-0 border-[3px] border-blue-500 print:border-none print:shadow-none print:w-full print:h-full print:m-0"
             style={{ width: '210mm', height: '297mm', padding: '15mm 20mm' }} 
         >
-            {/* --- TOP CONTENT WRAPPER --- */}
             <div>
-                {/* 1. Header */}
                 <div className="flex flex-col items-center text-center mb-8 w-full">
                     <div className="h-24 w-24 mb-2 flex items-center justify-center">
-                        <img 
-                            src="/icon-analytics/analyticsprint logo.png" 
-                            alt="Republic Logo" 
-                            className="h-full w-full object-contain" 
-                        />
+                        <img src="/icon-analytics/analyticsprint logo.png" alt="Republic Logo" className="h-full w-full object-contain" />
                     </div>
                     <p className="text-sm font-normal text-gray-900">Republic of the Philippines</p>
                     <h1 className="text-2xl font-black text-blue-700 uppercase tracking-wide mt-1 print:text-blue-700">
                         BARANGAY 166, CAYBIGA
                     </h1>
-                    <p className="text-xs font-bold text-gray-600 uppercase">
-                        ZONE 15 DISTRICT I, CALOOCAN CITY
-                    </p>
-                    <p className="text-xs font-bold text-gray-600 uppercase">
-                        #1 GEN LUIS. ST, CAYBIGA CALOOCAN CITY
-                    </p>
+                    <p className="text-xs font-bold text-gray-600 uppercase">ZONE 15 DISTRICT I, CALOOCAN CITY</p>
+                    <p className="text-xs font-bold text-gray-600 uppercase">#1 GEN LUIS. ST, CAYBIGA CALOOCAN CITY</p>
                 </div>
 
-                {/* 2. Office Title */}
                 <div className="text-center mb-10 w-full">
                     <h2 className="text-lg font-bold text-gray-800 uppercase tracking-widest">
                         TANGGAPAN NG LUPON TAGAMAPAYAMAPA
                     </h2>
                     <div className="w-full flex justify-end mt-6">
-                        <p className="text-xs font-bold text-gray-800">
-                            JANUARY 2026
-                        </p>
+                        <p className="text-xs font-bold text-gray-800 uppercase">{monthYearString}</p>
                     </div>
                 </div>
 
-                {/* 3. Document Title */}
                 <div className="text-center mb-8 w-full">
                     <h3 className="text-xl font-black text-gray-900 uppercase">
                         MONTHLY TRANSMITTAL OF FINAL REPORTS
                     </h3>
                 </div>
 
-                {/* 4. Body */}
                 <div className="mb-6 text-sm text-gray-900 w-full">
                     <div className="flex gap-4 mb-6 pl-4">
                         <span className="font-bold w-8">TO:</span>
@@ -88,7 +88,6 @@ export default function Analytics() {
                     </p>
                 </div>
 
-                {/* 5. The Table */}
                 <div className="mb-12 w-full font-sans">
                     <table className="w-full border-collapse border border-black">
                         <thead>
@@ -105,12 +104,8 @@ export default function Analytics() {
                         <tbody>
                             {REPORT_DATA.map((item, index) => (
                                 <tr key={index}>
-                                    <td className="border border-black py-3 px-4 text-center text-sm font-bold align-middle">
-                                        {item.caseNo}
-                                    </td>
-                                    <td className="border border-black py-3 px-4 text-center text-sm font-medium align-middle">
-                                        {item.title}
-                                    </td>
+                                    <td className="border border-black py-3 px-4 text-center text-sm font-bold align-middle">{item.caseNo}</td>
+                                    <td className="border border-black py-3 px-4 text-center text-sm font-medium align-middle">{item.title}</td>
                                 </tr>
                             ))}
                             <tr>
@@ -122,9 +117,7 @@ export default function Analytics() {
                 </div>
             </div>
 
-            {/* --- BOTTOM SECTION WRAPPER --- */}
             <div>
-                {/* 6. Signature */}
                 <div className="w-full flex justify-end mb-8">
                     <div className="text-center w-64">
                         <div className="border-b border-black mb-2"></div>
@@ -132,45 +125,23 @@ export default function Analytics() {
                     </div>
                 </div>
 
-                {/* 7. Footer Wrapper */}
                 <div className="w-full relative">
-                    
-                    {/* Important Text */}
                     <div className="text-[10px] text-gray-700 w-full mb-4">
                         <p className="font-bold">IMPORTANT: <span className="font-normal">The Lupon / Pangkat Secretary shall transmit, not later than the first day for preceding month.</span></p>
                     </div>
 
-                    {/* Bottom Row: Logo & Buttons */}
                     <div className="flex items-end justify-center relative h-24 w-full">
-                        
-                        {/* Logo - Centered */}
                         <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 z-10">
-                            <img 
-                                src="/icon-analytics/analytics footerprint.png" 
-                                alt="Bagong Pilipinas" 
-                                className="h-16 object-contain" 
-                            />
+                            <img src="/icon-analytics/analytics footerprint.png" alt="Bagong Pilipinas" className="h-16 object-contain" />
                         </div>
 
-                        {/* Buttons - Absolute Bottom Right (LIFTED UP with bottom-4) */}
                         <div className="absolute right-0 bottom-4 flex gap-2 print:hidden z-20">
-                            <button 
-                                onClick={() => setIsPrintModalOpen(false)}
-                                className="px-6 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded shadow-sm hover:bg-gray-50 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={handlePrintSubmit}
-                                className="px-8 py-1.5 bg-[#007bff] text-white text-xs font-bold rounded shadow-sm hover:bg-blue-600 transition-colors uppercase tracking-wide"
-                            >
-                                PRINT
-                            </button>
+                            <button onClick={() => setIsPrintModalOpen(false)} className="px-6 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded shadow-sm hover:bg-gray-50 transition-colors">{t('cancel')}</button>
+                            <button onClick={handlePrintSubmit} className="px-8 py-1.5 bg-[#007bff] text-white text-xs font-bold rounded shadow-sm hover:bg-blue-600 transition-colors uppercase tracking-wide">PRINT</button>
                         </div>
                     </div>
                 </div>
             </div>
-
         </div>
       </div>
     );
@@ -208,9 +179,9 @@ export default function Analytics() {
           <div className="bg-blue-700 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden flex justify-between items-center h-40 border border-blue-800">
             <div className="z-10">
               <h3 className="text-5xl font-bold tracking-tight">10,000</h3>
-              <p className="text-blue-100 text-sm font-bold uppercase tracking-wider mt-2">Total Cases</p>
+              <p className="text-blue-100 text-sm font-bold uppercase tracking-wider mt-2">{t('total_cases')}</p>
             </div>
-            <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+            <div className="p-4">
               <FileText size={40} className="text-blue-100" />
             </div>
           </div>
@@ -218,9 +189,9 @@ export default function Analytics() {
           <div className="bg-emerald-500 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden flex justify-between items-center h-40 border border-emerald-600">
             <div className="z-10">
               <h3 className="text-5xl font-bold tracking-tight">200</h3>
-              <p className="text-emerald-100 text-sm font-bold uppercase tracking-wider mt-2">Total Blacklisted</p>
+              <p className="text-emerald-100 text-sm font-bold uppercase tracking-wider mt-2">{t('total_blacklisted')}</p>
             </div>
-            <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+            <div className="p-4">
               <UserX size={40} className="text-emerald-100" />
             </div>
           </div>
@@ -229,15 +200,15 @@ export default function Analytics() {
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start mb-8">
             <div>
-              <h3 className="text-2xl font-bold text-blue-900">Total Cases Trend</h3>
-              <p className="text-sm text-gray-500 font-medium mt-1">Cases Reported Per Month</p>
+              <h3 className="text-2xl font-bold text-blue-900">{t('total_cases_trend')}</h3>
+              <p className="text-sm text-gray-500 font-medium mt-1">{t('cases_reported_per_month')}</p>
             </div>
             <button 
                 onClick={handleOpenPrint}
                 className="flex items-center space-x-2 bg-blue-900 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors border border-blue-950"
             >
               <Download size={16} />
-              <span>Export PDF</span>
+              <span>{t('export_pdf')}</span>
             </button>
           </div>
           
@@ -268,39 +239,54 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* --- 3. BOTTOM SECTION --- */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-8">
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col">
-               <h3 className="text-xl font-bold text-blue-900 mb-8">Case Analytics by Category</h3>
+               <h3 className="text-xl font-bold text-blue-900 mb-8">{t('case_analytics_category')}</h3>
                <div className="flex items-center justify-center space-x-16">
-                 <div className="relative w-56 h-56 rounded-full shadow-inner ring-1 ring-gray-100" style={{ background: 'conic-gradient(#1e40af 0% 35%, #ef4444 35% 55%, #eab308 55% 80%, #22c55e 80% 100%)' }}>
-                    <div className="absolute inset-8 bg-white rounded-full shadow-sm flex items-center justify-center">
-                      <span className="text-gray-400 text-xs font-bold">Total</span>
-                    </div>
+                 <div 
+                    className="relative w-56 h-56 rounded-full shadow-md border border-gray-200 shrink-0" 
+                    style={{ background: 'conic-gradient(#1e40af 0% 35%, #ef4444 35% 55%, #eab308 55% 80%, #22c55e 80% 100%)' }}
+                 >
                  </div>
-                 <div className="space-y-4">
-                    <div className="flex items-center text-sm font-bold text-gray-600"><span className="w-4 h-4 bg-blue-800 mr-3 rounded-md"></span> LUPON</div>
-                    <div className="flex items-center text-sm font-bold text-gray-600"><span className="w-4 h-4 bg-red-500 mr-3 rounded-md"></span> VAWC</div>
-                    <div className="flex items-center text-sm font-bold text-gray-600"><span className="w-4 h-4 bg-yellow-400 mr-3 rounded-md"></span> BLOTTER</div>
-                    <div className="flex items-center text-sm font-bold text-gray-600"><span className="w-4 h-4 bg-green-500 mr-3 rounded-md"></span> COMPLAIN</div>
+                 <div className="space-y-4 w-full max-w-[150px]">
+                    <div className="flex items-center justify-between text-sm font-bold text-gray-600">
+                        <div className="flex items-center"><span className="w-4 h-4 bg-blue-800 mr-3 rounded-md"></span> LUPON</div>
+                        <span>35%</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm font-bold text-gray-600">
+                        <div className="flex items-center"><span className="w-4 h-4 bg-red-500 mr-3 rounded-md"></span> VAWC</div>
+                        <span>20%</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm font-bold text-gray-600">
+                        <div className="flex items-center"><span className="w-4 h-4 bg-yellow-400 mr-3 rounded-md"></span> BLOTTER</div>
+                        <span>25%</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm font-bold text-gray-600">
+                        <div className="flex items-center"><span className="w-4 h-4 bg-green-500 mr-3 rounded-md"></span> COMPLAIN</div>
+                        <span>20%</span>
+                    </div>
                  </div>
                </div>
             </div>
 
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
                <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-xl font-bold text-blue-900">Daily Cases Overview</h3>
-                 <span className="text-xl font-bold text-blue-900 uppercase tracking-wide">JANUARY 2026</span>
+                 <h3 className="text-xl font-bold text-blue-900">{t('daily_cases_overview')}</h3>
+                 <span className="text-xl font-bold text-blue-900 uppercase tracking-wide">{monthYearString}</span>
                </div>
                <div className="border-t border-l border-slate-300">
                  <div className="grid grid-cols-7 text-center bg-blue-700 text-white">
-                   {['SUN','MON','TUE','WED','THU','FRI','SAT'].map(d => <div key={d} className="py-3 text-xs font-bold border-r border-b border-slate-300">{d}</div>)}
+                   {[t('sun'),t('mon'),t('tue'),t('wed'),t('thu'),t('fri'),t('sat')].map(d => <div key={d} className="py-3 text-xs font-bold border-r border-b border-slate-300">{d}</div>)}
                  </div>
                  <div className="grid grid-cols-7">
-                   {[...Array(35)].map((_, i) => (
+                   {calendarGrid.map((day, i) => (
                      <div key={i} className="h-24 border-r border-b border-slate-300 bg-white relative p-2">
-                       {i > 3 && i < 35 && <span className="text-sm font-bold text-gray-700">{i - 3}</span>}
+                       {day !== null && (
+                         <span className={`text-sm font-bold ${day === currentDate.getDate() ? 'text-blue-600' : 'text-gray-700'}`}>
+                            {day}
+                         </span>
+                       )}
                      </div>
                    ))}
                  </div>
@@ -310,9 +296,9 @@ export default function Analytics() {
 
           <div className="space-y-8">
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-               <h3 className="text-xl font-bold text-blue-900 mb-8">Case Resolution Overview</h3>
+               <h3 className="text-xl font-bold text-blue-900 mb-8">{t('case_resolution_overview')}</h3>
                <div className="space-y-8">
-                 {[{l:'Settled',v:'80%',c:'bg-green-600'},{l:'Escalated',v:'50%',c:'bg-red-600'},{l:'Blacklisted',v:'40%',c:'bg-gray-900'}].map(x => (
+                 {[{l:t('settled'),v:'80%',c:'bg-green-600'},{l:t('escalated'),v:'50%',c:'bg-red-600'},{l:t('blacklisted'),v:'40%',c:'bg-gray-900'}].map(x => (
                    <div key={x.l}>
                      <div className="flex justify-between text-sm font-bold text-gray-700 mb-2"><span>{x.l}</span><span>{x.v}</span></div>
                      <div className="w-full bg-gray-100 rounded-full h-3"><div className={`${x.c} h-3 rounded-full`} style={{width:x.v}}></div></div>
@@ -323,7 +309,7 @@ export default function Analytics() {
 
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
                <div className="flex justify-between items-center mb-8">
-                 <h3 className="text-xl font-bold text-blue-900">Recent Activities</h3>
+                 <h3 className="text-xl font-bold text-blue-900">{t('recent_activities')}</h3>
                  <User size={20} className="text-gray-400"/>
                </div>
                <div className="space-y-4">

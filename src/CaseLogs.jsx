@@ -197,6 +197,88 @@ export default function CaseLogs() {
     document.execCommand('insertText', false, `${now} `);
   };
 
+  // --- SWAL CONFIRMATION CANCEL FOR MODERATOR ---
+  const handleCancelModerator = () => {
+    Swal.fire({
+      title: t('discard_changes') || 'Discard Changes?',
+      text: t('unsaved_lost') || 'Any unsaved changes will be lost.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: t('yes_discard') || 'Yes, discard',
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+          setIsModeratorModalOpen(false);
+      }
+    });
+  };
+
+  // --- SWAL CONFIRMATION FOR BACK TO LIST ---
+  const handleBackToListFromOverview = () => {
+    Swal.fire({
+      title: t('back_to_list') + '?',
+      text: t('confirm_back_to_list') || 'Are you sure you want to return to the list?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#d33',
+      confirmButtonText: t('yes_back') || 'Yes, go back',
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setView('TABLE');
+      }
+    });
+  };
+
+  // --- SWAL CONFIRMATION FOR PRINT ---
+  const handlePrintOverview = () => {
+    Swal.fire({
+      title: t('confirm_print_title') || 'Print Case Details?',
+      text: t('confirm_print_text') || 'Are you sure you want to print this document?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#0066FF',
+      cancelButtonColor: '#d33',
+      confirmButtonText: t('yes_print') || 'Yes, print it',
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // We use a small timeout to let the Swal modal finish its closing animation 
+        // before launching the print window, avoiding capturing the modal overlay!
+        setTimeout(() => {
+            window.print();
+        }, 300);
+      }
+    });
+  };
+
+  // --- SWAL CONFIRMATION CANCEL FOR SUMMONS ---
+  const handleCancelSummon = () => {
+    const currentReason = editorRef.current ? editorRef.current.innerHTML : '';
+    
+    if (summonData.summonDate || summonData.summonTime || summonData.summonType || summonData.notedBy || (currentReason && currentReason !== '<br>')) {
+        Swal.fire({
+            title: t('discard_changes') || 'Discard Changes?',
+            text: t('unsaved_lost') || 'Any unsaved changes will be lost.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: t('yes_discard') || 'Yes, discard',
+            cancelButtonText: t('cancel') || 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                setView('TABLE');
+            }
+        });
+    } else {
+        setView('TABLE');
+    }
+  };
+
   const handleSubmitSummon = () => {
     const currentReason = editorRef.current ? editorRef.current.innerHTML : '';
     const finalData = { ...summonData, summonReason: currentReason };
@@ -204,6 +286,7 @@ export default function CaseLogs() {
     const required = ['summonDate', 'summonTime', 'summonType', 'notedBy'];
     required.forEach(f => { if (!finalData[f].trim()) errors[f] = 'Required'; });
     if (!currentReason || currentReason === '<br>' || currentReason.trim() === '') errors['summonReason'] = 'Required';
+    
     if (Object.keys(errors).length > 0) {
       setSummonErrors(errors);
       Swal.fire({ title: 'Missing Information', text: 'Please fill out all required fields.', icon: 'error', confirmButtonColor: '#d33' });
@@ -213,11 +296,46 @@ export default function CaseLogs() {
       Swal.fire({ title: 'Duplicate Summon', text: 'This summon type has already been issued for this case.', icon: 'error', confirmButtonColor: '#d33' });
       return;
     }
-    const existingSummons = JSON.parse(localStorage.getItem('summons') || '[]');
-    const newSummonRecord = { ...finalData, status: 'Active', id: Date.now() };
-    localStorage.setItem('summons', JSON.stringify([...existingSummons, newSummonRecord]));
-    setView('TABLE');
-    Swal.fire({ title: 'Summon Assigned!', text: `Summon scheduled for ${finalData.residentName}.`, icon: 'success', confirmButtonColor: '#1d4ed8' });
+
+    Swal.fire({
+      title: t('confirm_save_title') || 'Save Changes?',
+      text: t('confirm_save_text') || 'Are you sure you want to save this record?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#d33',
+      confirmButtonText: t('yes_save') || 'Yes, save it!',
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const existingSummons = JSON.parse(localStorage.getItem('summons') || '[]');
+        const newSummonRecord = { ...finalData, status: 'Active', id: Date.now() };
+        localStorage.setItem('summons', JSON.stringify([...existingSummons, newSummonRecord]));
+        setView('TABLE');
+        Swal.fire({ title: 'Summon Assigned!', text: `Summon scheduled for ${finalData.residentName}.`, icon: 'success', confirmButtonColor: '#1d4ed8' });
+      }
+    });
+  };
+
+  const handleCancelNewCase = () => {
+      if (formData.complainantName || formData.complainantContact || formData.defendantName || formData.incidentDate) {
+          Swal.fire({
+            title: t('discard_changes') || 'Discard Changes?',
+            text: t('unsaved_lost') || 'Any unsaved changes will be lost.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: t('yes_discard') || 'Yes, discard',
+            cancelButtonText: t('cancel') || 'Cancel'
+          }).then((result) => {
+            if (result.isConfirmed) {
+                setView('TABLE');
+            }
+          });
+      } else {
+          setView('TABLE');
+      }
   };
 
   const handleSubmitCase = () => {
@@ -250,29 +368,42 @@ export default function CaseLogs() {
       }
       return;
     }
-    
-    const dateObj = new Date(formData.dateFiled);
-    const formattedDate = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}-${dateObj.getFullYear()}`;
-    
-    setCases([{
-      type: selectedReportType,
-      status: 'PENDING',
-      caseNo: formData.caseNo,
-      complainantName: formData.complainantName,
-      resident: formData.defendantName, 
-      contact: formData.complainantContact, 
-      date: formattedDate,
-      fullData: { 
-          ...formData, 
-          selectedReportType, 
-          selectedRole 
-      }
-    }, ...cases]);
-    
-    setSortStatus(t('all_status'));
-    setSortYear(t('all_years'));
-    setView('TABLE');
-    Swal.fire({ title: 'Success!', text: 'Case added to logs.', icon: 'success' });
+
+    Swal.fire({
+      title: t('confirm_save_title') || 'Save Changes?',
+      text: t('confirm_save_text') || 'Are you sure you want to save this record?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#d33',
+      confirmButtonText: t('yes_save') || 'Yes, save it!',
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => {
+        if(result.isConfirmed) {
+            const dateObj = new Date(formData.dateFiled);
+            const formattedDate = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}-${dateObj.getFullYear()}`;
+            
+            setCases([{
+              type: selectedReportType,
+              status: 'PENDING',
+              caseNo: formData.caseNo,
+              complainantName: formData.complainantName,
+              resident: formData.defendantName, 
+              contact: formData.complainantContact, 
+              date: formattedDate,
+              fullData: { 
+                  ...formData, 
+                  selectedReportType, 
+                  selectedRole 
+              }
+            }, ...cases]);
+            
+            setSortStatus(t('all_status'));
+            setSortYear(t('all_years'));
+            setView('TABLE');
+            Swal.fire({ title: 'Success!', text: 'Case added to logs.', icon: 'success' });
+        }
+    });
   };
 
   const getInputClass = (fieldName, errorState = formErrors) => {
@@ -437,7 +568,7 @@ export default function CaseLogs() {
                 </div>
 
                 <div className="flex space-x-3">
-                  <button onClick={() => setIsModeratorModalOpen(false)} className="flex-1 border py-3 rounded-lg font-bold hover:bg-gray-50 transition-colors">{t('cancel')}</button>
+                  <button onClick={handleCancelModerator} className="flex-1 border py-3 rounded-lg font-bold hover:bg-gray-50 transition-colors">{t('cancel')}</button>
                   <button onClick={handleContinueToForm} className={`flex-1 py-3 rounded-lg font-bold ${gradientBtnClass}`}>{t('continue')}</button>
                 </div>
               </div>
@@ -590,14 +721,14 @@ export default function CaseLogs() {
           {/* Action Buttons */}
           <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4">
             <button 
-                onClick={() => window.print()} 
+                onClick={handlePrintOverview} 
                 className="flex items-center px-8 py-3 border-2 border-[#0066FF] text-[#0066FF] font-bold rounded-lg hover:bg-blue-50 transition-colors shadow-sm"
             >
                 <Printer size={18} className="mr-2" />
                 {t('print_details')}
             </button>
             <button 
-                onClick={() => setView('TABLE')} 
+                onClick={handleBackToListFromOverview} 
                 className="px-8 py-3 border border-gray-300 font-bold text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
             >
                 {t('back_to_list')}
@@ -660,8 +791,7 @@ export default function CaseLogs() {
                     <button onMouseDown={(e) => applyCommand(e, 'italic')} className="hover:text-[#0066FF] p-1 rounded" title="Italic"><Italic size={14} /></button>
                     <button onMouseDown={(e) => applyCommand(e, 'underline')} className="hover:text-[#0066FF] p-1 rounded" title="Underline"><Underline size={14} /></button>
                     <div className="h-4 w-px bg-gray-300 mx-2"></div>
-                    <button onMouseDown={handleInsertLink} className="hover:text-[#0066FF] p-1 rounded" title="Link"><Link size={14} /></button>
-                    <button onMouseDown={handleInsertTime} className="hover:text-[#0066FF] p-1 rounded" title="Time"><Clock size={14} /></button>
+                    
                  </div>
               </div>
               {summonErrors.summonReason && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}
@@ -669,7 +799,7 @@ export default function CaseLogs() {
 
             <div><label className="block text-xs font-bold text-gray-700 mb-1">{t('noted_by')}</label><input type="text" name="notedBy" value={summonData.notedBy} onChange={handleSummonInputChange} placeholder={t('auth_officer_name')} className={`${getInputClass('notedBy', summonErrors)} py-2 text-sm`} />{summonErrors.notedBy && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}</div>
           </div>
-          <div className="bg-white p-5 border-t border-gray-200 flex justify-end space-x-3"><button onClick={() => setView('TABLE')} className="px-5 py-2 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors text-sm">{t('cancel')}</button><button onClick={handleSubmitSummon} className={`px-6 py-2 rounded-lg font-bold text-sm ${gradientBtnClass}`}>{t('submit_summon')}</button></div>
+          <div className="bg-white p-5 border-t border-gray-200 flex justify-end space-x-3"><button onClick={handleCancelSummon} className="px-5 py-2 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors text-sm">{t('cancel')}</button><button onClick={handleSubmitSummon} className={`px-6 py-2 rounded-lg font-bold text-sm ${gradientBtnClass}`}>{t('submit_summon')}</button></div>
         </div>
       </div>
     );
@@ -705,7 +835,6 @@ export default function CaseLogs() {
                   <h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4>
                   <input type="text" name="complainantName" value={formData.complainantName} placeholder={t('full_name')} onChange={handleInputChange} className={getInputClass('complainantName')} />
                   
-                  {/* UPDATED: Added maxLength and Value Binding */}
                   <input type="text" name="complainantContact" value={formData.complainantContact} maxLength="11" placeholder={t('contact_num_placeholder')} onChange={handleInputChange} className={getInputClass('complainantContact')} />
                   
                   <input type="text" name="complainantAddress" value={formData.complainantAddress} placeholder={t('address')} onChange={handleInputChange} className={getInputClass('complainantAddress')} />
@@ -714,7 +843,6 @@ export default function CaseLogs() {
                   <h4 className="text-blue-600 font-bold border-b pb-2">{t('defendant')}</h4>
                   <input type="text" name="defendantName" value={formData.defendantName} placeholder={t('full_name')} onChange={handleInputChange} className={getInputClass('defendantName')} />
                   
-                  {/* UPDATED: Added maxLength and Value Binding */}
                   <input type="text" name="defendantContact" value={formData.defendantContact} maxLength="11" placeholder={t('contact_num_placeholder')} onChange={handleInputChange} className={getInputClass('defendantContact')} />
                   
                   <input type="text" name="defendantAddress" value={formData.defendantAddress} placeholder={t('address')} onChange={handleInputChange} className={getInputClass('defendantAddress')} />
@@ -724,7 +852,7 @@ export default function CaseLogs() {
           
           <div><h4 className="text-blue-600 font-bold border-b pb-2 mb-4">{t('attachments_optional')}</h4><input type="file" ref={fileInputRef} className="hidden" multiple onChange={handleFileChange} /><div onClick={handleFileZoneClick} className={`border-2 border-dashed p-10 rounded-xl text-center cursor-pointer transition-all border-slate-200 hover:bg-slate-50`}>{attachedFiles.length > 0 ? (<div className="space-y-2">{attachedFiles.map((f, i) => <div key={i} className="text-blue-600 font-bold">{f.name}</div>)}</div>) : (<div className="text-gray-400"><Upload className="mx-auto mb-2" /> {t('click_drag_files')}</div>)}</div></div>
         </div>
-        <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4"><button onClick={() => setView('TABLE')} className="px-8 py-3 border font-bold rounded-lg hover:bg-white transition-colors">{t('cancel')}</button><button onClick={handleSubmitCase} className={`px-10 py-3 rounded-lg font-bold ${gradientBtnClass}`}>{t('submit_case')}</button></div>
+        <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4"><button onClick={handleCancelNewCase} className="px-8 py-3 border font-bold rounded-lg hover:bg-white transition-colors">{t('cancel')}</button><button onClick={handleSubmitCase} className={`px-10 py-3 rounded-lg font-bold ${gradientBtnClass}`}>{t('submit_case')}</button></div>
       </div>
     </div>
   );

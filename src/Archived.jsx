@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
+import { ChevronLeft } from 'lucide-react'; // IMPORTED CHEVRONLEFT
 import { useLanguage } from './LanguageContext'; // TRANSLATION HOOK
 
 // --- STYLES ---
@@ -15,7 +16,6 @@ export default function Archived() {
   const [view, setView] = useState('TABLE');
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null); 
-  const [search, setSearch] = useState('');
 
   // --- LOAD REAL DATA ---
   useEffect(() => {
@@ -93,11 +93,6 @@ export default function Archived() {
     });
   };
 
-  const filteredRows = rows.filter((row) => 
-    (row.caseNo && row.caseNo.toLowerCase().includes(search.toLowerCase())) ||
-    (row.resident && row.resident.toLowerCase().includes(search.toLowerCase()))
-  );
-
   return (
     <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative">
       <div className="flex-1 flex flex-col h-full min-h-0 w-full">
@@ -105,8 +100,16 @@ export default function Archived() {
         {/* --- VIEW: DETAILS --- */}
         {view === 'DETAILS' && selected ? (
           <div className="flex-1 flex flex-col w-full rounded-xl overflow-hidden bg-white shadow-md animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-200">
-            {/* Header */}
-            <div className="bg-[#0044CC] px-8 py-5 text-white shadow-md shrink-0 rounded-t-xl">
+            
+            {/* Header WITH BACK BUTTON */}
+            <div className="bg-[#0044CC] px-6 py-4 text-white shadow-md shrink-0 rounded-t-xl flex items-center gap-3">
+              <button 
+                onClick={handleBackToTable}
+                className="hover:bg-blue-600 p-1.5 rounded-full transition-colors flex items-center justify-center -ml-2"
+                title={t('back')}
+              >
+                <ChevronLeft size={26} strokeWidth={2.5} />
+              </button>
               <h1 className="text-xl font-bold">{t('archived_case_details')}</h1>
             </div>
 
@@ -240,16 +243,6 @@ export default function Archived() {
                 </div>
               </div>
 
-              {/* Footer Button */}
-              <div className="flex justify-end pt-4 pb-8">
-                  <button 
-                    onClick={handleBackToTable} 
-                    className="bg-gray-400 hover:bg-gray-500 text-white text-xs font-bold px-6 py-2 rounded shadow-md transition-colors"
-                  >
-                    {t('back_to_archived')}
-                  </button>
-              </div>
-
             </div>
           </div>
         ) : (
@@ -264,16 +257,6 @@ export default function Archived() {
             <div className="border-b border-gray-200 bg-white px-6 py-6 md:px-8 shrink-0">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-bold text-gray-700">{t('total_settled')}: {rows.length}</p>
-                <div className="relative w-full sm:max-w-xs">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">🔍</span>
-                  <input 
-                    type="text" 
-                    placeholder={t('search_placeholder')} 
-                    value={search} 
-                    onChange={(e) => setSearch(e.target.value)} 
-                    className="w-full rounded-xl border border-gray-300 bg-slate-50 py-3 pl-10 pr-4 text-sm font-bold outline-none focus:border-blue-600 transition-all" 
-                  />
-                </div>
               </div>
             </div>
 
@@ -288,7 +271,7 @@ export default function Archived() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredRows.map((row) => (
+                  {rows.map((row) => (
                     <tr key={row.id} className="hover:bg-blue-50/50 transition-colors">
                       <td className="px-4 py-5">
                         <span className={`inline-block rounded px-3 py-1 text-[10px] font-bold shadow-sm ${REPORT_TYPE_STYLES[row.type] || 'bg-gray-500 text-white'}`}>
@@ -321,7 +304,7 @@ export default function Archived() {
                       </td>
                     </tr>
                   ))}
-                  {filteredRows.length === 0 && (
+                  {rows.length === 0 && (
                       <tr><td colSpan={4} className="py-12 text-center text-gray-400 font-bold">{t('no_settled_cases')}</td></tr>
                   )}
                 </tbody>

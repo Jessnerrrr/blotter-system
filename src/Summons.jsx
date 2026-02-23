@@ -31,7 +31,7 @@ const initialSummonsData = [
 ];
 
 export default function Summons() {
-  const { t } = useLanguage(); // INIT TRANSLATOR
+  const { t } = useLanguage(); 
   const [summonsList, setSummonsList] = useState([]);
   const [view, setView] = useState('LIST'); 
   const [selectedCase, setSelectedCase] = useState(null);
@@ -52,6 +52,7 @@ export default function Summons() {
   const editorRef = useRef(null);
   const [savedSummaryHtml, setSavedSummaryHtml] = useState('');
 
+  // --- LOAD DATA & NORMALIZE STATUS ---
   useEffect(() => {
     let rawDataStr = localStorage.getItem('summons');
     const casesDataStr = localStorage.getItem('cases');
@@ -138,8 +139,8 @@ export default function Summons() {
     }
 
     Swal.fire({
-      title: 'Saved!',
-      text: 'Case note has been saved.',
+      title: t('save_changes') || 'Saved!',
+      text: t('case_overview_saved') || 'Case note has been saved.',
       icon: 'success',
       confirmButtonColor: '#0066FF'
     });
@@ -148,14 +149,14 @@ export default function Summons() {
 
   const handleCancelEdit = () => {
     Swal.fire({
-      title: 'Discard Changes?',
-      text: "Any unsaved changes will be lost.",
+      title: t('discard_changes') || 'Discard Changes?',
+      text: t('unsaved_lost') || "Any unsaved changes will be lost.",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, discard',
-      cancelButtonText: 'No, keep editing'
+      confirmButtonText: t('yes_discard') || 'Yes, discard',
+      cancelButtonText: t('no_keep') || 'No, keep editing'
     }).then((result) => {
       if (result.isConfirmed) {
         setView('OVERVIEW'); 
@@ -189,59 +190,44 @@ export default function Summons() {
     setPreviewModal({ isOpen: true, data: caseItem });
   };
 
-  const archiveCase = (caseNo) => {
-    const caseToArchive = summonsList.find(item => item.caseNo === caseNo);
-    if (!caseToArchive) return;
-
-    const currentArchives = JSON.parse(localStorage.getItem('archived_cases') || '[]');
-    const archivedRecord = { 
-        ...caseToArchive, 
-        status: 'Settled', 
-        archivedDate: new Date().toLocaleDateString() 
-    };
-    localStorage.setItem('archived_cases', JSON.stringify([...currentArchives, archivedRecord]));
-
-    const updatedList = summonsList.filter(item => item.caseNo !== caseNo);
-    setSummonsList(updatedList);
-    localStorage.setItem('summons', JSON.stringify(updatedList));
-  };
-
+  // --- CORE SYSTEM SYNCHRONIZATION ---
   const executeStatusUpdate = () => {
+    const { action, caseNo } = confirmModal;
     setConfirmModal({ isOpen: false, action: null, caseNo: null });
 
-    if (confirmModal.action === 'Settled') {
-        archiveCase(confirmModal.caseNo);
-        Swal.fire({
-            title: 'Case Settled!',
-            text: `Case ${confirmModal.caseNo} has been moved to the Archive.`,
-            icon: 'success',
-            confirmButtonColor: '#0066FF'
-        });
-    } else {
-        const updatedList = summonsList.map(item => 
-            item.caseNo === confirmModal.caseNo ? { ...item, status: confirmModal.action } : item
-        );
-        setSummonsList(updatedList);
-        localStorage.setItem('summons', JSON.stringify(updatedList));
+    // 1. Update in Local Summons List
+    const updatedSummons = summonsList.map(item => 
+        item.caseNo === caseNo ? { ...item, status: action } : item
+    );
+    setSummonsList(updatedSummons);
+    localStorage.setItem('summons', JSON.stringify(updatedSummons));
 
-        Swal.fire({
-            title: 'Status Updated!',
-            text: `Case ${confirmModal.caseNo} marked as ${confirmModal.action}.`,
-            icon: 'success',
-            confirmButtonColor: '#0066FF'
-        });
-    }
+    // 2. Update in GLOBAL Case Logs (This automatically moves it to Archive/Blacklist)
+    const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
+    const updatedCases = allCases.map(c => 
+        c.caseNo === caseNo ? { ...c, status: action.toUpperCase() } : c
+    );
+    localStorage.setItem('cases', JSON.stringify(updatedCases));
+    window.dispatchEvent(new Event('storage')); // Notifies all pages instantly!
+
+    // 3. Success Pop-up
+    Swal.fire({
+        title: t('status_updated') || 'Status Updated!',
+        text: `${t('case_no')} ${caseNo} ${t('marked_as')} ${action}.`,
+        icon: 'success',
+        confirmButtonColor: '#0066FF'
+    });
   };
 
   const handlePreviewSaveClick = () => {
     Swal.fire({
-      title: 'Save Changes?',
-      text: "Are you sure you want to update the case status?",
+      title: t('confirm_status_update') || 'Save Changes?',
+      text: t('are_you_sure_mark') + " " + previewModal.data.caseNo + " " + t('as') + " " + tempStatus + "?",
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#0066FF',
       cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, update it!'
+      confirmButtonText: t('save_changes') || 'Yes, update it!'
     }).then((result) => {
       if (result.isConfirmed) {
         performSaveStatus();
@@ -250,30 +236,33 @@ export default function Summons() {
   };
 
   const performSaveStatus = () => {
-    if (tempStatus === 'Settled') {
-        archiveCase(previewModal.data.caseNo);
-        setPreviewModal({ isOpen: false, data: null }); 
-        Swal.fire({
-            title: 'Case Settled!',
-            text: 'The case has been successfully settled and moved to the Archive.',
-            icon: 'success',
-            confirmButtonColor: '#0066FF'
-        });
-    } else {
-        const updatedList = summonsList.map(item => 
-            item.caseNo === previewModal.data.caseNo ? { ...item, status: tempStatus } : item
-        );
-        setSummonsList(updatedList);
-        localStorage.setItem('summons', JSON.stringify(updatedList));
-        setPreviewModal({ ...previewModal, data: { ...previewModal.data, status: tempStatus }});
-        setPreviewEditing(false);
-        Swal.fire({
-            title: 'Updated!',
-            text: 'Case status has been successfully modified.',
-            icon: 'success',
-            confirmButtonColor: '#0066FF'
-        });
-    }
+    const newStatus = tempStatus;
+    const caseNo = previewModal.data.caseNo;
+
+    // 1. Update in Local Summons List
+    const updatedSummons = summonsList.map(item => 
+        item.caseNo === caseNo ? { ...item, status: newStatus } : item
+    );
+    setSummonsList(updatedSummons);
+    localStorage.setItem('summons', JSON.stringify(updatedSummons));
+
+    // 2. Update in GLOBAL Case Logs
+    const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
+    const updatedCases = allCases.map(c => 
+        c.caseNo === caseNo ? { ...c, status: newStatus.toUpperCase() } : c
+    );
+    localStorage.setItem('cases', JSON.stringify(updatedCases));
+    window.dispatchEvent(new Event('storage'));
+
+    setPreviewModal({ ...previewModal, data: { ...previewModal.data, status: newStatus }});
+    setPreviewEditing(false);
+
+    Swal.fire({
+        title: t('status_updated') || 'Updated!',
+        text: `${t('case_no')} ${caseNo} ${t('marked_as')} ${newStatus}.`,
+        icon: 'success',
+        confirmButtonColor: '#0066FF'
+    });
   };
 
   const applyCommand = (e, command, value = null) => {
@@ -333,9 +322,13 @@ export default function Summons() {
                             {previewEditing ? (
                                 <div className="relative">
                                     <select value={tempStatus} onChange={(e) => setTempStatus(e.target.value)} className="appearance-none bg-white border-2 border-[#0066FF] text-gray-900 font-bold text-lg py-2 pl-6 pr-12 rounded-lg cursor-pointer outline-none shadow-sm hover:bg-blue-50 transition-colors">
-                                        <option value="Settled">{t('settled')}</option>
-                                        <option value="Escalated">{t('escalated')}</option>
-                                        <option value="Blacklisted">{t('blacklisted')}</option>
+                                        {/* Show pending instruction if it's currently pending */}
+                                        {tempStatus === 'Pending' && <option value="Pending" disabled>{t('select_option') || 'Select...'}</option>}
+                                        
+                                        {/* Options are in Present Tense, but the value saved is Past Tense */}
+                                        <option value="Settled">{t('settle')}</option>
+                                        <option value="Escalated">{t('escalate')}</option>
+                                        <option value="Blacklisted">{t('blacklist')}</option>
                                     </select>
                                     <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#0066FF] pointer-events-none" size={20} strokeWidth={3} />
                                 </div>
@@ -380,7 +373,7 @@ export default function Summons() {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border-2 border-[#0066FF] transform scale-100 transition-all">
                 <div className="p-8">
                     <h3 className="text-2xl font-bold text-[#0066FF] mb-4">{t('confirm_status_update')}</h3>
-                    <p className="text-gray-600 text-lg leading-relaxed mb-2">
+                    <p className="text-gray-600 text-lg leading-relaxed mb-4">
                         {t('are_you_sure_mark')} <span className="font-bold text-[#0066FF] whitespace-nowrap">{confirmModal.caseNo}</span> {t('as')} <span className="font-bold text-gray-800">{confirmModal.action}</span>?
                     </p>
                     {confirmModal.action === 'Settled' && (
@@ -388,7 +381,17 @@ export default function Summons() {
                             {t('moved_to_archive')}
                         </p>
                     )}
-                    <div className="flex justify-end space-x-3 mt-8">
+                    {confirmModal.action === 'Escalated' && (
+                        <p className="text-red-600 font-bold text-sm bg-red-50 p-2 rounded-lg border border-red-100 mb-4 text-center">
+                            {t('case_escalated_notice')}
+                        </p>
+                    )}
+                    {confirmModal.action === 'Blacklisted' && (
+                        <p className="text-gray-800 font-bold text-sm bg-gray-200 p-2 rounded-lg border border-gray-300 mb-4 text-center">
+                            {t('moved_to_blacklist')}
+                        </p>
+                    )}
+                    <div className="flex justify-end space-x-3 mt-4">
                         <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="px-6 py-2.5 rounded-lg border-2 border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors text-sm uppercase tracking-wide">{t('cancel')}</button>
                         <button onClick={executeStatusUpdate} className={`${gradientBgClass} text-white px-8 py-2.5 rounded-lg font-bold shadow-md hover:opacity-90 transition-all text-sm uppercase tracking-wide`}>{t('confirm')}</button>
                     </div>

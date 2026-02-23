@@ -134,11 +134,11 @@ const translations = {
     // CURFEW LOGS PAGE
     // -------------------------
     "curfew_violations": "Curfew Violations",
-    "add_violation": "Add Violation",
+    "add_violation": "Add New Violator",
     "age": "Age",
     "mark_settled": "Mark Settled",
     "mark_unsettled": "Mark Unsettled",
-    "new_curfew": "NEW CURFEW",
+    "new_curfew": "NEW VIOLATOR",
     "input_age": "Input Age",
     "input_full_address": "Input full address",
     "create": "Create",
@@ -154,7 +154,7 @@ const translations = {
     "add_notes": "Add Notes",
     "delete_folder_title": "Delete Curfew Note?",
     "delete_folder_text": "Are you sure you want to delete this note?",
-    "yes_delete": "Yes, delete",
+    "yes_delete": "Delete",
     "note_deleted": "Note deleted!",
     "view_note": "View Note",
     "no_folders": "No folders found for this resident.",
@@ -193,10 +193,23 @@ const translations = {
     "swal_added": "added.",
     "swal_lift_restriction": "Lift Blacklist Restriction?",
     "swal_move_archives": "Move {name} to Archives (Settled)?",
-    "swal_yes_lift": "Yes, Lift & Archive",
+    "swal_yes_lift": "Yes",
     "swal_restriction_lifted": "Restriction Lifted",
     "swal_record_moved": "Record moved to Archives.",
+    // Add to the 'en' section:
+    "invalid_case_format": "Case No. must only contain numbers and hyphens (e.g. 01-166-01-2026).",
 
+// Add to the 'tl' section:
+    "invalid_case_format": "Ang Case No. ay dapat maglaman lamang ng mga numero at gitling (hal. 01-166-01-2026).",
+// Add to the 'en' section:
+    "confirm_blacklist_title": "Add to Blacklist?",
+    "confirm_blacklist_text": "Are you sure you want to blacklist this resident?",
+    "yes_add": "Yes",
+
+// Add to the 'tl' section:
+    "confirm_blacklist_title": "Idagdag sa Blacklist?",
+    "confirm_blacklist_text": "Sigurado ka bang nais mong i-blacklist ang residenteng ito?",
+    "yes_add": "Oo",
     // -------------------------
     // ARCHIVED PAGE
     // -------------------------
@@ -336,6 +349,22 @@ const translations = {
     "noted_by": "Naitala ni",
     "auth_officer_name": "Pangalan ng Awtorisadong Opisyal",
     "submit_summon": "Isumite",
+    // Add to the 'en' section:
+    "confirm_back_to_list": "Are you sure you want to return to the list?",
+    "yes_back": "Yes, go back",
+
+// Add to the 'tl' section:
+    "confirm_back_to_list": "Sigurado ka bang nais mong bumalik sa listahan?",
+    "yes_back": "Oo, bumalik",
+    // Add to the 'en' section:
+    "confirm_print_title": "Print Case Details?",
+    "confirm_print_text": "Are you sure you want to print this document?",
+    "yes_print": "Yes, print it",
+
+// Add to the 'tl' section:
+    "confirm_print_title": "I-print ang mga Detalye?",
+    "confirm_print_text": "Sigurado ka bang nais mong i-print ang dokumentong ito?",
+    "yes_print": "Oo, i-print",
 
     // -------------------------
     // SUMMONS PAGE
@@ -364,6 +393,17 @@ const translations = {
     "current_status": "Kasalukuyang Katayuan",
     "save_changes": "I-save ang mga Pagbabago",
     "edit_status": "I-edit ang Katayuan",
+    // Add to the 'en' section:
+    "status_updated": "Status Updated!",
+    "marked_as": "marked as",
+    "moved_to_blacklist": "This case will be moved to Blacklisted Records.",
+    "case_escalated_notice": "This case will be escalated.",
+
+// Add to the 'tl' section:
+    "status_updated": "Na-update ang Katayuan!",
+    "marked_as": "minarkahan bilang",
+    "moved_to_blacklist": "Ang kasong ito ay ililipat sa mga Rekord ng Blacklist.",
+    "case_escalated_notice": "Ang kasong ito ay itataas.",
 
     // -------------------------
     // CURFEW LOGS PAGE

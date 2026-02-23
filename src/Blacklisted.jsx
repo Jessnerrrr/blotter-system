@@ -20,6 +20,7 @@ export default function Blacklisted() {
   const [search, setSearch] = useState('');
   
   const [form, setForm] = useState({ resident: '', contact: '', caseNo: '', reason: '' });
+  const [errors, setErrors] = useState({}); // New state for input error tracking
 
   // Mock Timeline Events matched with translation keys
   const TIMELINE_EVENTS = [
@@ -56,27 +57,112 @@ export default function Blacklisted() {
     window.dispatchEvent(new Event('storage'));
   };
 
+  const handleInputChange = (e) => {
+      const { name, value } = e.target;
+      setForm({ ...form, [name]: value });
+      // Clear error for this field when user starts typing
+      if (errors[name]) {
+          setErrors({ ...errors, [name]: false });
+      }
+  };
+
   const handleAddSubmit = (e) => {
     e.preventDefault();
-    if (!form.resident || !form.caseNo) return;
+    
+    let newErrors = {};
+    let hasError = false;
 
-    const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
-    const newEntry = { 
-        id: Date.now(), 
-        caseNo: form.caseNo, 
-        resident: form.resident, 
-        contact: form.contact || '0912-345-6789', 
-        type: 'LUPON', 
-        status: 'BLACKLISTED',
-        reason: form.reason || 'Repeated Case Violation', 
-        date: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-')
-    };
+    // Check if required fields are filled
+    if (!form.resident) {
+        newErrors.resident = true;
+        hasError = true;
+    }
+    
+    if (!form.caseNo) {
+        newErrors.caseNo = true;
+        hasError = true;
+    }
 
-    allCases.unshift(newEntry);
-    updateGlobalStorage(allCases);
-    setForm({ resident: '', contact: '', caseNo: '', reason: '' });
-    setShowAddModal(false);
-    Swal.fire({ icon: 'success', title: t('swal_resident_blacklisted'), text: `${newEntry.resident} ${t('swal_added')}`, confirmButtonColor: '#2563eb' });
+    if (hasError) {
+        setErrors(newErrors);
+        Swal.fire({
+            title: t('incomplete_fields') || 'Incomplete Fields',
+            text: t('fill_all_required') || 'Please fill out all required fields.',
+            icon: 'error',
+            confirmButtonColor: '#d33'
+        });
+        return;
+    }
+
+    // REGEX VALIDATION: Allow ONLY numbers and hyphens
+    const caseNoRegex = /^[0-9-]+$/;
+    if (!caseNoRegex.test(form.caseNo)) {
+        setErrors({ ...newErrors, caseNo: true });
+        Swal.fire({
+            title: 'Invalid Format',
+            text: t('invalid_case_format'),
+            icon: 'error',
+            confirmButtonColor: '#d33'
+        });
+        return;
+    }
+
+    // CONFIRMATION BEFORE SAVING
+    Swal.fire({
+        title: t('confirm_blacklist_title') || 'Add to Blacklist?',
+        text: t('confirm_blacklist_text') || 'Are you sure you want to blacklist this resident?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#d33',
+        confirmButtonText: t('yes_add') || 'Yes',
+        cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
+            const newEntry = { 
+                id: Date.now(), 
+                caseNo: form.caseNo, 
+                resident: form.resident, 
+                contact: form.contact || '0912-345-6789', 
+                type: 'LUPON', 
+                status: 'BLACKLISTED',
+                reason: form.reason || 'Repeated Case Violation', 
+                date: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-')
+            };
+
+            allCases.unshift(newEntry);
+            updateGlobalStorage(allCases);
+            setForm({ resident: '', contact: '', caseNo: '', reason: '' });
+            setErrors({});
+            setShowAddModal(false);
+            Swal.fire({ icon: 'success', title: t('swal_resident_blacklisted'), text: `${newEntry.resident} ${t('swal_added')}`, confirmButtonColor: '#2563eb' });
+        }
+    });
+  };
+
+  const handleCloseAddModal = () => {
+    if (form.resident || form.caseNo || form.reason) {
+        Swal.fire({
+            title: t('discard_changes') || 'Discard Changes?',
+            text: t('unsaved_lost') || 'Any unsaved changes will be lost.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: t('yes_discard') || 'Yes',
+            cancelButtonText: t('cancel') || 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                setForm({ resident: '', contact: '', caseNo: '', reason: '' });
+                setErrors({});
+                setShowAddModal(false);
+            }
+        });
+    } else {
+        setErrors({});
+        setShowAddModal(false);
+    }
   };
 
   const handleRemove = (row) => {
@@ -88,7 +174,7 @@ export default function Blacklisted() {
         confirmButtonColor: '#10b981',
         cancelButtonColor: '#d33',
         confirmButtonText: t('swal_yes_lift'),
-        cancelButtonText: t('cancel')
+        cancelButtonText: t('cancel') || 'Cancel'
     }).then((result) => {
         if (result.isConfirmed) {
             const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
@@ -300,14 +386,46 @@ export default function Blacklisted() {
 
         {/* ADD MODAL */}
         {showAddModal && (
-          <ModalCard title={t('blacklist_entry')} onClose={() => setShowAddModal(false)}>
+          <ModalCard title={t('blacklist_entry')} onClose={handleCloseAddModal}>
             <form onSubmit={handleAddSubmit} className="space-y-4 text-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid grid-cols-1 gap-4">
-                <label className="flex flex-col gap-1"><span className="text-xs font-bold text-gray-500 uppercase">{t('resident_name')}</span><input type="text" className="rounded-lg border bg-gray-50 px-4 py-3 font-bold outline-none focus:border-blue-600" value={form.resident} onChange={(e) => setForm({ ...form, resident: e.target.value })} placeholder={t('full_name')} /></label>
-                <label className="flex flex-col gap-1"><span className="text-xs font-bold text-gray-500 uppercase">{t('case_no')}</span><input type="text" className="rounded-lg border bg-gray-50 px-4 py-3 font-bold outline-none focus:border-blue-600" value={form.caseNo} onChange={(e) => setForm({ ...form, caseNo: e.target.value })} placeholder="XX-166-XX-202X" /></label>
-                <label className="flex flex-col gap-1"><span className="text-xs font-bold text-gray-500 uppercase">{t('reason')}</span><textarea className="rounded-lg border bg-gray-50 px-4 py-3 font-bold outline-none focus:border-blue-600 min-h-[100px]" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder={t('detailed_reason')} /></label>
+                <label className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-gray-500 uppercase">{t('resident_name')}</span>
+                    <input 
+                        type="text" 
+                        name="resident"
+                        className={`rounded-lg border px-4 py-3 font-bold outline-none transition-colors ${errors.resident ? 'border-red-500 bg-red-50 focus:border-red-600' : 'border-gray-300 bg-gray-50 focus:border-blue-600'}`} 
+                        value={form.resident} 
+                        onChange={handleInputChange} 
+                        placeholder={t('full_name')} 
+                    />
+                </label>
+                <label className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-gray-500 uppercase">{t('case_no')}</span>
+                    <input 
+                        type="text" 
+                        name="caseNo"
+                        className={`rounded-lg border px-4 py-3 font-bold outline-none transition-colors ${errors.caseNo ? 'border-red-500 bg-red-50 focus:border-red-600' : 'border-gray-300 bg-gray-50 focus:border-blue-600'}`} 
+                        value={form.caseNo} 
+                        onChange={handleInputChange} 
+                        placeholder="01-166-01-2026" 
+                    />
+                </label>
+                <label className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-gray-500 uppercase">{t('reason')}</span>
+                    <textarea 
+                        name="reason"
+                        className="rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 font-bold outline-none focus:border-blue-600 min-h-[100px] transition-colors" 
+                        value={form.reason} 
+                        onChange={handleInputChange} 
+                        placeholder={t('detailed_reason')} 
+                    />
+                </label>
               </div>
-              <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setShowAddModal(false)} className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100">{t('cancel')}</button><button type="submit" className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-blue-700">{t('add_record')}</button></div>
+              <div className="mt-6 flex justify-end gap-3">
+                  <button type="button" onClick={handleCloseAddModal} className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors">{t('cancel')}</button>
+                  <button type="submit" className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-blue-700 transition-colors">{t('add_record')}</button>
+              </div>
             </form>
           </ModalCard>
         )}

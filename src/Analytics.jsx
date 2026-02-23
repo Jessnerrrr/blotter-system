@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, UserX, Download, User } from 'lucide-react';
+import Swal from 'sweetalert2';
 import { useLanguage } from './LanguageContext'; // TRANSLATION HOOK
 
 // --- MOCK DATA ---
@@ -34,7 +35,44 @@ export default function Analytics() {
   }
 
   const handleOpenPrint = () => setIsPrintModalOpen(true);
-  const handlePrintSubmit = () => window.print();
+  
+  // --- CANCEL CONFIRMATION ---
+  const handleCancelPrint = () => {
+    Swal.fire({
+      title: t('discard_changes') || 'Discard Changes?',
+      text: t('unsaved_lost') || 'Any unsaved changes will be lost.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: t('yes_discard') || 'Yes, discard',
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setIsPrintModalOpen(false);
+      }
+    });
+  };
+
+  // --- PRINT CONFIRMATION ---
+  const handlePrintSubmit = () => {
+    Swal.fire({
+      title: t('confirm_print_title') || 'Print Case Details?',
+      text: t('confirm_print_text') || 'Are you sure you want to print this document?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#0066FF',
+      cancelButtonColor: '#d33',
+      confirmButtonText: t('yes_print') || 'Yes, print it',
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setTimeout(() => {
+            window.print();
+        }, 300);
+      }
+    });
+  };
 
   // --- RENDER PRINT MODAL ---
   const renderPrintModal = () => {
@@ -136,7 +174,7 @@ export default function Analytics() {
                         </div>
 
                         <div className="absolute right-0 bottom-4 flex gap-2 print:hidden z-20">
-                            <button onClick={() => setIsPrintModalOpen(false)} className="px-6 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded shadow-sm hover:bg-gray-50 transition-colors">{t('cancel')}</button>
+                            <button onClick={handleCancelPrint} className="px-6 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded shadow-sm hover:bg-gray-50 transition-colors">{t('cancel')}</button>
                             <button onClick={handlePrintSubmit} className="px-8 py-1.5 bg-[#007bff] text-white text-xs font-bold rounded shadow-sm hover:bg-blue-600 transition-colors uppercase tracking-wide">PRINT</button>
                         </div>
                     </div>
@@ -245,9 +283,11 @@ export default function Analytics() {
                <h3 className="text-xl font-bold text-blue-900 mb-8">{t('case_analytics_category')}</h3>
                <div className="flex items-center justify-center space-x-16">
                  <div 
-                    className="relative w-56 h-56 rounded-full shadow-md border border-gray-200 shrink-0" 
+                    className="relative w-56 h-56 rounded-full shadow-md border border-gray-200 shrink-0 flex items-center justify-center" 
                     style={{ background: 'conic-gradient(#1e40af 0% 35%, #ef4444 35% 55%, #eab308 55% 80%, #22c55e 80% 100%)' }}
                  >
+                     {/* Inner white circle to create Donut chart effect */}
+                     <div className="w-36 h-36 bg-white rounded-full"></div>
                  </div>
                  <div className="space-y-4 w-full max-w-[150px]">
                     <div className="flex items-center justify-between text-sm font-bold text-gray-600">

@@ -9,10 +9,11 @@ const REPORT_TYPE_STYLES = {
   VAWC: 'bg-red-700 text-white',
   BLOTTER: 'bg-yellow-600 text-white',
   COMPLAIN: 'bg-green-700 text-white',
+  MANUAL: 'bg-gray-800 text-white', // Special style for manually added blacklists
 };
 
 export default function Blacklisted() {
-  const { t } = useLanguage(); // INIT TRANSLATOR
+  const { t, language } = useLanguage(); // INIT TRANSLATOR & LANGUAGE STATE
   const [view, setView] = useState('TABLE'); 
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -20,7 +21,7 @@ export default function Blacklisted() {
   const [search, setSearch] = useState('');
   
   const [form, setForm] = useState({ resident: '', contact: '', caseNo: '', reason: '' });
-  const [errors, setErrors] = useState({}); // New state for input error tracking
+  const [errors, setErrors] = useState({}); // Tracking errors for the red borders
 
   // Mock Timeline Events matched with translation keys
   const TIMELINE_EVENTS = [
@@ -32,9 +33,24 @@ export default function Blacklisted() {
 
   useEffect(() => {
     const syncData = () => {
-      const storedCases = JSON.parse(localStorage.getItem('cases') || '[]');
+      // --- AUTO CLEAN GHOST RECORDS ---
+      let storedCases = JSON.parse(localStorage.getItem('cases') || '[]');
+      
+      const cleanedCases = storedCases.filter(c => c.fullData !== undefined);
+      
+      if (cleanedCases.length !== storedCases.length) {
+          localStorage.setItem('cases', JSON.stringify(cleanedCases));
+          storedCases = cleanedCases; 
+      }
+
+      // 1. Get ONLY valid blacklisted cases that originated from CASE LOGS
       const blacklistedOnes = storedCases.filter(c => c.status === 'BLACKLISTED');
-      setRows(blacklistedOnes);
+
+      // 2. Get MANUALLY added blacklisted individuals
+      const manualBlacklisted = JSON.parse(localStorage.getItem('manual_blacklisted') || '[]');
+
+      // Combine both lists for the table and sort newest first
+      setRows([...blacklistedOnes, ...manualBlacklisted].sort((a,b) => b.id - a.id));
     };
 
     syncData();
@@ -52,15 +68,11 @@ export default function Blacklisted() {
     setView('TABLE');
   };
 
-  const updateGlobalStorage = (allCases) => {
-    localStorage.setItem('cases', JSON.stringify(allCases));
-    window.dispatchEvent(new Event('storage'));
-  };
-
   const handleInputChange = (e) => {
       const { name, value } = e.target;
       setForm({ ...form, [name]: value });
-      // Clear error for this field when user starts typing
+      
+      // Clear the red error outline as soon as the user starts typing
       if (errors[name]) {
           setErrors({ ...errors, [name]: false });
       }
@@ -86,57 +98,70 @@ export default function Blacklisted() {
     if (hasError) {
         setErrors(newErrors);
         Swal.fire({
-            title: t('incomplete_fields') || 'Incomplete Fields',
-            text: t('fill_all_required') || 'Please fill out all required fields.',
+            title: language === 'tl' ? 'Kulang na Impormasyon' : 'Incomplete Fields',
+            text: language === 'tl' ? 'Punan ang lahat ng kinakailangang field.' : 'Please fill out all required fields.',
             icon: 'error',
             confirmButtonColor: '#d33'
         });
         return;
     }
 
-    // REGEX VALIDATION: Allow ONLY numbers and hyphens
+    // REGEX VALIDATION: Allow ONLY numbers and hyphens in Case No.
     const caseNoRegex = /^[0-9-]+$/;
     if (!caseNoRegex.test(form.caseNo)) {
         setErrors({ ...newErrors, caseNo: true });
         Swal.fire({
-            title: 'Invalid Format',
-            text: t('invalid_case_format'),
+            title: language === 'tl' ? 'Maling Format' : 'Invalid Format',
+            text: language === 'tl' ? 'Ang Case No. ay dapat maglaman lamang ng mga numero at gitling (hal. 01-166-01-2026).' : 'Case No. must only contain numbers and hyphens (e.g. 01-166-01-2026).',
             icon: 'error',
             confirmButtonColor: '#d33'
         });
         return;
     }
 
-    // CONFIRMATION BEFORE SAVING
+    // CONFIRMATION BEFORE SAVING (Forced Language Check)
     Swal.fire({
-        title: t('confirm_blacklist_title') || 'Add to Blacklist?',
-        text: t('confirm_blacklist_text') || 'Are you sure you want to blacklist this resident?',
+        title: language === 'tl' ? 'Idagdag sa Blacklist?' : 'Add to Blacklist?',
+        text: language === 'tl' ? 'Sigurado ka bang nais mong i-blacklist ang residenteng ito?' : 'Are you sure you want to blacklist this resident?',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#2563eb',
         cancelButtonColor: '#d33',
-        confirmButtonText: t('yes_add') || 'Yes',
-        cancelButtonText: t('cancel') || 'Cancel'
+        confirmButtonText: language === 'tl' ? 'Oo, idagdag' : 'Yes, add record',
+        cancelButtonText: language === 'tl' ? 'Kanselahin' : 'Cancel'
     }).then((result) => {
         if (result.isConfirmed) {
-            const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
+            
+            // SAVE TO 'manual_blacklisted' INSTEAD OF 'cases'
+            const manualBlacklisted = JSON.parse(localStorage.getItem('manual_blacklisted') || '[]');
             const newEntry = { 
                 id: Date.now(), 
                 caseNo: form.caseNo, 
                 resident: form.resident, 
                 contact: form.contact || '0912-345-6789', 
-                type: 'LUPON', 
+                type: 'MANUAL', // Marked as manual
                 status: 'BLACKLISTED',
                 reason: form.reason || 'Repeated Case Violation', 
-                date: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-')
+                date: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
+                isManual: true // Important flag to differentiate it
             };
 
-            allCases.unshift(newEntry);
-            updateGlobalStorage(allCases);
+            manualBlacklisted.unshift(newEntry);
+            localStorage.setItem('manual_blacklisted', JSON.stringify(manualBlacklisted));
+            
+            // Dispatch event so the table updates instantly
+            window.dispatchEvent(new Event('storage')); 
+            
             setForm({ resident: '', contact: '', caseNo: '', reason: '' });
             setErrors({});
             setShowAddModal(false);
-            Swal.fire({ icon: 'success', title: t('swal_resident_blacklisted'), text: `${newEntry.resident} ${t('swal_added')}`, confirmButtonColor: '#2563eb' });
+            
+            Swal.fire({ 
+              icon: 'success', 
+              title: language === 'tl' ? 'Naidagdag!' : 'Added!', 
+              text: language === 'tl' ? `Si ${newEntry.resident} ay na-blacklist.` : `${newEntry.resident} has been blacklisted.`, 
+              confirmButtonColor: '#2563eb' 
+            });
         }
     });
   };
@@ -144,14 +169,14 @@ export default function Blacklisted() {
   const handleCloseAddModal = () => {
     if (form.resident || form.caseNo || form.reason) {
         Swal.fire({
-            title: t('discard_changes') || 'Discard Changes?',
-            text: t('unsaved_lost') || 'Any unsaved changes will be lost.',
+            title: language === 'tl' ? 'Balewalain ang mga pagbabago?' : 'Discard Changes?',
+            text: language === 'tl' ? 'Mawawala ang anumang hindi na-save na pagbabago.' : 'Any unsaved changes will be lost.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
             cancelButtonColor: '#3085d6',
-            confirmButtonText: t('yes_discard') || 'Yes',
-            cancelButtonText: t('cancel') || 'Cancel'
+            confirmButtonText: language === 'tl' ? 'Oo, balewalain' : 'Yes, discard',
+            cancelButtonText: language === 'tl' ? 'Kanselahin' : 'Cancel'
         }).then((result) => {
             if (result.isConfirmed) {
                 setForm({ resident: '', contact: '', caseNo: '', reason: '' });
@@ -167,21 +192,62 @@ export default function Blacklisted() {
 
   const handleRemove = (row) => {
     Swal.fire({
-        title: t('swal_lift_restriction'),
-        text: t('swal_move_archives').replace('{name}', row.resident),
+        title: language === 'tl' ? 'Alisin sa Blacklist?' : 'Lift Restriction?',
+        text: language === 'tl' ? `Ililipat ba si ${row.resident} sa Archives?` : `Move ${row.resident}'s record to Archives?`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#10b981',
         cancelButtonColor: '#d33',
-        confirmButtonText: t('swal_yes_lift'),
-        cancelButtonText: t('cancel') || 'Cancel'
+        confirmButtonText: language === 'tl' ? 'Oo, alisin' : 'Yes, lift restriction',
+        cancelButtonText: language === 'tl' ? 'Kanselahin' : 'Cancel'
     }).then((result) => {
         if (result.isConfirmed) {
-            const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
-            const updatedCases = allCases.map(c => c.id === row.id || c.caseNo === row.caseNo ? { ...c, status: 'SETTLED' } : c);
-            updateGlobalStorage(updatedCases);
+            
+            if (row.isManual) {
+                // 1. Remove from manual_blacklisted
+                const manualBlacklisted = JSON.parse(localStorage.getItem('manual_blacklisted') || '[]');
+                const updatedManual = manualBlacklisted.filter(c => c.id !== row.id);
+                localStorage.setItem('manual_blacklisted', JSON.stringify(updatedManual));
+                
+                // 2. Add to 'cases' as SETTLED so it appears in Archives
+                const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
+                const archivedManualRecord = {
+                    ...row,
+                    status: 'SETTLED',
+                    fullData: {
+                        caseNo: row.caseNo,
+                        dateFiled: row.date,
+                        complainantName: 'Direct Entry',
+                        complainantContact: 'N/A',
+                        complainantAddress: 'N/A',
+                        defendantName: row.resident,
+                        defendantContact: row.contact || 'N/A',
+                        defendantAddress: 'N/A',
+                        incidentDate: row.date,
+                        incidentLocation: 'N/A',
+                        incidentDesc: row.reason || 'Manually added to blacklist, restriction now lifted.',
+                        selectedReportType: 'MANUAL',
+                        selectedRole: 'System'
+                    }
+                };
+                allCases.unshift(archivedManualRecord);
+                localStorage.setItem('cases', JSON.stringify(allCases));
+
+            } else {
+                // If it came from Case Logs originally, just revert its status to SETTLED
+                const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
+                const updatedCases = allCases.map(c => c.id === row.id || c.caseNo === row.caseNo ? { ...c, status: 'SETTLED' } : c);
+                localStorage.setItem('cases', JSON.stringify(updatedCases));
+            }
+
+            window.dispatchEvent(new Event('storage'));
             if(view === 'DETAILS') setView('TABLE');
-            Swal.fire(t('swal_restriction_lifted'), t('swal_record_moved'), 'success');
+            
+            Swal.fire(
+              language === 'tl' ? 'Naalis na!' : 'Restriction Lifted!', 
+              language === 'tl' ? 'Ang record ay inilipat sa Archives.' : 'Record moved to Archives.', 
+              'success'
+            );
         }
     });
   };
@@ -210,7 +276,7 @@ export default function Blacklisted() {
                     <div className="w-24 h-24 rounded-full bg-gray-200 shrink-0"></div>
                     <div>
                         <h2 className="text-2xl font-bold text-[#0044CC]">{selected.resident}</h2>
-                        <p className="text-sm text-gray-600 font-medium mt-1">{t('resident_id')}: 01-166-2026</p>
+                        <p className="text-sm text-gray-600 font-medium mt-1">{t('resident_id')}: {selected.caseNo}</p>
                         <div className="mt-3">
                             <span className="bg-black text-white text-[10px] font-bold px-4 py-1.5 rounded-full uppercase tracking-wide">
                                 {t('blacklisted')}
@@ -256,7 +322,7 @@ export default function Blacklisted() {
                         </div>
                         <div>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('case_type')}</p>
-                            <p className="text-sm font-bold text-gray-900 font-sans capitalize">Lupon</p>
+                            <p className="text-sm font-bold text-gray-900 font-sans capitalize">{selected.type === 'MANUAL' ? 'Direct Entry' : selected.type}</p>
                         </div>
                         <div>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_blacklisted')}</p>
@@ -386,22 +452,22 @@ export default function Blacklisted() {
 
         {/* ADD MODAL */}
         {showAddModal && (
-          <ModalCard title={t('blacklist_entry')} onClose={handleCloseAddModal}>
+          <ModalCard title={t('blacklist_entry') || 'Blacklist Entry'} onClose={handleCloseAddModal}>
             <form onSubmit={handleAddSubmit} className="space-y-4 text-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid grid-cols-1 gap-4">
                 <label className="flex flex-col gap-1">
-                    <span className="text-xs font-bold text-gray-500 uppercase">{t('resident_name')}</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase">{t('resident_name') || 'RESIDENT NAME'}</span>
                     <input 
                         type="text" 
                         name="resident"
                         className={`rounded-lg border px-4 py-3 font-bold outline-none transition-colors ${errors.resident ? 'border-red-500 bg-red-50 focus:border-red-600' : 'border-gray-300 bg-gray-50 focus:border-blue-600'}`} 
                         value={form.resident} 
                         onChange={handleInputChange} 
-                        placeholder={t('full_name')} 
+                        placeholder={t('full_name') || 'Full Name'} 
                     />
                 </label>
                 <label className="flex flex-col gap-1">
-                    <span className="text-xs font-bold text-gray-500 uppercase">{t('case_no')}</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase">{t('case_no') || 'CASE NO.'}</span>
                     <input 
                         type="text" 
                         name="caseNo"
@@ -412,19 +478,19 @@ export default function Blacklisted() {
                     />
                 </label>
                 <label className="flex flex-col gap-1">
-                    <span className="text-xs font-bold text-gray-500 uppercase">{t('reason')}</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase">{t('reason') || 'REASON'}</span>
                     <textarea 
                         name="reason"
                         className="rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 font-bold outline-none focus:border-blue-600 min-h-[100px] transition-colors" 
                         value={form.reason} 
                         onChange={handleInputChange} 
-                        placeholder={t('detailed_reason')} 
+                        placeholder={t('detailed_reason') || 'Detailed reason...'} 
                     />
                 </label>
               </div>
               <div className="mt-6 flex justify-end gap-3">
-                  <button type="button" onClick={handleCloseAddModal} className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors">{t('cancel')}</button>
-                  <button type="submit" className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-blue-700 transition-colors">{t('add_record')}</button>
+                  <button type="button" onClick={handleCloseAddModal} className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors">{t('cancel') || 'Cancel'}</button>
+                  <button type="submit" className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-blue-700 transition-colors">{t('add_record') || 'Add Record'}</button>
               </div>
             </form>
           </ModalCard>

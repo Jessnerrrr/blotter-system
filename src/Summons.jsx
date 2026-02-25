@@ -5,31 +5,6 @@ import { useLanguage } from './LanguageContext'; // TRANSLATION HOOK
 
 const gradientBgClass = "bg-gradient-to-r from-[#0066FF] to-[#0099FF]";
 
-const initialSummonsData = [
-  {
-    caseNo: '06-166-02-2026',
-    residentName: 'Jade',
-    complainantName: 'Diesta MARIA',
-    summonDate: '2026-02-25',
-    summonTime: '10:00',
-    summonType: '1',
-    summonReason: 'Initial hearing regarding the reported disturbance.',
-    notedBy: 'Lupon Head',
-    status: 'Pending'
-  },
-  {
-    caseNo: '02-166-05-2025',
-    residentName: 'Santos, Maria',
-    complainantName: 'Santos, Jose',
-    summonDate: '2025-05-25',
-    summonTime: '14:00',
-    summonType: '2',
-    summonReason: 'Second notice due to failure to appear in the first schedule.',
-    notedBy: 'Lupon Tagapamayapa',
-    status: 'Pending'
-  }
-];
-
 export default function Summons() {
   const { t } = useLanguage(); 
   const [summonsList, setSummonsList] = useState([]);
@@ -52,30 +27,44 @@ export default function Summons() {
   const editorRef = useRef(null);
   const [savedSummaryHtml, setSavedSummaryHtml] = useState('');
 
-  // --- LOAD DATA & NORMALIZE STATUS ---
+  // --- LOAD DATA & AUTO-CLEAN ORPHANED SUMMONS ---
   useEffect(() => {
-    let rawDataStr = localStorage.getItem('summons');
-    const casesDataStr = localStorage.getItem('cases');
-    const allCases = casesDataStr ? JSON.parse(casesDataStr) : [];
-    
-    if (!rawDataStr || rawDataStr === '[]') {
-        localStorage.setItem('summons', JSON.stringify(initialSummonsData));
-        rawDataStr = JSON.stringify(initialSummonsData);
-    }
+    const loadData = () => {
+      let rawDataStr = localStorage.getItem('summons') || '[]';
+      const casesDataStr = localStorage.getItem('cases') || '[]';
+      const allCases = JSON.parse(casesDataStr);
 
-    let rawData = JSON.parse(rawDataStr);
+      let rawData = JSON.parse(rawDataStr);
 
-    const normalizedData = rawData.map(item => {
-        let status = item.status || 'Pending';
-        if (status === 'Active' || status === 'PENDING') status = 'Pending';
-        
-        const matchedCase = allCases.find(c => c.caseNo === item.caseNo);
-        const complainantName = matchedCase ? matchedCase.complainantName : (item.complainantName || item.residentName || 'N/A');
+      // --- AUTO-CLEAN GHOST FOLDERS ---
+      // This checks every summon to ensure its parent case still exists!
+      // If you deleted a case, its summons will be permanently wiped out here.
+      const validSummons = rawData.filter(summon => 
+          allCases.some(c => c.caseNo === summon.caseNo)
+      );
 
-        return { ...item, status, complainantName };
-    });
-    
-    setSummonsList(normalizedData);
+      // If we found and removed orphaned folders, update the database immediately
+      if (validSummons.length !== rawData.length) {
+          localStorage.setItem('summons', JSON.stringify(validSummons));
+          rawData = validSummons;
+      }
+
+      const normalizedData = rawData.map(item => {
+          let status = item.status || 'Pending';
+          if (status === 'Active' || status === 'PENDING') status = 'Pending';
+          
+          const matchedCase = allCases.find(c => c.caseNo === item.caseNo);
+          const complainantName = matchedCase ? matchedCase.complainantName : (item.complainantName || item.residentName || 'N/A');
+
+          return { ...item, status, complainantName };
+      });
+      
+      setSummonsList(normalizedData);
+    };
+
+    loadData();
+    window.addEventListener('storage', loadData);
+    return () => window.removeEventListener('storage', loadData);
   }, []);
 
   const uniqueCases = Object.values(summonsList.reduce((acc, current) => {
@@ -254,7 +243,8 @@ export default function Summons() {
     localStorage.setItem('cases', JSON.stringify(updatedCases));
     window.dispatchEvent(new Event('storage'));
 
-    setPreviewModal({ ...previewModal, data: { ...previewModal.data, status: newStatus }});
+    // --- FIX: This automatically closes the Preview Modal and goes back to the page ---
+    setPreviewModal({ isOpen: false, data: null });
     setPreviewEditing(false);
 
     Swal.fire({
@@ -431,8 +421,6 @@ export default function Summons() {
                     <button onMouseDown={(e) => applyCommand(e, 'italic')} className="hover:text-[#0066FF] p-1 rounded" title="Italic"><Italic size={18} /></button>
                     <button onMouseDown={(e) => applyCommand(e, 'underline')} className="hover:text-[#0066FF] p-1 rounded" title="Underline"><Underline size={18} /></button>
                     <div className="h-5 w-px bg-gray-300 mx-2"></div>
-                    <button onMouseDown={handleInsertLink} className="hover:text-[#0066FF] p-1 rounded" title="Insert Link"><Link size={18} /></button>
-                    <button onMouseDown={handleInsertTime} className="hover:text-[#0066FF] p-1 rounded" title="Insert Time"><Clock size={18} /></button>
                  </div>
                  <div className="relative flex-1 bg-white cursor-text" onClick={() => editorRef.current?.focus()}>
                     <div ref={editorRef} contentEditable className="w-full h-full p-6 text-lg text-gray-700 focus:outline-none overflow-y-auto" style={{ minHeight: '100%' }} />

@@ -3,17 +3,6 @@ import Swal from 'sweetalert2';
 import { useLanguage } from './LanguageContext';
 import { Plus, Folder, MoreVertical, X, Calendar, Clock, Eye, Trash2, ChevronLeft, Link as LinkIcon, Image as ImageIcon, Edit } from 'lucide-react';
 
-// --- DATA MATCHING CASE LOGS ---
-const initialCurfewRows = [
-  { id: '01', resident: 'Reyes, Timothy G.', address: '166, Caybiga', age: '17', status: 'Unsettled', date: '2025-10-20', time: '10:30 PM' },
-  { id: '02', resident: 'Dela Cruz, Juan', address: '166, Caybiga', age: '16', status: 'Unsettled', date: '2025-10-21', time: '11:00 PM' },
-];
-
-const MOCK_FOLDERS = [
-  { id: '1', residentId: '01', name: 'CURFEW 1', date: '2026-02-23', time: '04:51 PM', notes: 'First warning issued.' },
-  { id: '2', residentId: '01', name: 'CURFEW 2', date: '2026-02-24', time: '08:00 PM', notes: 'Parent conference held.' },
-];
-
 const DEFAULT_OVERVIEW = "The present case arises from the alleged violation of the city/state-imposed curfew, intended to maintain public safety and order. The petitioner contends that the respondent breached the curfew restrictions, thereby potentially endangering community welfare. The matter requires judicial consideration to determine whether the respondent's actions constitute a lawful exception or a contravention of the established curfew regulations.";
 
 function ensureHtml(text) {
@@ -55,11 +44,36 @@ const SuccessAlert = ({ message, onClose }) => {
 export default function CurfewLogs() {
   const { t } = useLanguage();
   const [view, setView] = useState('LIST'); 
-  const [rows, setRows] = useState(initialCurfewRows);
   const [selectedResident, setSelectedResident] = useState(null);
   
-  // Folders State
-  const [folders, setFolders] = useState(MOCK_FOLDERS);
+  // --- GLOBALLY SYNCED STATE ---
+  const [rows, setRows] = useState(() => {
+    const saved = localStorage.getItem('curfew_violations');
+    if (saved && saved !== '[]') {
+      return JSON.parse(saved);
+    }
+    return []; // No mock data! Start empty.
+  });
+
+  const [folders, setFolders] = useState(() => {
+    const saved = localStorage.getItem('curfew_folders');
+    if (saved && saved !== '[]') {
+      return JSON.parse(saved);
+    }
+    return []; // No mock data! Start empty.
+  });
+
+  // Sync to LocalStorage and trigger Analytics updates whenever rows or folders change
+  useEffect(() => {
+    localStorage.setItem('curfew_violations', JSON.stringify(rows));
+    window.dispatchEvent(new Event('storage')); // Triggers update in Analytics
+  }, [rows]);
+
+  useEffect(() => {
+    localStorage.setItem('curfew_folders', JSON.stringify(folders));
+    window.dispatchEvent(new Event('storage')); // Triggers update in Analytics
+  }, [folders]);
+
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [folderActionDropdown, setFolderActionDropdown] = useState(null);
   
@@ -78,7 +92,7 @@ export default function CurfewLogs() {
   const [isEditingOverview, setIsEditingOverview] = useState(false);
   const [overviewHtml, setOverviewHtml] = useState(() => ensureHtml(DEFAULT_OVERVIEW));
   const [draftOverviewHtml, setDraftOverviewHtml] = useState(() => ensureHtml(DEFAULT_OVERVIEW));
-  const [overviewDate, setOverviewDate] = useState('2026-10-30');
+  const [overviewDate, setOverviewDate] = useState('');
   const [formatActive, setFormatActive] = useState({ bold: false, italic: false, underline: false });
 
   const editorRef = useRef(null);
@@ -219,6 +233,13 @@ export default function CurfewLogs() {
     }).then((result) => {
       if (result.isConfirmed) {
         setOverviewHtml(draftOverviewHtml);
+        
+        // Update the notes in the specific folder
+        const updatedFolders = folders.map(f => 
+          f.id === selectedFolder.id ? { ...f, notes: draftOverviewHtml } : f
+        );
+        setFolders(updatedFolders);
+        
         setIsEditingOverview(false);
         triggerAlert(t('case_overview_saved'));
       }
@@ -272,14 +293,23 @@ export default function CurfewLogs() {
       cancelButtonText: t('cancel')
     }).then((result) => {
       if (result.isConfirmed) {
-        const newId = String(rows.length + 1).padStart(2, '0');
-        setRows([...rows, { 
+        // Find highest ID
+        let maxId = 0;
+        rows.forEach(r => {
+            const num = parseInt(r.id, 10);
+            if (!isNaN(num) && num > maxId) maxId = num;
+        });
+        const newId = String(maxId + 1).padStart(2, '0');
+
+        const newRecord = { 
             id: newId, 
             ...curfewForm, 
             time: currentDateTime.time, 
-            date: currentDateTime.rawDate,
+            date: currentDateTime.rawDate, // Using standardized ISO date format
             status: 'Unsettled' 
-        }]);
+        };
+
+        setRows([newRecord, ...rows]); // Add to top of list
         setCurfewForm({ resident: '', address: '', age: '' });
         setShowAddCurfewModal(false);
         Swal.fire('Added!', `${t('swal_added')} ${curfewForm.resident}`, 'success');
@@ -321,12 +351,15 @@ export default function CurfewLogs() {
             confirmButtonText: t('swal_yes_lift') || 'Yes, Settle it'
         }).then((result) => {
             if (result.isConfirmed) {
-                setRows(rows.filter(r => r.id !== id));
+                // Update status to Settled (Archived), keep it in data for analytics but you can filter it out of active list if you want
+                const updatedRows = rows.map(r => r.id === id ? { ...r, status: 'Settled' } : r);
+                setRows(updatedRows);
                 Swal.fire(t('swal_restriction_lifted') || 'Archived!', t('swal_record_moved') || 'Moved to Archives.', 'success');
             }
         });
     } else {
-        setRows(rows.map(r => r.id === id ? { ...r, status: newStatus } : r));
+        const updatedRows = rows.map(r => r.id === id ? { ...r, status: newStatus } : r);
+        setRows(updatedRows);
     }
   };
 
@@ -431,6 +464,8 @@ export default function CurfewLogs() {
   };
 
   const residentFolders = folders.filter(f => f.residentId === (selectedResident?.id || ''));
+  // Optionally filter out 'Settled' records from the main view if they are considered "Archived"
+  const activeRows = rows.filter(r => r.status !== 'Settled');
 
   return (
     <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={handlePageClick}>
@@ -467,7 +502,7 @@ export default function CurfewLogs() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {rows.map((row) => (
+                  {activeRows.length > 0 ? activeRows.map((row) => (
                     <tr key={row.id} onClick={() => { setSelectedResident(row); setView('FOLDERS'); }} className="cursor-pointer hover:bg-blue-50/50 transition-colors group">
                       <td className="px-6 py-5 text-center text-sm font-bold text-[#2563eb]">{row.id}</td>
                       <td className="px-6 py-5 font-bold text-gray-800">{row.resident}</td>
@@ -488,7 +523,11 @@ export default function CurfewLogs() {
                         )}
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-12 text-center text-gray-400 font-medium">No active curfew records found.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

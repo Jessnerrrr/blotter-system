@@ -32,7 +32,15 @@ export default function CaseLogs() {
   const [cases, setCases] = useState(() => {
     const saved = localStorage.getItem('cases');
     if (saved) {
-      const parsedData = JSON.parse(saved);
+      let parsedData = JSON.parse(saved);
+      
+      // --- LOGIC FIX: AUTO-CLEAN GHOST RECORDS ---
+      const cleanedData = parsedData.filter(c => c.fullData !== undefined);
+      if (cleanedData.length !== parsedData.length) {
+        localStorage.setItem('cases', JSON.stringify(cleanedData));
+        parsedData = cleanedData;
+      }
+
       const hasOldMockData = parsedData.some(c => c.caseNo === '01-166-01-2025' || c.resident === 'Dela Cruz, Juan');
       
       if (hasOldMockData) {
@@ -105,9 +113,12 @@ export default function CaseLogs() {
   const handleContinueToForm = () => {
     let maxControlNum = 0;
     cases.forEach(c => {
-        const parts = c.caseNo.split('-');
-        const num = parseInt(parts[0], 10);
-        if (!isNaN(num) && num > maxControlNum) maxControlNum = num;
+        // --- LOGIC FIX: Ignore malformed manual entries when calculating next number ---
+        if (c.caseNo && c.caseNo.includes('-166-')) {
+            const parts = c.caseNo.split('-');
+            const num = parseInt(parts[0], 10);
+            if (!isNaN(num) && num > maxControlNum) maxControlNum = num;
+        }
     });
     const nextControlNum = String(maxControlNum + 1).padStart(2, '0');
     const now = new Date();
@@ -197,7 +208,6 @@ export default function CaseLogs() {
     document.execCommand('insertText', false, `${now} `);
   };
 
-  // --- SWAL CONFIRMATION CANCEL FOR MODERATOR ---
   const handleCancelModerator = () => {
     Swal.fire({
       title: t('discard_changes') || 'Discard Changes?',
@@ -215,7 +225,6 @@ export default function CaseLogs() {
     });
   };
 
-  // --- SWAL CONFIRMATION FOR BACK TO LIST ---
   const handleBackToListFromOverview = () => {
     Swal.fire({
       title: t('back_to_list') + '?',
@@ -233,7 +242,6 @@ export default function CaseLogs() {
     });
   };
 
-  // --- SWAL CONFIRMATION FOR PRINT ---
   const handlePrintOverview = () => {
     Swal.fire({
       title: t('confirm_print_title') || 'Print Case Details?',
@@ -246,8 +254,6 @@ export default function CaseLogs() {
       cancelButtonText: t('cancel') || 'Cancel'
     }).then((result) => {
       if (result.isConfirmed) {
-        // We use a small timeout to let the Swal modal finish its closing animation 
-        // before launching the print window, avoiding capturing the modal overlay!
         setTimeout(() => {
             window.print();
         }, 300);
@@ -255,7 +261,6 @@ export default function CaseLogs() {
     });
   };
 
-  // --- SWAL CONFIRMATION CANCEL FOR SUMMONS ---
   const handleCancelSummon = () => {
     const currentReason = editorRef.current ? editorRef.current.innerHTML : '';
     

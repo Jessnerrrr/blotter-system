@@ -675,20 +675,7 @@ export default function CurfewLogs() {
                                 </h3>
 
                                 <div className="border border-gray-300 rounded-lg overflow-hidden focus-within:border-blue-600 transition-colors">
-                                    {/* Editor content area first */}
-                                    <div
-                                        ref={editorRef}
-                                        contentEditable
-                                        suppressContentEditableWarning
-                                        onInput={syncContent}
-                                        onKeyUp={updateFormatState}
-                                        onMouseUp={updateFormatState}
-                                        data-placeholder={t('type_overview_here')}
-                                        className="min-h-[14rem] w-full p-4 text-sm outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
-                                    />
-                                    
-                                    {/* Toolbar moved to the bottom */}
-                                    <div className="bg-gray-50 border-t border-gray-200 px-4 py-2 flex items-center gap-1 text-gray-500">
+                                    <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center gap-1 text-gray-500">
                                         <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat('bold')} className={`rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors ${formatActive.bold ? 'bg-gray-200 text-blue-600' : ''}`} title="Bold">
                                             <span className="font-bold font-serif text-lg leading-none px-1">B</span>
                                         </button>
@@ -709,6 +696,17 @@ export default function CurfewLogs() {
                                     
                                     <input ref={fileInputLinkRef} type="file" className="hidden" accept="*/*" onChange={handleLinkFileSelect} />
                                     <input ref={fileInputImageRef} type="file" className="hidden" accept="image/*" onChange={handleImageFileSelect} />
+
+                                    <div
+                                        ref={editorRef}
+                                        contentEditable
+                                        suppressContentEditableWarning
+                                        onInput={syncContent}
+                                        onKeyUp={updateFormatState}
+                                        onMouseUp={updateFormatState}
+                                        data-placeholder={t('type_overview_here')}
+                                        className="min-h-[14rem] w-full p-4 text-sm outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
+                                    />
                                 </div>
 
                                 <div className="flex justify-end gap-3 pt-4">

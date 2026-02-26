@@ -481,8 +481,8 @@ export default function Summons() {
                 <h2 className="text-4xl font-bold text-[#0066FF] tracking-wide uppercase">{t('summon_overview')}</h2>
              </div>
              <div className="flex space-x-4">
-                <div className="rounded-md bg-blue-700 px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-white shadow-sm">{t('case_no')} : {selectedCase.caseNo}</div>
-                <div className="rounded-md bg-blue-700 px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-white shadow-sm">{t('complainant_name')} : {selectedCase.complainantName}</div>
+                <div className={`${gradientBgClass} text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide shadow-md`}>{t('case_no')} : {selectedCase.caseNo}</div>
+                <div className={`${gradientBgClass} text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide shadow-md opacity-90`}>{t('complainant_name')} : {selectedCase.complainantName}</div>
              </div>
           </div>
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-8 mb-10 shadow-sm relative">
@@ -490,14 +490,18 @@ export default function Summons() {
             <p className="text-gray-700 text-lg leading-relaxed font-medium">{selectedSummon.summonReason || "No reason provided."}</p>
           </div>
           <div className="relative">
-            <div className="flex items-center justify-between rounded-t-2xl bg-[#2563eb] px-8 py-6 text-white shadow-md shrink-0">
-              <h1 className="text-2xl font-bold uppercase tracking-wide">{t('case_folders')}</h1>
-               <button onClick={handleAddNote} className="flex items-center gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-5 py-2.5 text-sm font-bold shadow hover:bg-white/30 transition-all">
-                  {t('add_case_notes')}
+            <div className="flex items-end mb-0 w-full filter drop-shadow-md">
+               <div className={`${gradientBgClass} text-white py-6 pl-12 pr-20 flex-1 relative z-10 h-[80px] flex items-center`} style={{ clipPath: 'polygon(0 0, calc(100% - 40px) 0, 100% 100%, 0% 100%)', borderTopLeftRadius: '1.5rem' }}>
+                   <h3 className="text-3xl font-bold tracking-wide uppercase">{t('case_folders')}</h3>
+               </div>
+               <button onClick={handleAddNote} className={`${gradientBgClass} text-white py-6 pl-16 pr-10 flex items-center hover:brightness-110 transition-all active:scale-95 h-[80px] -ml-2`} style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 40px 100%)', borderTopRightRadius: '1.5rem' }}>
+                  <div className="relative w-9 h-10 mr-4 flex items-center justify-center">
+                    <div className="absolute w-7 h-8 bg-white/30 rounded-[3px] rotate-6"></div>
+                    <div className="absolute w-7 h-8 bg-white rounded-[3px] flex items-center justify-center shadow-sm z-10"><Plus className="text-[#0066FF]" size={20} strokeWidth={4} /></div>
+                  </div>
+                  <span className="text-xl font-bold pt-1 whitespace-nowrap">{t('add_case_notes')}</span>
                </button>
             </div>
-
-
             <div className="bg-white rounded-b-2xl shadow-xl border border-gray-200 relative pb-24 z-0 mt-[-1px]">
               <div className="divide-y divide-gray-100">
                 {caseNotes.map((num) => (

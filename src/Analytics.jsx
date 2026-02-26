@@ -57,7 +57,7 @@ export default function Analytics() {
   const [hoveredBar, setHoveredBar] = useState(null);
   const [hoveredPieSegment, setHoveredPieSegment] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const [tooltipContent, setTooltipContent] = useState(null);
+  const [tooltipContent, setTooltipContent] = useState('');
   
   const [tick, setTick] = useState(0);
   const [casesData, setCasesData] = useState([]);
@@ -82,12 +82,14 @@ export default function Analytics() {
       let historyChanged = false;
 
       // --- LOGICAL FIX: HISTORY AUTO-CLEANER ---
+      // This wipes out any old ghost records (like the 111111111112 bug) stuck in history
       const originalHistoryLength = history.length;
       history = history.filter(h => !h.title.includes('11111'));
       if (history.length !== originalHistoryLength) {
           historyChanged = true;
       }
 
+      // Track last seen states to detect exact changes
       const lastSeenCases = JSON.parse(localStorage.getItem('analytics_seen_cases') || '{}');
       const lastSeenSummons = JSON.parse(localStorage.getItem('analytics_seen_summons') || '{}');
       const lastSeenCurfews = JSON.parse(localStorage.getItem('analytics_seen_curfews') || '{}');
@@ -103,6 +105,7 @@ export default function Analytics() {
           currentSeenCases[c.caseNo] = c.status;
 
           if (!lastSeenCases[c.caseNo]) {
+              // Brand new case discovered
               history.push({
                   id: `case_new_${c.caseNo}_${Date.now()}_${Math.random()}`,
                   title: `${c.caseNo} - NEW CASE LOGGED`,
@@ -112,6 +115,7 @@ export default function Analytics() {
               });
               historyChanged = true;
           } else if (lastSeenCases[c.caseNo] !== c.status) {
+              // Status changed! Push a brand new activity bar on top
               let actionLabel = `CASE ${c.status}`;
               if (c.status === 'SETTLED') actionLabel = 'CASE SETTLED & ARCHIVED';
 
@@ -120,7 +124,7 @@ export default function Analytics() {
                   title: `${c.caseNo} - ${actionLabel}`,
                   actionText: `Status updated from ${lastSeenCases[c.caseNo]} to ${c.status}`,
                   editor: c.fullData?.selectedRole || 'System',
-                  timestamp: Date.now()
+                  timestamp: Date.now() // Uses the exact moment it was changed
               });
               historyChanged = true;
           }
@@ -137,7 +141,7 @@ export default function Analytics() {
                   title: `${s.caseNo} - SUMMON NO. ${s.summonType} ISSUED`,
                   actionText: `Assigned to ${s.residentName}`,
                   editor: s.notedBy || 'System',
-                  timestamp: s.id || Date.now()
+                  timestamp: s.id || Date.now() // Uses EXACT creation time, not future scheduled time
               });
               historyChanged = true;
           }
@@ -183,6 +187,7 @@ export default function Analytics() {
           }
       });
 
+      // Save tracking states so we don't duplicate them next reload
       localStorage.setItem('analytics_seen_cases', JSON.stringify(currentSeenCases));
       localStorage.setItem('analytics_seen_summons', JSON.stringify(currentSeenSummons));
       localStorage.setItem('analytics_seen_curfews', JSON.stringify(currentSeenCurfews));
@@ -192,8 +197,9 @@ export default function Analytics() {
           localStorage.setItem('activity_history', JSON.stringify(history));
       }
 
+      // Sort perfectly by timestamp (newest on top)
       history.sort((a, b) => b.timestamp - a.timestamp);
-      setRecentActivities(history.slice(0, 7));
+      setRecentActivities(history.slice(0, 7)); // Only show the latest 7 to avoid clutter
     };
 
     loadAllData();
@@ -245,60 +251,20 @@ export default function Analytics() {
   };
 
   const handleMouseMove = (event) => setTooltipPosition({ x: event.clientX, y: event.clientY });
-
-  // Compute total cases per category from real casesData
-  const getCategoryTotal = (category) => {
-    const map = { LUPON: 'LUPON', VAWC: 'VAWC', BLOTTER: 'BLOTTER', COMPLAIN: 'COMPLAINT' };
-    const key = map[category] || category;
-    const count = casesData.filter(c => c.caseType && c.caseType.toUpperCase().includes(key)).length;
-    return count > 0 ? count : BAR_DATA.reduce((sum, m) => sum + (m[category] || 0), 0);
-  };
-
-  // Returns per-user case counts for a given category
-  const getCasesPerUser = (category) => {
-    const map = { LUPON: 'LUPON', VAWC: 'VAWC', BLOTTER: 'BLOTTER', COMPLAIN: 'COMPLAINT' };
-    const key = map[category] || category;
-    const filtered = casesData.filter(c => c.caseType && c.caseType.toUpperCase().includes(key));
-
-    if (filtered.length === 0) {
-      // Fallback mock users when no real data
-      return [
-        { user: 'Admin', count: Math.round(BAR_DATA.reduce((s, m) => s + (m[category] || 0), 0) * 0.5) },
-        { user: 'Secretary', count: Math.round(BAR_DATA.reduce((s, m) => s + (m[category] || 0), 0) * 0.3) },
-        { user: 'Officer', count: Math.round(BAR_DATA.reduce((s, m) => s + (m[category] || 0), 0) * 0.2) },
-      ];
-    }
-
-    const userMap = {};
-    filtered.forEach(c => {
-      const user = c.fullData?.selectedRole || c.createdBy || 'Unknown';
-      userMap[user] = (userMap[user] || 0) + 1;
-    });
-    return Object.entries(userMap)
-      .map(([user, count]) => ({ user, count }))
-      .sort((a, b) => b.count - a.count);
-  };
-
   const handleBarHover = (monthIndex, category, percentage, event) => {
-    const total = getCategoryTotal(category);
-    const usersBreakdown = getCasesPerUser(category);
     setHoveredBar({ month: BAR_DATA[monthIndex].month, category, percentage });
-    setTooltipContent({ month: BAR_DATA[monthIndex].month, category, percentage, total, usersBreakdown });
+    setTooltipContent(`${BAR_DATA[monthIndex].month} - ${category}: ${percentage}%`);
     setTooltipPosition({ x: event.clientX, y: event.clientY });
   };
-
   const handlePieHover = (segment, event) => {
-    const total = getCategoryTotal(segment.label);
-    const usersBreakdown = getCasesPerUser(segment.label);
     setHoveredPieSegment(segment);
-    setTooltipContent({ label: segment.label, percentage: segment.percentage, total, usersBreakdown });
+    setTooltipContent(`${segment.label}: ${segment.percentage}%`);
     setTooltipPosition({ x: event.clientX, y: event.clientY });
   };
-
   const handleMouseLeave = () => {
     setHoveredBar(null);
     setHoveredPieSegment(null);
-    setTooltipContent(null);
+    setTooltipContent('');
   };
 
   const SVG_SIZE = 200;
@@ -392,44 +358,6 @@ export default function Analytics() {
     );
   };
 
-  // Tooltip component
-  const renderTooltip = () => {
-    if (!tooltipContent) return null;
-    const isBar = !!tooltipContent.month;
-    return (
-      <div
-        className="fixed z-[9999] pointer-events-none"
-        style={{ left: tooltipPosition.x + 16, top: tooltipPosition.y - 20 }}
-      >
-        <div
-          className="bg-gray-900 text-white rounded-xl shadow-2xl px-4 py-3 min-w-[190px]"
-          style={{ border: '1px solid rgba(255,255,255,0.12)' }}
-        >
-          {/* Header */}
-          {isBar ? (
-            <>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">{tooltipContent.month}</p>
-              <p className="text-sm font-extrabold text-white">{tooltipContent.category}</p>
-            </>
-          ) : (
-            <p className="text-sm font-extrabold text-white">{tooltipContent.label}</p>
-          )}
-
-          {/* Divider */}
-          <div className="border-t border-white/10 my-2" />
-
-          {/* Total */}
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] text-gray-400 font-semibold">Total Cases</span>
-            <span className="text-base font-black text-yellow-400">{tooltipContent.total}</span>
-          </div>
-
- 
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 p-8 font-sans">
       <style>{`
@@ -441,7 +369,14 @@ export default function Analytics() {
         }
       `}</style>
       {renderPrintModal()}
-      {renderTooltip()}
+      
+      {tooltipContent && (
+        <div className="fixed z-[9999] bg-gray-900 text-white text-xs rounded py-1.5 px-3 pointer-events-none shadow-lg"
+          style={{ left: tooltipPosition.x + 15, top: tooltipPosition.y - 30, transform: 'translate(0, 0)', transition: 'left 0.05s ease, top 0.05s ease', maxWidth: '200px', whiteSpace: 'nowrap' }}>
+          {tooltipContent}
+          <div className="absolute w-2 h-2 bg-gray-900 transform rotate-45" style={{ left: '10px', bottom: '-4px' }}></div>
+        </div>
+      )}
 
       <div className="max-w-[1600px] mx-auto space-y-8">
         
@@ -462,7 +397,6 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* Bar Chart */}
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start mb-8">
             <div><h3 className="text-2xl font-bold text-blue-900">{t('total_cases_trend')}</h3><p className="text-sm text-gray-500 font-medium mt-1">{t('cases_reported_per_month')}</p></div>
@@ -475,62 +409,10 @@ export default function Analytics() {
               {BAR_DATA.map((monthData, monthIndex) => (
                 <div key={monthData.month} className="flex flex-col items-center flex-1 h-full justify-end group space-y-2">
                   <div className="flex space-x-1.5 items-end h-full w-full justify-center">
-                    {/* LUPON */}
-                    <div
-                      className="w-2.5 rounded-t-sm cursor-pointer transition-all duration-150 relative"
-                      style={{
-                        height: `${monthData.LUPON}%`,
-                        backgroundColor: hoveredBar?.month === monthData.month && hoveredBar?.category === 'LUPON' ? '#1d4ed8' : '#2563eb',
-                        transform: hoveredBar?.month === monthData.month && hoveredBar?.category === 'LUPON' ? 'scaleY(1.08) scaleX(1.3)' : 'scale(1)',
-                        transformOrigin: 'bottom',
-                        filter: hoveredBar?.month === monthData.month && hoveredBar?.category === 'LUPON' ? 'brightness(1.2) drop-shadow(0 0 4px #3b82f6)' : 'none',
-                      }}
-                      onMouseEnter={(e) => handleBarHover(monthIndex, 'LUPON', monthData.LUPON, e)}
-                      onMouseMove={handleMouseMove}
-                      onMouseLeave={handleMouseLeave}
-                    />
-                    {/* VAWC */}
-                    <div
-                      className="w-2.5 rounded-t-sm cursor-pointer transition-all duration-150 relative"
-                      style={{
-                        height: `${monthData.VAWC}%`,
-                        backgroundColor: hoveredBar?.month === monthData.month && hoveredBar?.category === 'VAWC' ? '#dc2626' : '#ef4444',
-                        transform: hoveredBar?.month === monthData.month && hoveredBar?.category === 'VAWC' ? 'scaleY(1.08) scaleX(1.3)' : 'scale(1)',
-                        transformOrigin: 'bottom',
-                        filter: hoveredBar?.month === monthData.month && hoveredBar?.category === 'VAWC' ? 'brightness(1.2) drop-shadow(0 0 4px #f87171)' : 'none',
-                      }}
-                      onMouseEnter={(e) => handleBarHover(monthIndex, 'VAWC', monthData.VAWC, e)}
-                      onMouseMove={handleMouseMove}
-                      onMouseLeave={handleMouseLeave}
-                    />
-                    {/* BLOTTER */}
-                    <div
-                      className="w-2.5 rounded-t-sm cursor-pointer transition-all duration-150 relative"
-                      style={{
-                        height: `${monthData.BLOTTER}%`,
-                        backgroundColor: hoveredBar?.month === monthData.month && hoveredBar?.category === 'BLOTTER' ? '#ca8a04' : '#eab308',
-                        transform: hoveredBar?.month === monthData.month && hoveredBar?.category === 'BLOTTER' ? 'scaleY(1.08) scaleX(1.3)' : 'scale(1)',
-                        transformOrigin: 'bottom',
-                        filter: hoveredBar?.month === monthData.month && hoveredBar?.category === 'BLOTTER' ? 'brightness(1.2) drop-shadow(0 0 4px #facc15)' : 'none',
-                      }}
-                      onMouseEnter={(e) => handleBarHover(monthIndex, 'BLOTTER', monthData.BLOTTER, e)}
-                      onMouseMove={handleMouseMove}
-                      onMouseLeave={handleMouseLeave}
-                    />
-                    {/* COMPLAIN */}
-                    <div
-                      className="w-2.5 rounded-t-sm cursor-pointer transition-all duration-150 relative"
-                      style={{
-                        height: `${monthData.COMPLAIN}%`,
-                        backgroundColor: hoveredBar?.month === monthData.month && hoveredBar?.category === 'COMPLAIN' ? '#16a34a' : '#22c55e',
-                        transform: hoveredBar?.month === monthData.month && hoveredBar?.category === 'COMPLAIN' ? 'scaleY(1.08) scaleX(1.3)' : 'scale(1)',
-                        transformOrigin: 'bottom',
-                        filter: hoveredBar?.month === monthData.month && hoveredBar?.category === 'COMPLAIN' ? 'brightness(1.2) drop-shadow(0 0 4px #4ade80)' : 'none',
-                      }}
-                      onMouseEnter={(e) => handleBarHover(monthIndex, 'COMPLAIN', monthData.COMPLAIN, e)}
-                      onMouseMove={handleMouseMove}
-                      onMouseLeave={handleMouseLeave}
-                    />
+                    <div className="w-2.5 bg-blue-600 rounded-t-sm cursor-pointer transition-all duration-150 hover:opacity-80 hover:scale-110 relative" style={{ height: `${monthData.LUPON}%` }} onMouseEnter={(e) => handleBarHover(monthIndex, 'LUPON', monthData.LUPON, e)} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}></div>
+                    <div className="w-2.5 bg-red-500 rounded-t-sm cursor-pointer transition-all duration-150 hover:opacity-80 hover:scale-110 relative" style={{ height: `${monthData.VAWC}%` }} onMouseEnter={(e) => handleBarHover(monthIndex, 'VAWC', monthData.VAWC, e)} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}></div>
+                    <div className="w-2.5 bg-yellow-400 rounded-t-sm cursor-pointer transition-all duration-150 hover:opacity-80 hover:scale-110 relative" style={{ height: `${monthData.BLOTTER}%` }} onMouseEnter={(e) => handleBarHover(monthIndex, 'BLOTTER', monthData.BLOTTER, e)} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}></div>
+                    <div className="w-2.5 bg-green-500 rounded-t-sm cursor-pointer transition-all duration-150 hover:opacity-80 hover:scale-110 relative" style={{ height: `${monthData.COMPLAIN}%` }} onMouseEnter={(e) => handleBarHover(monthIndex, 'COMPLAIN', monthData.COMPLAIN, e)} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}></div>
                   </div>
                 </div>
               ))}
@@ -541,70 +423,26 @@ export default function Analytics() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-8">
-            {/* Pie Chart */}
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col">
                <h3 className="text-xl font-bold text-blue-900 mb-8">{t('case_analytics_category')}</h3>
                <div className="flex items-center justify-center space-x-16">
-                 <svg
-                   width={SVG_SIZE}
-                   height={SVG_SIZE}
-                   viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
-                   className="shrink-0 drop-shadow-md"
-                   style={{ overflow: 'visible' }}
-                 >
-                   {PIE_DATA.map((segment) => {
-                     const isHovered = hoveredPieSegment?.label === segment.label;
-                     return (
-                       <path
-                         key={segment.label}
-                         d={buildDonutPath(segment.startAngle, segment.endAngle, OUTER_R, INNER_R)}
-                         fill={segment.hexColor}
-                         stroke="white"
-                         strokeWidth="2"
-                         className="cursor-pointer"
-                         style={{
-                           opacity: hoveredPieSegment && !isHovered ? 0.45 : 1,
-                           transform: isHovered ? 'scale(1.07)' : 'scale(1)',
-                           transformOrigin: `${CX}px ${CY}px`,
-                           filter: isHovered ? `drop-shadow(0 0 6px ${segment.hexColor})` : 'none',
-                           transition: 'all 0.15s ease',
-                         }}
-                         onMouseEnter={(e) => handlePieHover(segment, e)}
-                         onMouseMove={handleMouseMove}
-                         onMouseLeave={handleMouseLeave}
-                       />
-                     );
-                   })}
-                   <text x={CX} y={CY - 6} textAnchor="middle" dominantBaseline="middle" className="font-bold" style={{ fontSize: 13, fill: '#1e3a5f', fontWeight: 700 }}>
-                     {hoveredPieSegment ? hoveredPieSegment.percentage + '%' : 'CASES'}
-                   </text>
-                   <text x={CX} y={CY + 12} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: 9, fill: '#6b7280', fontWeight: 600 }}>
-                     {hoveredPieSegment ? hoveredPieSegment.label : 'BY TYPE'}
-                   </text>
+                 <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} className="shrink-0 drop-shadow-md" style={{ overflow: 'visible' }}>
+                   {PIE_DATA.map((segment, i) => (
+                     <path key={segment.label} d={buildDonutPath(segment.startAngle, segment.endAngle, OUTER_R, INNER_R)} fill={segment.hexColor} stroke="white" strokeWidth="2" className="cursor-pointer transition-opacity duration-150" style={{ opacity: hoveredPieSegment?.label === segment.label ? 0.75 : 1 }} onMouseEnter={(e) => handlePieHover(segment, e)} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave} />
+                   ))}
+                   <text x={CX} y={CY - 6} textAnchor="middle" dominantBaseline="middle" className="font-bold" style={{ fontSize: 13, fill: '#1e3a5f', fontWeight: 700 }}>{hoveredPieSegment ? hoveredPieSegment.percentage + '%' : 'CASES'}</text>
+                   <text x={CX} y={CY + 12} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: 9, fill: '#6b7280', fontWeight: 600 }}>{hoveredPieSegment ? hoveredPieSegment.label : 'BY TYPE'}</text>
                  </svg>
-
-                 {/* Right-side legend — percentages retained */}
-                 <div className="space-y-4 w-full max-w-[160px]">
+                 <div className="space-y-4 w-full max-w-[150px]">
                     {PIE_DATA.map((item) => (
-                      <div
-                        key={item.label}
-                        className="flex items-center justify-between text-sm font-bold text-gray-600 cursor-help transition-opacity duration-150"
-                        style={{ opacity: hoveredPieSegment && hoveredPieSegment.label !== item.label ? 0.45 : 1 }}
-                        onMouseEnter={(e) => handlePieHover(item, e)}
-                        onMouseMove={handleMouseMove}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        <div className="flex items-center"><span className={`w-4 h-4 ${item.color} mr-3 rounded-md`}></span>{item.label}</div>
-                        <div className="flex flex-col items-end ml-2">
-                          <span className="text-xs text-gray-400">{item.percentage}%</span>
-                        </div>
+                      <div key={item.label} className="flex items-center justify-between text-sm font-bold text-gray-600 cursor-help" onMouseEnter={(e) => handlePieHover(item, e)} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+                        <div className="flex items-center"><span className={`w-4 h-4 ${item.color} mr-3 rounded-md`}></span>{item.label}</div><span>{item.percentage}%</span>
                       </div>
                     ))}
                  </div>
                </div>
             </div>
 
-            {/* Calendar */}
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
                <div className="flex justify-between items-center mb-6">
                  <h3 className="text-xl font-bold text-blue-900">{t('daily_cases_overview')}</h3>
@@ -626,7 +464,6 @@ export default function Analytics() {
           </div>
 
           <div className="space-y-8">
-            {/* Resolution Overview */}
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
                <h3 className="text-xl font-bold text-blue-900 mb-8">{t('case_resolution_overview')}</h3>
                <div className="space-y-8">
@@ -639,7 +476,6 @@ export default function Analytics() {
                </div>
             </div>
 
-            {/* Recent Activities */}
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
                <div className="flex items-center mb-6">
                  <h3 className="text-xl font-extrabold text-[#1a3a8a] mr-3">{t('recent_activities')}</h3>

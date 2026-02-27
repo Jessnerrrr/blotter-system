@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { ChevronLeft, Calendar, Filter, ChevronDown } from 'lucide-react'; 
 import { useLanguage } from './LanguageContext'; 
+import { ArchivedButton } from './buttons/Buttons'; // Change button name per page
 
 const getTypeStyle = (type) => {
   switch (type) {
@@ -103,17 +104,14 @@ export default function Archived() {
     }).then((result) => {
       if (result.isConfirmed) {
         if (row.isCurfew) {
-            // Restore to Curfew Logs
             const allCurfews = JSON.parse(localStorage.getItem('curfew_violations') || '[]');
             const updatedCurfews = allCurfews.map(c => c.id === row.id ? { ...c, status: 'Unsettled' } : c);
             localStorage.setItem('curfew_violations', JSON.stringify(updatedCurfews));
         } else if (row.type === 'MANUAL') {
-            // Restore to Blacklisted Page
             const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
             const updatedCases = allCases.map(c => c.caseNo === row.caseNo ? { ...c, status: 'BLACKLISTED' } : c);
             localStorage.setItem('cases', JSON.stringify(updatedCases));
         } else {
-            // Restore to Case Logs
             const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
             const updatedCases = allCases.map(c => c.caseNo === row.caseNo ? { ...c, status: 'PENDING' } : c);
             localStorage.setItem('cases', JSON.stringify(updatedCases));
@@ -224,9 +222,13 @@ export default function Archived() {
                       <td className="px-4 py-5 font-medium text-gray-600">{row.resident || row.complainantName}</td>
                       <td className="px-4 py-5">
                         <div className="flex gap-2">
-                          <button className="rounded-lg bg-green-100 text-green-700 px-3 py-1.5 text-xs font-bold hover:bg-green-200 transition-colors" onClick={() => handleRestore(row)}>{t('restore') || 'Restore'}</button>
-                          <button className="rounded-lg bg-blue-100 text-blue-700 px-3 py-1.5 text-xs font-bold hover:bg-blue-200 transition-colors" onClick={() => handleViewDetails(row)}>{t('view') || 'View'}</button>
-                          {/* DELETE BUTTON REMOVED INTENTIONALLY */}
+                          {/* --- LOOK HERE! USING YOUR MASTER BUTTON --- */}
+                          <ArchivedButton actionType="restore" onClick={() => handleRestore(row)}>
+                            {t('restore') || 'Restore'}
+                          </ArchivedButton>
+                          <ArchivedButton actionType="view" onClick={() => handleViewDetails(row)}>
+                            {t('view') || 'View'}
+                          </ArchivedButton>
                         </div>
                       </td>
                     </tr>

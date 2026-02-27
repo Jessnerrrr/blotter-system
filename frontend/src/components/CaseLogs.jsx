@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, X, ChevronDown, Check, Upload, Calendar, MapPin, Filter, FileText, Trash2, Clock, FileWarning, Bold, Italic, Underline, Link, AlignLeft, Printer } from 'lucide-react';
 import Swal from 'sweetalert2';
+
 import { useLanguage } from './LanguageContext'; 
 
-import { mockCases } from "../../data/mockDatabase";
+import { CaseLogsButton } from "./buttons/Buttons"; 
+import { mockCases } from "../data/mockDatabase";
 
 const getStatusStyle = (status) => {
   switch (status) {
@@ -520,7 +522,14 @@ export default function CaseLogs() {
                   <td className="py-5 px-4 text-gray-600">{item.contact}</td>
                   <td className="py-5 px-4 text-gray-600">{item.date}</td>
                   <td className="py-5 px-4"><span className={`${getStatusStyle(item.status)} px-3 py-1 rounded-full text-[10px] font-bold shadow-sm uppercase tracking-wide`}>{item.status}</span></td>
-                  <td className="py-5 px-4" onClick={(e) => e.stopPropagation()}><div className="flex gap-2 justify-center"><button onClick={() => handleAssignSummonClick(item)} className={`text-xs font-bold px-3 py-1.5 rounded ${gradientBtnClass}`}>{t('assign_summon')}</button></div></td>
+                  <td className="py-5 px-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex gap-2 justify-center">
+                      {/* --- LOOK HERE! USING YOUR MASTER BUTTON --- */}
+                      <CaseLogsButton onClick={() => handleAssignSummonClick(item)}>
+                        {t('assign_summon')}
+                      </CaseLogsButton>
+                    </div>
+                  </td>
                 </tr>
               )) : <tr><td colSpan="7" className="py-10 text-gray-400 font-bold">{t('no_records_found')}</td></tr>}
             </tbody>

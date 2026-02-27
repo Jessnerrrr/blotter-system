@@ -1,28 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, UserX, Download, User } from 'lucide-react';
 import Swal from 'sweetalert2';
-import { useLanguage } from './LanguageContext'; // TRANSLATION HOOK
 
-// Mock data for charts
-const BAR_DATA = [
-  { month: 'JAN', LUPON: 35, VAWC: 20, BLOTTER: 25, COMPLAIN: 20 },
-  { month: 'FEB', LUPON: 40, VAWC: 15, BLOTTER: 30, COMPLAIN: 15 },
-  { month: 'MAR', LUPON: 30, VAWC: 25, BLOTTER: 25, COMPLAIN: 20 },
-  { month: 'APR', LUPON: 45, VAWC: 20, BLOTTER: 20, COMPLAIN: 15 },
-  { month: 'MAY', LUPON: 38, VAWC: 22, BLOTTER: 25, COMPLAIN: 15 },
-  { month: 'JUN', LUPON: 42, VAWC: 18, BLOTTER: 22, COMPLAIN: 18 },
-  { month: 'JUL', LUPON: 35, VAWC: 20, BLOTTER: 28, COMPLAIN: 17 },
-  { month: 'AUG', LUPON: 33, VAWC: 22, BLOTTER: 27, COMPLAIN: 18 },
-  { month: 'SEP', LUPON: 40, VAWC: 19, BLOTTER: 26, COMPLAIN: 15 },
-  { month: 'OCT', LUPON: 37, VAWC: 21, BLOTTER: 24, COMPLAIN: 18 },
-];
+import { useLanguage } from './LanguageContext'; 
+import { DashboardButton } from "./buttons/Buttons"; 
+import { mockBarData, mockPieData } from "../data/mockDatabase";
 
-const PIE_DATA = [
-  { label: 'LUPON', percentage: 35, color: 'bg-blue-800', hexColor: '#1e40af', startAngle: 0, endAngle: 126 }, 
-  { label: 'VAWC', percentage: 20, color: 'bg-red-500', hexColor: '#ef4444', startAngle: 126, endAngle: 198 }, 
-  { label: 'BLOTTER', percentage: 25, color: 'bg-yellow-400', hexColor: '#eab308', startAngle: 198, endAngle: 288 }, 
-  { label: 'COMPLAIN', percentage: 20, color: 'bg-green-500', hexColor: '#22c55e', startAngle: 288, endAngle: 360 }, 
-];
+const BAR_DATA = mockBarData;
+const PIE_DATA = mockPieData;
 
 const activityColors = [
   'bg-[#dca41b]', 'bg-[#109f61]', 'bg-[#2157d6]', 'bg-[#1f2937]', 'bg-[#0aa4df]', 'bg-[#dc2626]', 'bg-[#109f61]',
@@ -51,7 +36,7 @@ const formatTimeAgo = (timestamp) => {
   return `${days}d ago`;
 };
 
-export default function Analytics() {
+export default function Dashboard() {
   const { t } = useLanguage(); 
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [hoveredBar, setHoveredBar] = useState(null);
@@ -77,11 +62,9 @@ export default function Analytics() {
       
       setCasesData(storedCases);
 
-      // --- SMART DELTA TRACKER (History Engine) ---
       let history = JSON.parse(localStorage.getItem('activity_history') || '[]');
       let historyChanged = false;
 
-      // --- LOGICAL FIX: HISTORY AUTO-CLEANER ---
       const originalHistoryLength = history.length;
       history = history.filter(h => !h.title.includes('11111'));
       if (history.length !== originalHistoryLength) {
@@ -98,7 +81,6 @@ export default function Analytics() {
       const currentSeenCurfews = {};
       const currentSeenNotes = {};
 
-      // 1. Evaluate Cases
       storedCases.forEach(c => {
           currentSeenCases[c.caseNo] = c.status;
 
@@ -126,7 +108,6 @@ export default function Analytics() {
           }
       });
 
-      // 2. Evaluate Summons
       storedSummons.forEach(s => {
           const sKey = `${s.caseNo}_${s.summonType}`;
           currentSeenSummons[sKey] = true;
@@ -143,7 +124,6 @@ export default function Analytics() {
           }
       });
 
-      // 3. Evaluate Curfews
       storedCurfews.forEach(cv => {
           currentSeenCurfews[cv.id] = cv.status;
 
@@ -168,7 +148,6 @@ export default function Analytics() {
           }
       });
 
-      // 4. Evaluate Curfew Notes
       storedCurfewNotes.forEach(note => {
           currentSeenNotes[note.id] = true;
           if (!lastSeenNotes[note.id]) {
@@ -246,7 +225,6 @@ export default function Analytics() {
 
   const handleMouseMove = (event) => setTooltipPosition({ x: event.clientX, y: event.clientY });
 
-  // Compute total cases per category from real casesData
   const getCategoryTotal = (category) => {
     const map = { LUPON: 'LUPON', VAWC: 'VAWC', BLOTTER: 'BLOTTER', COMPLAIN: 'COMPLAINT' };
     const key = map[category] || category;
@@ -254,14 +232,12 @@ export default function Analytics() {
     return count > 0 ? count : BAR_DATA.reduce((sum, m) => sum + (m[category] || 0), 0);
   };
 
-  // Returns per-user case counts for a given category
   const getCasesPerUser = (category) => {
     const map = { LUPON: 'LUPON', VAWC: 'VAWC', BLOTTER: 'BLOTTER', COMPLAIN: 'COMPLAINT' };
     const key = map[category] || category;
     const filtered = casesData.filter(c => c.caseType && c.caseType.toUpperCase().includes(key));
 
     if (filtered.length === 0) {
-      // Fallback mock users when no real data
       return [
         { user: 'Admin', count: Math.round(BAR_DATA.reduce((s, m) => s + (m[category] || 0), 0) * 0.5) },
         { user: 'Secretary', count: Math.round(BAR_DATA.reduce((s, m) => s + (m[category] || 0), 0) * 0.3) },
@@ -380,10 +356,16 @@ export default function Analytics() {
                     <div className="text-[10px] text-gray-700 w-full mb-4"><p className="font-bold">IMPORTANT: <span className="font-normal">The Lupon / Pangkat Secretary shall transmit, not later than the first day for preceding month.</span></p></div>
                     <div className="flex items-end justify-center relative h-24 w-full">
                         <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 z-10"><img src="/icon-analytics/analytics footerprint.png" alt="Bagong Pilipinas" className="h-16 object-contain" /></div>
+                        
                         <div className="absolute right-0 bottom-4 flex gap-2 print:hidden z-20">
-                            <button onClick={handleCancelPrint} className="px-6 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded shadow-sm hover:bg-gray-50 transition-colors">{t('cancel')}</button>
-                            <button onClick={handlePrintSubmit} className="px-8 py-1.5 bg-[#007bff] text-white text-xs font-bold rounded shadow-sm hover:bg-blue-600 transition-colors uppercase tracking-wide">PRINT</button>
+                            <DashboardButton variant="cancel" onClick={handleCancelPrint} className="px-6 py-1.5 text-xs rounded-xl">
+                                {t('cancel')}
+                            </DashboardButton>
+                            <DashboardButton variant="print" onClick={handlePrintSubmit} className="px-8 py-1.5 text-xs rounded-xl tracking-wide">
+                                PRINT
+                            </DashboardButton>
                         </div>
+
                     </div>
                 </div>
             </div>
@@ -392,7 +374,6 @@ export default function Analytics() {
     );
   };
 
-  // Tooltip component
   const renderTooltip = () => {
     if (!tooltipContent) return null;
     const isBar = !!tooltipContent.month;
@@ -405,7 +386,6 @@ export default function Analytics() {
           className="bg-gray-900 text-white rounded-xl shadow-2xl px-4 py-3 min-w-[190px]"
           style={{ border: '1px solid rgba(255,255,255,0.12)' }}
         >
-          {/* Header */}
           {isBar ? (
             <>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">{tooltipContent.month}</p>
@@ -414,17 +394,11 @@ export default function Analytics() {
           ) : (
             <p className="text-sm font-extrabold text-white">{tooltipContent.label}</p>
           )}
-
-          {/* Divider */}
           <div className="border-t border-white/10 my-2" />
-
-          {/* Total */}
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] text-gray-400 font-semibold">Total Cases</span>
             <span className="text-base font-black text-yellow-400">{tooltipContent.total}</span>
           </div>
-
- 
         </div>
       </div>
     );
@@ -466,7 +440,11 @@ export default function Analytics() {
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start mb-8">
             <div><h3 className="text-2xl font-bold text-blue-900">{t('total_cases_trend')}</h3><p className="text-sm text-gray-500 font-medium mt-1">{t('cases_reported_per_month')}</p></div>
-            <button onClick={handleOpenPrint} className="flex items-center space-x-2 bg-blue-900 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors border border-blue-950"><Download size={16} /><span>{t('export_pdf')}</span></button>
+            
+            <DashboardButton variant="export" onClick={handleOpenPrint} className="px-5 py-2.5 rounded-xl text-sm space-x-2">
+                <Download size={16} /><span>{t('export_pdf')}</span>
+            </DashboardButton>
+
           </div>
           <div className="relative h-80 w-full pl-12 pb-8">
             <div className="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-xs font-bold text-gray-400"><span>400</span><span>300</span><span>200</span><span>100</span><span>0</span></div>
@@ -475,7 +453,6 @@ export default function Analytics() {
               {BAR_DATA.map((monthData, monthIndex) => (
                 <div key={monthData.month} className="flex flex-col items-center flex-1 h-full justify-end group space-y-2">
                   <div className="flex space-x-1.5 items-end h-full w-full justify-center">
-                    {/* LUPON */}
                     <div
                       className="w-2.5 rounded-t-sm cursor-pointer transition-all duration-150 relative"
                       style={{
@@ -489,7 +466,6 @@ export default function Analytics() {
                       onMouseMove={handleMouseMove}
                       onMouseLeave={handleMouseLeave}
                     />
-                    {/* VAWC */}
                     <div
                       className="w-2.5 rounded-t-sm cursor-pointer transition-all duration-150 relative"
                       style={{
@@ -503,7 +479,6 @@ export default function Analytics() {
                       onMouseMove={handleMouseMove}
                       onMouseLeave={handleMouseLeave}
                     />
-                    {/* BLOTTER */}
                     <div
                       className="w-2.5 rounded-t-sm cursor-pointer transition-all duration-150 relative"
                       style={{
@@ -517,7 +492,6 @@ export default function Analytics() {
                       onMouseMove={handleMouseMove}
                       onMouseLeave={handleMouseLeave}
                     />
-                    {/* COMPLAIN */}
                     <div
                       className="w-2.5 rounded-t-sm cursor-pointer transition-all duration-150 relative"
                       style={{
@@ -583,7 +557,6 @@ export default function Analytics() {
                    </text>
                  </svg>
 
-                 {/* Right-side legend — percentages retained */}
                  <div className="space-y-4 w-full max-w-[160px]">
                     {PIE_DATA.map((item) => (
                       <div

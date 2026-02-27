@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { ChevronLeft, Calendar, Filter, ChevronDown } from 'lucide-react'; 
 import { useLanguage } from './LanguageContext'; 
+ 
+
+// --- CLEAN SINGLE-FILE IMPORT! ---
+import { BlacklistedButton } from './buttons/Buttons';
 
 const getTypeStyle = (type) => {
   switch (type) {
@@ -223,9 +227,10 @@ export default function Blacklisted() {
                       <td className="px-4 py-5 font-medium text-gray-600">{row.resident || row.complainantName}</td>
                       <td className="px-4 py-5">
                         <div className="flex gap-2">
-                          <button className="rounded-lg bg-green-100 text-green-700 px-3 py-1.5 text-xs font-bold hover:bg-green-200 transition-colors" onClick={() => handleRestore(row)}>Restore</button>
-                          <button className="rounded-lg bg-blue-100 text-blue-700 px-3 py-1.5 text-xs font-bold hover:bg-blue-200 transition-colors" onClick={() => handleViewDetails(row)}>View</button>
-                          <button className="rounded-lg bg-red-100 text-red-700 px-3 py-1.5 text-xs font-bold hover:bg-red-200 transition-colors" onClick={() => handleDelete(row)}>Delete</button>
+                          {/* --- MASTER BUTTONS IN USE! --- */}
+                          <BlacklistedButton actionType="restore" onClick={() => handleRestore(row)}>Restore</BlacklistedButton>
+                          <BlacklistedButton actionType="view" onClick={() => handleViewDetails(row)}>View</BlacklistedButton>
+                          <BlacklistedButton actionType="delete" onClick={() => handleDelete(row)}>Delete</BlacklistedButton>
                         </div>
                       </td>
                     </tr>

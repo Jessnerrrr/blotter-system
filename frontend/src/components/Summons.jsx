@@ -3,6 +3,9 @@ import { Folder, List, MoreVertical, ChevronLeft, Plus, ClipboardList, Edit, Cal
 import Swal from 'sweetalert2';
 import { useLanguage } from './LanguageContext'; 
 
+// --- CLEAN SINGLE-FILE IMPORT! ---
+import { SummonsButton, SummonsAddNoteButton } from './buttons/Buttons';
+
 const gradientBgClass = "bg-gradient-to-r from-[#0066FF] to-[#0099FF]";
 const gradientBtnClass = "bg-gradient-to-r from-[#0066FF] to-[#0099FF] hover:from-[#0055EE] hover:to-[#0088DD] text-white shadow-md transition-all active:scale-95";
 
@@ -187,11 +190,20 @@ export default function Summons() {
                     </div>
                     <div className="flex justify-center space-x-4 mt-10">
                         {previewEditing ? (
-                            <><button onClick={() => { setPreviewEditing(false); setTempStatus(data.status); }} className="px-10 py-3 rounded-xl border-2 border-gray-300 text-gray-500 font-bold hover:bg-blue-50 hover:text-[#0066FF] hover:border-[#0066FF] transition-colors text-sm uppercase tracking-wide">{t('cancel')}</button><button onClick={handlePreviewSaveClick} className={`${gradientBgClass} text-white px-12 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all text-sm uppercase tracking-wide flex items-center`}><Save size={18} className="mr-2"/> {t('save_changes')}</button></>
+                            <>
+                              <SummonsButton variant="outline" onClick={() => { setPreviewEditing(false); setTempStatus(data.status); }} className="px-10 py-3 rounded-xl text-sm tracking-wide">{t('cancel')}</SummonsButton>
+                              <SummonsButton variant="primary" onClick={handlePreviewSaveClick} className="px-12 py-3 rounded-xl text-sm tracking-wide"><Save size={18} className="mr-2"/> {t('save_changes')}</SummonsButton>
+                            </>
                         ) : isPending ? (
-                            <><button onClick={() => setPreviewModal({ isOpen: false, data: null })} className="px-10 py-3 rounded-xl border-2 border-gray-300 text-gray-500 font-bold hover:bg-blue-50 hover:text-[#0066FF] hover:border-[#0066FF] transition-colors text-sm uppercase tracking-wide">{t('cancel')}</button><button onClick={() => setPreviewModal({ isOpen: false, data: null })} className={`${gradientBgClass} text-white px-12 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all text-sm uppercase tracking-wide`}>{t('ok')}</button></>
+                            <>
+                              <SummonsButton variant="outline" onClick={() => setPreviewModal({ isOpen: false, data: null })} className="px-10 py-3 rounded-xl text-sm tracking-wide">{t('cancel')}</SummonsButton>
+                              <SummonsButton variant="primary" onClick={() => setPreviewModal({ isOpen: false, data: null })} className="px-12 py-3 rounded-xl text-sm tracking-wide">{t('ok')}</SummonsButton>
+                            </>
                         ) : (
-                            <><button onClick={() => setPreviewModal({ isOpen: false, data: null })} className="px-10 py-3 rounded-xl border-2 border-gray-300 text-gray-500 font-bold hover:bg-blue-50 hover:text-[#0066FF] hover:border-[#0066FF] transition-colors text-sm uppercase tracking-wide">{t('cancel')}</button><button onClick={() => setPreviewEditing(true)} className="bg-[#0066FF] hover:bg-[#0055EE] text-white px-12 py-3 rounded-xl font-bold shadow-md transition-all text-sm uppercase tracking-wide flex items-center"><Edit size={18} className="mr-2"/> {t('edit_status')}</button></>
+                            <>
+                              <SummonsButton variant="outline" onClick={() => setPreviewModal({ isOpen: false, data: null })} className="px-10 py-3 rounded-xl text-sm tracking-wide">{t('cancel')}</SummonsButton>
+                              <SummonsButton variant="primary" onClick={() => setPreviewEditing(true)} className="px-12 py-3 rounded-xl text-sm tracking-wide"><Edit size={18} className="mr-2"/> {t('edit_status')}</SummonsButton>
+                            </>
                         )}
                     </div>
                 </div>
@@ -211,7 +223,10 @@ export default function Summons() {
                     {confirmModal.action === 'Settled' && <p className="text-green-600 font-bold text-sm bg-green-50 p-2 rounded-lg border border-green-100 mb-4 text-center">{t('moved_to_archive')}</p>}
                     {confirmModal.action === 'Escalated' && <p className="text-red-600 font-bold text-sm bg-red-50 p-2 rounded-lg border border-red-100 mb-4 text-center">{t('case_escalated_notice')}</p>}
                     {confirmModal.action === 'Blacklisted' && <p className="text-gray-800 font-bold text-sm bg-gray-200 p-2 rounded-lg border border-gray-300 mb-4 text-center">{t('moved_to_blacklist')}</p>}
-                    <div className="flex justify-end space-x-3 mt-4"><button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="px-6 py-2.5 rounded-lg border-2 border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors text-sm uppercase tracking-wide">{t('cancel')}</button><button onClick={executeStatusUpdate} className={`${gradientBgClass} text-white px-8 py-2.5 rounded-lg font-bold shadow-md hover:opacity-90 transition-all text-sm uppercase tracking-wide`}>{t('confirm')}</button></div>
+                    <div className="flex justify-end space-x-3 mt-4">
+                      <SummonsButton variant="outline" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="px-6 py-2.5 rounded-lg text-sm tracking-wide">{t('cancel')}</SummonsButton>
+                      <SummonsButton variant="primary" onClick={executeStatusUpdate} className="px-8 py-2.5 rounded-lg text-sm tracking-wide">{t('confirm')}</SummonsButton>
+                    </div>
                 </div>
             </div>
         </div>
@@ -235,7 +250,10 @@ export default function Summons() {
                  <div className="bg-gray-50 border-t border-gray-200 px-4 py-3 flex items-center space-x-5 text-gray-500 shrink-0"><button onMouseDown={(e) => applyCommand(e, 'bold')} className="hover:text-[#0066FF] p-1 rounded" title="Bold"><Bold size={18} /></button><button onMouseDown={(e) => applyCommand(e, 'italic')} className="hover:text-[#0066FF] p-1 rounded" title="Italic"><Italic size={18} /></button><button onMouseDown={(e) => applyCommand(e, 'underline')} className="hover:text-[#0066FF] p-1 rounded" title="Underline"><Underline size={18} /></button><div className="h-5 w-px bg-gray-300 mx-2"></div></div>
                </div>
             </div>
-            <div className="flex justify-end space-x-3"><button onClick={handleCancelEdit} className="bg-gray-400 hover:bg-gray-500 text-white px-8 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-md transition-colors">{t('cancel')}</button><button onClick={handleSaveNote} className={`${gradientBgClass} text-white px-10 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-md hover:opacity-90 transition-opacity`}>{t('ok')}</button></div>
+            <div className="flex justify-end space-x-3">
+              <SummonsButton variant="secondary" onClick={handleCancelEdit} className="px-8 py-2.5 rounded-lg text-xs tracking-wider">{t('cancel')}</SummonsButton>
+              <SummonsButton variant="primary" onClick={handleSaveNote} className="px-10 py-2.5 rounded-lg text-xs tracking-wider">{t('ok')}</SummonsButton>
+            </div>
           </div>
         </div>
       </div>
@@ -253,7 +271,10 @@ export default function Summons() {
               <button onClick={handleEditNote} className="flex items-center text-[#0066FF] hover:text-blue-800 font-bold transition-colors text-sm uppercase tracking-wide"><Edit size={16} className="mr-1.5" /> {t('edit_case_overview')}</button>
             </div>
             <div className="bg-white border-2 border-gray-200 rounded-xl p-8 mb-10 h-64 shadow-inner text-gray-600 text-base leading-relaxed overflow-y-auto" dangerouslySetInnerHTML={{ __html: savedSummaryHtml }}></div>
-            <div className="flex justify-end space-x-4"><button onClick={handleCloseNote} className="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wider shadow-md transition-colors">{t('cancel')}</button><button onClick={handleCloseNote} className={`${gradientBgClass} text-white px-10 py-3 rounded-lg font-bold text-sm uppercase tracking-wider shadow-md hover:opacity-90 transition-opacity`}>{t('ok')}</button></div>
+            <div className="flex justify-end space-x-4">
+              <SummonsButton variant="secondary" onClick={handleCloseNote} className="px-8 py-3 rounded-lg text-sm tracking-wider">{t('cancel')}</SummonsButton>
+              <SummonsButton variant="primary" onClick={handleCloseNote} className="px-10 py-3 rounded-lg text-sm tracking-wider">{t('ok')}</SummonsButton>
+            </div>
           </div>
         </div>
       </div>
@@ -275,7 +296,7 @@ export default function Summons() {
           <div className="relative">
             <div className="flex items-center justify-between mb-6 gap-6">
                <div className="bg-[#0066FF] text-white py-3.5 px-8 rounded-xl shadow-sm flex-1"><h3 className="text-xl font-bold tracking-wide uppercase">{t('case_folders')}</h3></div>
-               <button onClick={handleAddNote} className={`flex items-center pr-5 pl-2 py-1.5 rounded-lg ${gradientBtnClass} shrink-0`}><div className="relative w-8 h-8 mr-2 flex items-center justify-center"><div className="absolute w-6 h-6 bg-white/30 rounded-[2px] rotate-6"></div><div className="absolute w-6 h-6 bg-white rounded-[2px] flex items-center justify-center shadow-sm z-10"><Plus className="text-[#0066FF]" size={18} strokeWidth={4} /></div></div><span className="text-sm font-bold pt-0.5 whitespace-nowrap">{t('add_case_notes')}</span></button>
+               <SummonsAddNoteButton onClick={handleAddNote} text={t('add_case_notes')} />
             </div>
             
             <div className="bg-white rounded-2xl shadow-xl border border-gray-200 relative pb-24 z-0">
@@ -287,7 +308,9 @@ export default function Summons() {
                   </div>
                 ))}
               </div>
-              <div className="absolute bottom-6 right-6"><button onClick={handleBackToFolder} className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-wider shadow-md transition-colors">{t('back_to_summons')}</button></div>
+              <div className="absolute bottom-6 right-6">
+                <SummonsButton variant="secondary" onClick={handleBackToFolder} className="px-6 py-2 rounded-lg text-xs tracking-wider">{t('back_to_summons')}</SummonsButton>
+              </div>
             </div>
           </div>
         </div>

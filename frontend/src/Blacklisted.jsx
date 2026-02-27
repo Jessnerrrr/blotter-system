@@ -1,0 +1,244 @@
+import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
+import { ChevronLeft, Calendar, Filter, ChevronDown } from 'lucide-react'; 
+import { useLanguage } from './LanguageContext'; 
+
+const getTypeStyle = (type) => {
+  switch (type) {
+    case 'LUPON': return 'bg-green-600 text-white';
+    case 'VAWC': return 'bg-purple-600 text-white';
+    case 'BLOTTER': return 'bg-red-600 text-white';
+    case 'COMPLAIN': return 'bg-blue-600 text-white';
+    case 'MANUAL': return 'bg-gray-800 text-white';
+    default: return 'bg-gray-600 text-white';
+  }
+};
+
+export default function Blacklisted() {
+  const { t } = useLanguage(); 
+  const [view, setView] = useState('TABLE');
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState(null); 
+  const [search, setSearch] = useState('');
+
+  const allYearsText = t('all_years') || 'All Years';
+  const allTypesText = t('all_types') || 'All Types';
+
+  const [isYearSortOpen, setIsYearSortOpen] = useState(false);
+  const [isTypeSortOpen, setIsTypeSortOpen] = useState(false);
+  const [sortYear, setSortYear] = useState(allYearsText);
+  const [sortType, setSortType] = useState(allTypesText);
+
+  const currentYear = new Date().getFullYear();
+  const yearOptions = [allYearsText, ...Array.from({length: 7}, (_, i) => (currentYear - i).toString())];
+  
+  const typeOptions = [
+    { label: allTypesText, color: 'bg-gray-400' },
+    { label: 'LUPON', color: 'bg-green-600' },
+    { label: 'VAWC', color: 'bg-purple-600' },
+    { label: 'BLOTTER', color: 'bg-red-600' },
+    { label: 'COMPLAIN', color: 'bg-blue-600' },
+    { label: 'MANUAL', color: 'bg-gray-800' }
+  ];
+
+  useEffect(() => {
+    const loadData = () => {
+      const storedCases = JSON.parse(localStorage.getItem('cases') || '[]');
+      const blacklistedCases = storedCases.filter(c => c.status === 'BLACKLISTED');
+      const manualBlacklists = JSON.parse(localStorage.getItem('manual_blacklisted') || '[]');
+
+      const combined = [...blacklistedCases, ...manualBlacklists].sort((a, b) => new Date(b.date) - new Date(a.date));
+      setRows(combined);
+    };
+
+    loadData();
+    window.addEventListener('storage', loadData);
+    return () => window.removeEventListener('storage', loadData);
+  }, []);
+
+  const filteredRows = rows.filter((row) => {
+    const searchLower = search.toLowerCase();
+    const matchesSearch = 
+        (row.caseNo && row.caseNo.toLowerCase().includes(searchLower)) ||
+        (row.resident && row.resident.toLowerCase().includes(searchLower)) ||
+        (row.complainantName && row.complainantName.toLowerCase().includes(searchLower));
+
+    let rowYear = '';
+    if (row.date) {
+        const d = new Date(row.date);
+        if (!isNaN(d)) rowYear = d.getFullYear().toString();
+    }
+    const matchesYear = (sortYear === allYearsText) || rowYear === sortYear;
+    const matchesType = (sortType === allTypesText) || row.type === sortType;
+
+    return matchesSearch && matchesYear && matchesType;
+  });
+
+  const handleViewDetails = (row) => { setSelected(row); setView('DETAILS'); };
+  const handleBackToTable = () => { setSelected(null); setView('TABLE'); };
+
+  // --- RESTORE LOGIC (Sends back to Case Logs) ---
+  const handleRestore = (row) => {
+    Swal.fire({
+      title: t('swal_restore_title') || 'Restore Record?',
+      text: `Restore ${row.caseNo} back to active Case Logs?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#d33',
+      confirmButtonText: t('swal_yes_restore') || 'Yes, restore',
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        if (row.type === 'MANUAL') {
+            const allManual = JSON.parse(localStorage.getItem('manual_blacklisted') || '[]');
+            localStorage.setItem('manual_blacklisted', JSON.stringify(allManual.filter(c => c.caseNo !== row.caseNo)));
+        } else {
+            // Restore back to Case Logs
+            const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
+            const updatedCases = allCases.map(c => c.caseNo === row.caseNo ? { ...c, status: 'PENDING' } : c);
+            localStorage.setItem('cases', JSON.stringify(updatedCases));
+        }
+        
+        window.dispatchEvent(new Event('storage'));
+        if(view === 'DETAILS') setView('TABLE');
+        Swal.fire('Restored!', 'The record has been restored to active logs.', 'success');
+      }
+    });
+  };
+
+  const handleDelete = (row) => {
+    Swal.fire({
+      title: t('swal_delete_title') || 'Delete Permanently?',
+      text: t('swal_delete_text') || 'This cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: t('swal_yes_delete') || 'Yes, delete',
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        if (row.type === 'MANUAL') {
+            const allManual = JSON.parse(localStorage.getItem('manual_blacklisted') || '[]');
+            localStorage.setItem('manual_blacklisted', JSON.stringify(allManual.filter(c => c.caseNo !== row.caseNo)));
+        } else {
+            const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
+            const updatedCases = allCases.filter(c => c.caseNo !== row.caseNo);
+            localStorage.setItem('cases', JSON.stringify(updatedCases));
+        }
+
+        const allSummons = JSON.parse(localStorage.getItem('summons') || '[]');
+        localStorage.setItem('summons', JSON.stringify(allSummons.filter(s => s.caseNo !== row.caseNo)));
+
+        window.dispatchEvent(new Event('storage'));
+        if(view === 'DETAILS') setView('TABLE');
+        Swal.fire('Deleted!', 'The record has been deleted permanently.', 'success');
+      }
+    });
+  };
+
+  return (
+    <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={() => { setIsYearSortOpen(false); setIsTypeSortOpen(false); }}>
+      <div className="flex-1 flex flex-col h-full min-h-0 w-full">
+        {view === 'DETAILS' && selected ? (
+          <div className="flex-1 flex flex-col w-full rounded-xl overflow-hidden bg-white shadow-md animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-200">
+            {/* SYSTEM BLUE COLOR SCHEME FIX */}
+            <div className="bg-[#0044CC] px-6 py-4 text-white shadow-md shrink-0 rounded-t-xl flex items-center gap-3">
+              <button onClick={handleBackToTable} className="hover:bg-blue-600 p-1.5 rounded-full transition-colors flex items-center justify-center -ml-2"><ChevronLeft size={26} strokeWidth={2.5} /></button>
+              <h1 className="text-xl font-bold">Blacklisted Case Details</h1>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-[#F8FAFC]">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="border-l-4 border-[#0044CC] pl-3 mb-6"><h3 className="text-lg font-bold text-[#0044CC]">{t('case_summary')}</h3></div>
+                <div className="flex gap-2 mb-6">
+                    <span className={`${getTypeStyle(selected.type)} text-[10px] font-bold px-3 py-1 rounded shadow-sm uppercase tracking-wide`}>{selected.type}</span>
+                    <span className="bg-black text-white text-[10px] font-bold px-3 py-1 rounded shadow-sm uppercase tracking-wide">BLACKLISTED</span>
+                </div>
+                <div className="grid grid-cols-2 gap-y-6">
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('case_number')}</p><p className="text-sm font-bold text-gray-800">{selected.caseNo}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('resident_name')}</p><p className="text-sm font-bold text-gray-800">{selected.resident}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800">{selected.date}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('moderator')}</p><p className="text-sm font-bold text-gray-800">{selected.fullData?.selectedRole || 'Admin'}</p></div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="border-l-4 border-[#0044CC] pl-3 mb-6"><h3 className="text-lg font-bold text-[#0044CC]">{t('case_details_title')}</h3></div>
+                <div className="grid grid-cols-2 gap-y-6 mb-6">
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('complainant')}</p><p className="text-sm font-bold text-gray-800">{selected.complainantName || 'N/A'}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('defendants')}</p><p className="text-sm font-bold text-gray-800">{selected.resident}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800">{selected.fullData?.incidentDate || selected.date}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('location')}</p><p className="text-sm font-bold text-gray-800">{selected.fullData?.incidentLocation || '166, Caloocan City'}</p></div>
+                </div>
+                <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">{t('detailed_description')}</p><div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-xs text-gray-700 leading-relaxed font-medium">{selected.fullData?.incidentDesc || 'Resident was permanently blacklisted.'}</div></div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <section className="flex-1 flex flex-col w-full overflow-hidden rounded-2xl bg-white shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-200">
+            {/* SYSTEM BLUE COLOR SCHEME FIX */}
+            <div className="rounded-t-2xl bg-gradient-to-br from-blue-800 to-blue-500 px-6 py-8 shadow-md shrink-0">
+              <h1 className="text-3xl font-bold uppercase tracking-wide text-white">Blacklisted Cases</h1>
+              <p className="mt-2 text-sm font-medium text-white/80">View residents permanently blacklisted from the community.</p>
+            </div>
+
+            <div className="border-b border-gray-200 bg-white px-6 py-6 md:px-8 shrink-0 relative z-20">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <p className="text-sm font-bold text-gray-700 whitespace-nowrap">Total Blacklisted: {filteredRows.length}</p>
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+                  <div className="relative w-full sm:w-auto">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsYearSortOpen(!isYearSortOpen); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"><div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{sortYear}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" /></button>
+                    {isYearSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">{yearOptions.map(y => (<div key={y} onClick={() => { setSortYear(y); setIsYearSortOpen(false); }} className="px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b last:border-0">{y}</div>))}</div>)}
+                  </div>
+                  <div className="relative w-full sm:w-auto">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"><div className="flex items-center"><Filter size={18} className="mr-2 text-gray-500" /><span>{sortType}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" /></button>
+                    {isTypeSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">{typeOptions.map(o => (<div key={o.label} onClick={() => { setSortType(o.label); setIsTypeSortOpen(false); }} className="px-4 py-3 text-sm font-bold hover:bg-blue-50 cursor-pointer flex items-center text-gray-700 border-b last:border-0"><span className={`w-2.5 h-2.5 rounded-full ${o.color} mr-3`} />{o.label}</div>))}</div>)}
+                  </div>
+                  <div className="relative w-full sm:w-72">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">🔍</span>
+                    <input type="text" placeholder={t('search_placeholder') || 'Search...'} value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-xl border border-gray-300 bg-slate-50 py-3 pl-10 pr-4 text-sm font-bold outline-none focus:border-blue-600 transition-all" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 pb-8 pt-6 md:px-8 w-full z-10 relative">
+              <table className="w-full border-collapse text-sm">
+                <thead className="sticky top-0 bg-white z-10 shadow-sm">
+                  {/* SYSTEM BLUE COLOR SCHEME FIX */}
+                  <tr className="border-b-2 border-blue-100 text-blue-900">
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[15%]">{t('report_type')}</th>
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('case_number')}</th>
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[35%]">{t('resident_name')}</th>
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[30%]">{t('action')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredRows.map((row) => (
+                    <tr key={row.id || row.caseNo} className="hover:bg-blue-50/50 transition-colors">
+                      <td className="px-4 py-5"><span className={`inline-block rounded px-3 py-1 text-[10px] font-bold shadow-sm uppercase tracking-wide ${getTypeStyle(row.type)}`}>{row.type}</span></td>
+                      <td className="px-4 py-5 font-bold text-gray-700">{row.caseNo}</td>
+                      <td className="px-4 py-5 font-medium text-gray-600">{row.resident || row.complainantName}</td>
+                      <td className="px-4 py-5">
+                        <div className="flex gap-2">
+                          <button className="rounded-lg bg-green-100 text-green-700 px-3 py-1.5 text-xs font-bold hover:bg-green-200 transition-colors" onClick={() => handleRestore(row)}>Restore</button>
+                          <button className="rounded-lg bg-blue-100 text-blue-700 px-3 py-1.5 text-xs font-bold hover:bg-blue-200 transition-colors" onClick={() => handleViewDetails(row)}>View</button>
+                          <button className="rounded-lg bg-red-100 text-red-700 px-3 py-1.5 text-xs font-bold hover:bg-red-200 transition-colors" onClick={() => handleDelete(row)}>Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredRows.length === 0 && (
+                      <tr><td colSpan={4} className="py-12 text-center text-gray-400 font-bold">No blacklisted records found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Globe, ChevronDown } from 'lucide-react';
+import { Globe, ChevronDown } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './LanguageContext'; // IMPORT THE CONTEXT
 
 // Import all your pages
@@ -31,7 +31,7 @@ const SidebarItem = ({ imageSrc, label, active, onClick }) => (
 
 // --- MAIN APP COMPONENT (Where the logic lives) ---
 function MainLayout() {
-  const [activePage, setActivePage] = useState('Analytics');
+  const [activePage, setActivePage] = useState('Dashboard');
   const [isLangOpen, setIsLangOpen] = useState(false);
   
   // Pull language tools from context
@@ -39,7 +39,7 @@ function MainLayout() {
 
   const renderContent = () => {
     switch (activePage) {
-      case 'Analytics': return <Analytics />;
+      case 'Dashboard': return <Analytics />;
       case 'Case Logs': return <CaseLogs />;
       case 'Summons': return <Summons />;
       case 'Curfew Logs': return <CurfewLogs />;
@@ -64,12 +64,13 @@ function MainLayout() {
 
         {/* Navigation (Using Translation Context) */}
         <nav className="flex-1 px-3 py-2 space-y-1">
-          <SidebarItem imageSrc="/icon-nav/analytics.png" label={t('nav_analytics')} active={activePage === 'Analytics'} onClick={() => setActivePage('Analytics')} />
-          <SidebarItem imageSrc="/icon-nav/case-logs.png" label={t('nav_case_logs')} active={activePage === 'Case Logs'} onClick={() => setActivePage('Case Logs')} />
-          <SidebarItem imageSrc="/icon-nav/summon.png" label={t('nav_summons')} active={activePage === 'Summons'} onClick={() => setActivePage('Summons')} />
-          <SidebarItem imageSrc="/icon-nav/curfew.png" label={t('nav_curfew_logs')} active={activePage === 'Curfew Logs'} onClick={() => setActivePage('Curfew Logs')} />
-          <SidebarItem imageSrc="/icon-nav/blacklisted.png" label={t('nav_blacklisted')} active={activePage === 'Blacklisted'} onClick={() => setActivePage('Blacklisted')} />
-          <SidebarItem imageSrc="/icon-nav/archived.png" label={t('nav_archived')} active={activePage === 'Archived'} onClick={() => setActivePage('Archived')} />
+          {/* UPDATED: Changed from Analytics to Dashboard */}
+          <SidebarItem imageSrc="/icon-nav/analytics.png" label={t('dashboard') || 'Dashboard'} active={activePage === 'Dashboard'} onClick={() => setActivePage('Dashboard')} />
+          <SidebarItem imageSrc="/icon-nav/case-logs.png" label={t('case_logs')} active={activePage === 'Case Logs'} onClick={() => setActivePage('Case Logs')} />
+          <SidebarItem imageSrc="/icon-nav/summon.png" label={t('summons')} active={activePage === 'Summons'} onClick={() => setActivePage('Summons')} />
+          <SidebarItem imageSrc="/icon-nav/curfew.png" label={t('curfew_logs')} active={activePage === 'Curfew Logs'} onClick={() => setActivePage('Curfew Logs')} />
+          <SidebarItem imageSrc="/icon-nav/blacklisted.png" label={t('blacklisted')} active={activePage === 'Blacklisted'} onClick={() => setActivePage('Blacklisted')} />
+          <SidebarItem imageSrc="/icon-nav/archived.png" label={t('archived')} active={activePage === 'Archived'} onClick={() => setActivePage('Archived')} />
         </nav>
       </div>
 
@@ -86,20 +87,8 @@ function MainLayout() {
             </h1>
           </div>
 
-          {/* Right Side: Search Bar + Language + Profile Icon */}
+          {/* Right Side: Language + Profile Icon (Search Bar Removed) */}
           <div className="flex items-center space-x-6 flex-1 justify-end">
-            
-            {/* CONDITIONAL SEARCH BAR */}
-            {activePage !== 'Analytics' && (
-              <div className="relative w-full max-w-md mr-4">
-                <input 
-                  type="text" 
-                  placeholder="" 
-                  className="w-full bg-slate-50 border border-blue-100 rounded-md py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm transition-all shadow-inner" 
-                />
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-400" size={18} />
-              </div>
-            )}
 
             {/* --- LANGUAGE DROPDOWN --- */}
             <div className="relative">

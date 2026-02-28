@@ -3,13 +3,11 @@ import { Folder, List, MoreVertical, ChevronLeft, Plus, ClipboardList, Edit, Cal
 import Swal from 'sweetalert2';
 import { useLanguage } from './LanguageContext'; 
 
-// --- CLEAN SINGLE-FILE IMPORT! ---
 import { SummonsButton, SummonsAddNoteButton } from './buttons/Buttons';
 
 const gradientBgClass = "bg-gradient-to-r from-[#0066FF] to-[#0099FF]";
 const gradientBtnClass = "bg-gradient-to-r from-[#0066FF] to-[#0099FF] hover:from-[#0055EE] hover:to-[#0088DD] text-white shadow-md transition-all active:scale-95";
 
-// --- GLOBAL CATEGORY COLORS ---
 const getTypeStyle = (type) => {
   switch (type) {
     case 'LUPON': return 'bg-green-600 text-white';
@@ -46,28 +44,36 @@ export default function Summons() {
       let rawDataStr = localStorage.getItem('summons') || '[]';
       const casesDataStr = localStorage.getItem('cases') || '[]';
       const allCases = JSON.parse(casesDataStr);
-
       let rawData = JSON.parse(rawDataStr);
 
-      // --- WORKFLOW RULE: Hide summons if parent case is Settled or Blacklisted ---
-      const validSummons = rawData.filter(summon => 
+      // --- CRITICAL FIX: Only hide the summons for the view, DO NOT delete them from localStorage! ---
+      const validSummonsForView = rawData.filter(summon => 
           allCases.some(c => c.caseNo === summon.caseNo && c.status !== 'SETTLED' && c.status !== 'BLACKLISTED')
       );
 
-      if (validSummons.length !== rawData.length) {
-          localStorage.setItem('summons', JSON.stringify(validSummons));
-          rawData = validSummons;
-      }
-
-      const normalizedData = rawData.map(item => {
+      const normalizedData = validSummonsForView.map(item => {
           let status = item.status || 'Pending';
           if (status === 'Active' || status === 'PENDING') status = 'Pending';
           
           const matchedCase = allCases.find(c => c.caseNo === item.caseNo);
-          const complainantName = matchedCase ? matchedCase.complainantName : (item.complainantName || item.residentName || 'N/A');
-          const caseType = matchedCase ? matchedCase.type : 'LUPON'; // Grab type for colors
+          
+          const complainantName = item.complainantName || matchedCase?.fullData?.complainantName || matchedCase?.complainantName || 'N/A';
+          const complainantContact = item.complainantContact || matchedCase?.fullData?.complainantContact || 'N/A';
+          const complainantAddress = item.complainantAddress || matchedCase?.fullData?.complainantAddress || 'N/A';
 
-          return { ...item, status, complainantName, type: caseType };
+          const respondentName = item.residentName || item.respondentName || matchedCase?.fullData?.respondentName || matchedCase?.resident || 'N/A';
+          const respondentContact = item.respondentContact || matchedCase?.fullData?.respondentContact || 'N/A';
+          const respondentAddress = item.respondentAddress || matchedCase?.fullData?.respondentAddress || matchedCase?.respondentAddress || 'No address provided';
+          
+          const caseType = matchedCase ? matchedCase.type : 'LUPON'; 
+
+          return { 
+              ...item, 
+              status, 
+              complainantName, complainantContact, complainantAddress,
+              respondentName, respondentContact, respondentAddress,
+              type: caseType 
+          };
       });
       
       setSummonsList(normalizedData);
@@ -108,7 +114,7 @@ export default function Summons() {
   const toggleActionDropdown = (caseNo) => { setActiveActionDropdown(activeActionDropdown === caseNo ? null : caseNo); };
   
   const handleActionSelect = (action, caseItem) => {
-    if (caseItem.status !== 'Pending') return; 
+    if (caseItem.status === action) return; 
     setActiveActionDropdown(null); 
     setConfirmModal({ isOpen: true, action: action, caseNo: caseItem.caseNo }); 
   };
@@ -121,14 +127,15 @@ export default function Summons() {
     const { action, caseNo } = confirmModal;
     setConfirmModal({ isOpen: false, action: null, caseNo: null });
 
-    const updatedSummons = summonsList.map(item => item.caseNo === caseNo ? { ...item, status: action } : item);
-    setSummonsList(updatedSummons); localStorage.setItem('summons', JSON.stringify(updatedSummons));
+    const allSummons = JSON.parse(localStorage.getItem('summons') || '[]');
+    const updatedSummons = allSummons.map(item => item.caseNo === caseNo ? { ...item, status: action } : item);
+    localStorage.setItem('summons', JSON.stringify(updatedSummons));
 
     const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
     const updatedCases = allCases.map(c => c.caseNo === caseNo ? { ...c, status: action.toUpperCase() } : c);
     localStorage.setItem('cases', JSON.stringify(updatedCases));
+    
     window.dispatchEvent(new Event('storage')); 
-
     Swal.fire({ title: t('status_updated') || 'Status Updated!', text: `${t('case_no')} ${caseNo} ${t('marked_as')} ${action}.`, icon: 'success', confirmButtonColor: '#0066FF' });
   };
 
@@ -140,14 +147,15 @@ export default function Summons() {
     const newStatus = tempStatus;
     const caseNo = previewModal.data.caseNo;
 
-    const updatedSummons = summonsList.map(item => item.caseNo === caseNo ? { ...item, status: newStatus } : item);
-    setSummonsList(updatedSummons); localStorage.setItem('summons', JSON.stringify(updatedSummons));
+    const allSummons = JSON.parse(localStorage.getItem('summons') || '[]');
+    const updatedSummons = allSummons.map(item => item.caseNo === caseNo ? { ...item, status: newStatus } : item);
+    localStorage.setItem('summons', JSON.stringify(updatedSummons));
 
     const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
     const updatedCases = allCases.map(c => c.caseNo === caseNo ? { ...c, status: newStatus.toUpperCase() } : c);
     localStorage.setItem('cases', JSON.stringify(updatedCases));
+    
     window.dispatchEvent(new Event('storage'));
-
     setPreviewModal({ isOpen: false, data: null }); setPreviewEditing(false);
     Swal.fire({ title: t('status_updated') || 'Updated!', text: `${t('case_no')} ${caseNo} ${t('marked_as')} ${newStatus}.`, icon: 'success', confirmButtonColor: '#0066FF' });
   };
@@ -168,20 +176,41 @@ export default function Summons() {
 
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border-2 border-[#0066FF] transform scale-100 transition-all">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border-2 border-[#0066FF] transform scale-100 transition-all">
                 <div className="p-10">
                     <h3 className="text-3xl font-bold text-[#0066FF] mb-8">{t('case_preview')}</h3>
                     <div className="bg-slate-50 rounded-xl p-8 border border-gray-100 space-y-6">
-                        <div className="flex justify-between items-center border-b border-gray-200 pb-4"><span className="text-gray-500 font-medium text-lg">{t('case_no')}</span><span className="text-[#0066FF] font-bold text-xl tracking-wide">{data.caseNo}</span></div>
-                        <div className="flex justify-between items-center border-b border-gray-200 pb-4"><span className="text-gray-500 font-medium text-lg">{t('complainant_name')}</span><span className="text-gray-800 font-extrabold text-xl">{data.complainantName}</span></div>
+                        
+                        <div className="flex justify-between items-center border-b border-gray-200 pb-4">
+                            <span className="text-gray-500 font-medium text-lg">{t('case_no')}</span>
+                            <span className="text-[#0066FF] font-bold text-xl tracking-wide">{data.caseNo}</span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-8 border-b border-gray-200 pb-6">
+                            <div className="space-y-1">
+                                <span className="text-blue-600 font-bold text-sm uppercase tracking-wider mb-2 block flex items-center"><span className="w-2 h-2 rounded-full bg-blue-600 mr-2"></span>Complainant</span>
+                                <p className="text-gray-800 font-extrabold text-lg uppercase">{data.complainantName}</p>
+                                <p className="text-gray-600 text-sm font-medium"><span className="text-gray-400 mr-1">Contact:</span> {data.complainantContact}</p>
+                                <p className="text-gray-600 text-sm font-medium leading-tight"><span className="text-gray-400 mr-1">Address:</span> {data.complainantAddress}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <span className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2 block flex items-center"><span className="w-2 h-2 rounded-full bg-red-600 mr-2"></span>Respondent</span>
+                                <p className="text-gray-800 font-extrabold text-lg uppercase">{data.respondentName}</p>
+                                <p className="text-gray-600 text-sm font-medium"><span className="text-gray-400 mr-1">Contact:</span> {data.respondentContact}</p>
+                                <p className="text-gray-600 text-sm font-medium leading-tight"><span className="text-gray-400 mr-1">Address:</span> {data.respondentAddress}</p>
+                            </div>
+                        </div>
+
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4"><span className="text-gray-500 font-medium text-lg">{t('date_filed')}</span><span className="text-gray-800 font-medium text-xl">{data.summonDate || 'N/A'}</span></div>
                         <div className="flex justify-between items-center pt-2 min-h-[50px]">
                             <span className="text-gray-500 font-medium text-lg">{t('current_status')}</span>
                             {previewEditing ? (
                                 <div className="relative">
                                     <select value={tempStatus} onChange={(e) => setTempStatus(e.target.value)} className="appearance-none bg-white border-2 border-[#0066FF] text-gray-900 font-bold text-lg py-2 pl-6 pr-12 rounded-lg cursor-pointer outline-none shadow-sm hover:bg-blue-50 transition-colors">
-                                        {tempStatus === 'Pending' && <option value="Pending" disabled>{t('select_option') || 'Select...'}</option>}
-                                        <option value="Settled">{t('settle')}</option><option value="Escalated">{t('escalate')}</option><option value="Blacklisted">{t('blacklist')}</option>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Settled">{t('settle')}</option>
+                                        <option value="Escalated">{t('escalate')}</option>
+                                        <option value="Blacklisted">{t('blacklist')}</option>
                                     </select>
                                     <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#0066FF] pointer-events-none" size={20} strokeWidth={3} />
                                 </div>
@@ -220,9 +249,12 @@ export default function Summons() {
                 <div className="p-8">
                     <h3 className="text-2xl font-bold text-[#0066FF] mb-4">{t('confirm_status_update')}</h3>
                     <p className="text-gray-600 text-lg leading-relaxed mb-4">{t('are_you_sure_mark')} <span className="font-bold text-[#0066FF] whitespace-nowrap">{confirmModal.caseNo}</span> {t('as')} <span className="font-bold text-gray-800">{confirmModal.action}</span>?</p>
+                    
+                    {confirmModal.action === 'Pending' && <p className="text-yellow-600 font-bold text-sm bg-yellow-50 p-2 rounded-lg border border-yellow-100 mb-4 text-center">Case will be reverted to pending status.</p>}
                     {confirmModal.action === 'Settled' && <p className="text-green-600 font-bold text-sm bg-green-50 p-2 rounded-lg border border-green-100 mb-4 text-center">{t('moved_to_archive')}</p>}
                     {confirmModal.action === 'Escalated' && <p className="text-red-600 font-bold text-sm bg-red-50 p-2 rounded-lg border border-red-100 mb-4 text-center">{t('case_escalated_notice')}</p>}
                     {confirmModal.action === 'Blacklisted' && <p className="text-gray-800 font-bold text-sm bg-gray-200 p-2 rounded-lg border border-gray-300 mb-4 text-center">{t('moved_to_blacklist')}</p>}
+                    
                     <div className="flex justify-end space-x-3 mt-4">
                       <SummonsButton variant="outline" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="px-6 py-2.5 rounded-lg text-sm tracking-wide">{t('cancel')}</SummonsButton>
                       <SummonsButton variant="primary" onClick={executeStatusUpdate} className="px-8 py-2.5 rounded-lg text-sm tracking-wide">{t('confirm')}</SummonsButton>
@@ -286,12 +318,43 @@ export default function Summons() {
       <div className="flex-1 overflow-y-auto bg-slate-50 p-10">
         {renderConfirmationModal()}
         <div className="max-w-[1600px] mx-auto">
+          
           <div className="mb-8">
              <div className="flex items-center mb-6"><button onClick={handleBackToFolder} className="flex items-center text-gray-500 hover:text-blue-700 transition-colors mr-4"><ChevronLeft size={32} /></button><h2 className="text-4xl font-bold text-[#0066FF] tracking-wide uppercase">{t('summon_overview')}</h2></div>
-             <div className="flex space-x-6 px-2"><p className="text-gray-500 font-bold text-sm uppercase tracking-wide"><span className="text-gray-400">{t('case_no')}:</span> <span className="text-gray-800 ml-1">{selectedCase.caseNo}</span></p><div className="w-px h-5 bg-gray-300"></div><p className="text-gray-500 font-bold text-sm uppercase tracking-wide"><span className="text-gray-400">{t('complainant_name')}:</span> <span className="text-gray-800 ml-1">{selectedCase.complainantName}</span></p></div>
+             
+             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8 mt-4">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                    <h3 className="text-xl font-bold text-gray-800 tracking-wide uppercase"><span className="text-gray-400 mr-2">Case No:</span> <span className="text-[#0066FF]">{selectedCase.caseNo}</span></h3>
+                    <span className={`${getTypeStyle(selectedCase.type)} px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm`}>{selectedCase.type || 'LUPON'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-8 px-2">
+                    <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                        <p className="text-xs font-bold text-[#0066FF] uppercase tracking-wider mb-3 flex items-center"><span className="w-2 h-2 rounded-full bg-[#0066FF] mr-2"></span> Complainant</p>
+                        <p className="font-extrabold text-gray-800 text-lg uppercase mb-1">{selectedCase.complainantName}</p>
+                        <p className="text-gray-600 text-sm font-medium mb-1"><span className="text-gray-400 mr-1">Contact:</span> {selectedCase.complainantContact}</p>
+                        <p className="text-gray-600 text-sm font-medium"><span className="text-gray-400 mr-1">Address:</span> {selectedCase.complainantAddress}</p>
+                    </div>
+                    <div className="bg-red-50/50 p-5 rounded-xl border border-red-100">
+                        <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-3 flex items-center"><span className="w-2 h-2 rounded-full bg-red-600 mr-2"></span> Respondent</p>
+                        <p className="font-extrabold text-gray-800 text-lg uppercase mb-1">{selectedCase.respondentName}</p>
+                        <p className="text-gray-600 text-sm font-medium mb-1"><span className="text-gray-400 mr-1">Contact:</span> {selectedCase.respondentContact}</p>
+                        <p className="text-gray-600 text-sm font-medium"><span className="text-gray-400 mr-1">Address:</span> {selectedCase.respondentAddress}</p>
+                    </div>
+                </div>
+             </div>
           </div>
 
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-8 mb-10 shadow-sm relative"><h3 className="text-[#0066FF] font-extrabold text-lg uppercase mb-3">{t('summon_reason')} :</h3><p className="text-gray-700 text-base leading-relaxed font-medium">{selectedSummon.summonReason || "No reason provided."}</p></div>
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-8 mb-10 shadow-sm relative">
+              <h3 className="text-[#0066FF] font-extrabold text-lg uppercase mb-3">{t('summon_reason')} :</h3>
+              {selectedSummon.summonReason ? (
+                  <div 
+                      className="text-gray-700 text-base leading-relaxed font-medium" 
+                      dangerouslySetInnerHTML={{ __html: selectedSummon.summonReason }} 
+                  />
+              ) : (
+                  <p className="text-gray-700 text-base leading-relaxed font-medium">No reason provided.</p>
+              )}
+          </div>
           
           <div className="relative">
             <div className="flex items-center justify-between mb-6 gap-6">
@@ -330,7 +393,27 @@ export default function Summons() {
         <div className="max-w-[1600px] mx-auto">
           <div className="mb-8">
              <div className="flex items-center mb-6"><button onClick={handleBackToList} className="flex items-center text-gray-500 hover:text-blue-700 transition-colors mr-4"><ChevronLeft size={32} /></button><h2 className="text-4xl font-bold text-[#0066FF] tracking-wide uppercase">{t('summons_hearing')}</h2></div>
-             <div className="flex space-x-6 px-2"><p className="text-gray-500 font-bold text-sm uppercase tracking-wide"><span className="text-gray-400">{t('case_no')}:</span> <span className="text-gray-800 ml-1">{selectedCase.caseNo}</span></p><div className="w-px h-5 bg-gray-300"></div><p className="text-gray-500 font-bold text-sm uppercase tracking-wide"><span className="text-gray-400">{t('complainant_name')}:</span> <span className="text-gray-800 ml-1">{selectedCase.complainantName}</span></p></div>
+             
+             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8 mt-4">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                    <h3 className="text-xl font-bold text-gray-800 tracking-wide uppercase"><span className="text-gray-400 mr-2">Case No:</span> <span className="text-[#0066FF]">{selectedCase.caseNo}</span></h3>
+                    <span className={`${getTypeStyle(selectedCase.type)} px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm`}>{selectedCase.type || 'LUPON'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-8 px-2">
+                    <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                        <p className="text-xs font-bold text-[#0066FF] uppercase tracking-wider mb-3 flex items-center"><span className="w-2 h-2 rounded-full bg-[#0066FF] mr-2"></span> Complainant</p>
+                        <p className="font-extrabold text-gray-800 text-lg uppercase mb-1">{selectedCase.complainantName}</p>
+                        <p className="text-gray-600 text-sm font-medium mb-1"><span className="text-gray-400 mr-1">Contact:</span> {selectedCase.complainantContact}</p>
+                        <p className="text-gray-600 text-sm font-medium"><span className="text-gray-400 mr-1">Address:</span> {selectedCase.complainantAddress}</p>
+                    </div>
+                    <div className="bg-red-50/50 p-5 rounded-xl border border-red-100">
+                        <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-3 flex items-center"><span className="w-2 h-2 rounded-full bg-red-600 mr-2"></span> Respondent</p>
+                        <p className="font-extrabold text-gray-800 text-lg uppercase mb-1">{selectedCase.respondentName}</p>
+                        <p className="text-gray-600 text-sm font-medium mb-1"><span className="text-gray-400 mr-1">Contact:</span> {selectedCase.respondentContact}</p>
+                        <p className="text-gray-600 text-sm font-medium"><span className="text-gray-400 mr-1">Address:</span> {selectedCase.respondentAddress}</p>
+                    </div>
+                </div>
+             </div>
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden min-h-[500px]">
@@ -367,11 +450,9 @@ export default function Summons() {
           <div className="divide-y divide-gray-100 flex-1 bg-white">
             {uniqueCases.length > 0 ? (
               uniqueCases.map((item, index) => {
-                const isPending = !item.status || item.status === 'Pending';
                 return (
                   <div key={index} onClick={() => handleOpenFolder(item)} className="grid grid-cols-12 py-4 px-6 text-center items-center hover:bg-blue-50/40 transition-colors group relative cursor-pointer">
                     <div className="col-span-4 flex items-center pl-2 space-x-4">
-                      {/* --- COLORED FOLDER ICON MATCHING REPORT TYPE --- */}
                       <div className={`${getTypeStyle(item.type)} p-2.5 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center w-10 h-10`}><Folder size={20} fill="currentColor" /></div>
                       <span className="font-bold text-gray-700 text-base tracking-tight">{item.caseNo}</span>
                     </div>
@@ -379,12 +460,14 @@ export default function Summons() {
                     <div className="col-span-2 text-gray-500 font-medium text-base">{item.summonDate}</div>
                     <div className="col-span-2 flex justify-center relative">
                       <button onClick={(e) => { e.stopPropagation(); toggleActionDropdown(item.caseNo); }} className="text-gray-400 hover:text-[#0066FF] p-2 rounded-full hover:bg-blue-50"><List size={24} strokeWidth={2.5} /></button>
+                      
                       {activeActionDropdown === item.caseNo && (
                         <div className="absolute top-12 right-10 w-48 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 cursor-default">
                           <div onClick={(e) => { e.stopPropagation(); handleViewStatus(item); }} className="px-5 py-3 text-sm text-left text-gray-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer font-bold border-b border-gray-100 transition-colors flex items-center"><Eye size={16} className="mr-2"/> {t('view_status')}</div>
-                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Escalated', item); }} className={`px-5 py-3 text-sm text-left font-bold border-b border-gray-100 transition-colors ${!isPending ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-red-50 hover:text-red-600 cursor-pointer'}`}>{t('escalate')}</div>
-                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Blacklisted', item); }} className={`px-5 py-3 text-sm text-left font-bold border-b border-gray-100 transition-colors ${!isPending ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer'}`}>{t('blacklist')}</div>
-                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Settled', item); }} className={`px-5 py-3 text-sm text-left font-bold transition-colors ${!isPending ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-green-50 hover:text-green-600 cursor-pointer'}`}>{t('settle')}</div>
+                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Pending', item); }} className={`px-5 py-3 text-sm text-left font-bold border-b border-gray-100 transition-colors ${item.status === 'Pending' ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-yellow-50 hover:text-yellow-600 cursor-pointer'}`}>Pending</div>
+                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Escalated', item); }} className={`px-5 py-3 text-sm text-left font-bold border-b border-gray-100 transition-colors ${item.status === 'Escalated' ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-red-50 hover:text-red-600 cursor-pointer'}`}>{t('escalate')}</div>
+                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Blacklisted', item); }} className={`px-5 py-3 text-sm text-left font-bold border-b border-gray-100 transition-colors ${item.status === 'Blacklisted' ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer'}`}>{t('blacklist')}</div>
+                          <div onClick={(e) => { e.stopPropagation(); handleActionSelect('Settled', item); }} className={`px-5 py-3 text-sm text-left font-bold transition-colors ${item.status === 'Settled' ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-green-50 hover:text-green-600 cursor-pointer'}`}>{t('settle')}</div>
                         </div>
                       )}
                     </div>
@@ -397,5 +480,5 @@ export default function Summons() {
         </div>
       </div>
     </div>
-  );
+  ); 
 }

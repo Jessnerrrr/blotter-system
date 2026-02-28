@@ -33,7 +33,6 @@ export default function CaseLogs() {
   const { t } = useLanguage(); 
   const [view, setView] = useState('TABLE'); 
   
-  // ---> 2. USE MOCK DATA AS FALLBACK <---
   const [cases, setCases] = useState(() => {
     const saved = localStorage.getItem('cases');
     if (saved && saved !== '[]') {
@@ -46,7 +45,6 @@ export default function CaseLogs() {
       return parsedData;
     }
     
-    // If LocalStorage is empty, load the mock data and save it so it persists!
     localStorage.setItem('cases', JSON.stringify(mockCases));
     return mockCases; 
   });
@@ -69,11 +67,19 @@ export default function CaseLogs() {
 
   const [formData, setFormData] = useState({
     caseNo: '', dateFiled: '', complainantName: '', complainantContact: '', complainantAddress: '',
-    defendantName: '', defendantContact: '', defendantAddress: '', incidentDate: '', incidentLocation: '', incidentDesc: ''
+    respondentName: '', respondentContact: '', respondentAddress: '', incidentDate: '', incidentLocation: '', incidentDesc: ''
   });
   
   const [viewCaseData, setViewCaseData] = useState(null);
-  const [summonData, setSummonData] = useState({ caseNo: '', residentName: '', summonDate: '', summonTime: '', summonType: '', summonReason: '', notedBy: '' });
+  
+  // --- ADDED NEW FIELDS TO SUMMONDATA STATE ---
+  const [summonData, setSummonData] = useState({ 
+      caseNo: '', 
+      residentName: '', respondentContact: '', respondentAddress: '', 
+      complainantName: '', complainantContact: '', complainantAddress: '',
+      summonDate: '', summonTime: '', summonType: '', summonReason: '', notedBy: '' 
+  });
+
   const editorRef = useRef(null);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [previewFile, setPreviewFile] = useState(null); 
@@ -127,7 +133,7 @@ export default function CaseLogs() {
     setFormData({
       caseNo: newCaseNo, dateFiled: today,
       complainantName: '', complainantContact: '', complainantAddress: '',
-      defendantName: '', defendantContact: '', defendantAddress: '',
+      respondentName: '', respondentContact: '', respondentAddress: '',
       incidentDate: '', incidentLocation: '', incidentDesc: ''
     });
     setAttachedFiles([]);
@@ -152,10 +158,24 @@ export default function CaseLogs() {
     const usedTypes = caseSummons.map(s => s.summonType);
     setTakenSummons(usedTypes);
 
+    // --- FETCH ALL CONTACT DATA FOR BOTH PARTIES ---
+    const rAddress = caseItem.fullData?.respondentAddress || caseItem.respondentAddress || 'N/A';
+    const rContact = caseItem.fullData?.respondentContact || caseItem.respondentContact || 'N/A';
+    const cName = caseItem.fullData?.complainantName || caseItem.complainantName || 'N/A';
+    const cContact = caseItem.fullData?.complainantContact || caseItem.complainantContact || 'N/A';
+    const cAddress = caseItem.fullData?.complainantAddress || caseItem.complainantAddress || 'N/A';
+
     setSummonData({
-      caseNo: caseItem.caseNo, residentName: caseItem.resident,
+      caseNo: caseItem.caseNo, 
+      residentName: caseItem.resident || caseItem.respondentName || 'N/A', // Respondent Name
+      respondentContact: rContact,
+      respondentAddress: rAddress,
+      complainantName: cName,
+      complainantContact: cContact,
+      complainantAddress: cAddress,
       summonDate: '', summonTime: '', summonType: '', summonReason: '', notedBy: ''
     });
+    
     setSummonErrors({});
     if(editorRef.current) editorRef.current.innerHTML = "";
     setView('SUMMON');
@@ -168,7 +188,7 @@ export default function CaseLogs() {
         setViewCaseData({
             selectedReportType: caseItem.type, selectedRole: '', caseNo: caseItem.caseNo, dateFiled: caseItem.date,
             complainantName: caseItem.complainantName || caseItem.resident || '', complainantContact: caseItem.contact || '', complainantAddress: '',
-            defendantName: caseItem.resident || '', defendantContact: '', defendantAddress: '', incidentDate: caseItem.date, incidentLocation: '', incidentDesc: ''
+            respondentName: caseItem.resident || caseItem.respondentName || '', respondentContact: '', respondentAddress: '', incidentDate: caseItem.date, incidentLocation: '', incidentDesc: ''
         });
     }
     setView('VIEW_CASE');
@@ -225,7 +245,7 @@ export default function CaseLogs() {
 
   const handleSubmitCase = () => {
     const errors = {};
-    const required = ['dateFiled', 'complainantName', 'complainantContact', 'complainantAddress', 'defendantName', 'defendantContact', 'defendantAddress', 'incidentDate', 'incidentLocation', 'incidentDesc'];
+    const required = ['dateFiled', 'complainantName', 'complainantContact', 'complainantAddress', 'respondentName', 'respondentContact', 'respondentAddress', 'incidentDate', 'incidentLocation', 'incidentDesc'];
     required.forEach(f => { if (!formData[f] || !formData[f].trim()) errors[f] = 'Required'; });
     
     let contactError = false;
@@ -233,8 +253,8 @@ export default function CaseLogs() {
         errors.complainantContact = 'Must be exactly 11 digits';
         contactError = true;
     }
-    if (formData.defendantContact && formData.defendantContact.length !== 11) {
-        errors.defendantContact = 'Must be exactly 11 digits';
+    if (formData.respondentContact && formData.respondentContact.length !== 11) {
+        errors.respondentContact = 'Must be exactly 11 digits';
         contactError = true;
     }
 
@@ -248,14 +268,23 @@ export default function CaseLogs() {
       return;
     }
 
-    Swal.fire({ title: t('confirm_save_title'), text: t('confirm_save_text'), icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('yes_save'), cancelButtonText: t('cancel') }).then((result) => {
+    Swal.fire({ 
+        title: 'Confirm Save Case', 
+        text: 'Are you sure you want to save this new case to the logs?', 
+        icon: 'question', 
+        showCancelButton: true, 
+        confirmButtonColor: '#2563eb', 
+        cancelButtonColor: '#d33', 
+        confirmButtonText: 'Yes, Save Case', 
+        cancelButtonText: 'Cancel' 
+    }).then((result) => {
         if(result.isConfirmed) {
             const dateObj = new Date(formData.dateFiled);
             const formattedDate = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}-${dateObj.getFullYear()}`;
             
-            setCases([{ type: selectedReportType, status: 'PENDING', caseNo: formData.caseNo, complainantName: formData.complainantName, resident: formData.defendantName, contact: formData.complainantContact, date: formattedDate, fullData: { ...formData, selectedReportType, selectedRole } }, ...cases]);
+            setCases([{ type: selectedReportType, status: 'PENDING', caseNo: formData.caseNo, complainantName: formData.complainantName, resident: formData.respondentName, contact: formData.complainantContact, date: formattedDate, fullData: { ...formData, selectedReportType, selectedRole } }, ...cases]);
             setSortStatus(t('all_status')); setSortYear(t('all_years')); setView('TABLE');
-            Swal.fire({ title: 'Success!', text: 'Case added to logs.', icon: 'success' });
+            Swal.fire({ title: 'Success!', text: 'Case successfully added to logs.', icon: 'success', confirmButtonColor: '#2563eb' });
         }
     });
   };
@@ -298,10 +327,10 @@ export default function CaseLogs() {
                     <tbody>
                         <tr><td className="border border-black p-3 font-bold bg-gray-100 w-1/4">{t('report_type')}</td><td className="border border-black p-3 w-1/4">{viewCaseData.selectedReportType}</td><td className="border border-black p-3 font-bold bg-gray-100 w-1/4">{t('assign_moderator')}</td><td className="border border-black p-3 w-1/4">{viewCaseData.selectedRole}</td></tr>
                         <tr><td className="border border-black p-3 font-bold bg-gray-100">{t('case_no')}</td><td className="border border-black p-3">{viewCaseData.caseNo}</td><td className="border border-black p-3 font-bold bg-gray-100">{t('date_filed')}</td><td className="border border-black p-3">{viewCaseData.dateFiled}</td></tr>
-                        <tr><td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('complainant')}</td><td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('defendant')}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('full_name')}</td><td className="border border-black p-3">{viewCaseData.complainantName}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('full_name')}</td><td className="border border-black p-3">{viewCaseData.defendantName}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('contact_no')}</td><td className="border border-black p-3">{viewCaseData.complainantContact}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('contact_no')}</td><td className="border border-black p-3">{viewCaseData.defendantContact}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('address')}</td><td className="border border-black p-3">{viewCaseData.complainantAddress}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('address')}</td><td className="border border-black p-3">{viewCaseData.defendantAddress}</td></tr>
+                        <tr><td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('complainant')}</td><td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">Respondent</td></tr>
+                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('full_name')}</td><td className="border border-black p-3">{viewCaseData.complainantName}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('full_name')}</td><td className="border border-black p-3">{viewCaseData.respondentName || viewCaseData.defendantName}</td></tr>
+                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('contact_no')}</td><td className="border border-black p-3">{viewCaseData.complainantContact}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('contact_no')}</td><td className="border border-black p-3">{viewCaseData.respondentContact || viewCaseData.defendantContact}</td></tr>
+                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('address')}</td><td className="border border-black p-3">{viewCaseData.complainantAddress}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('address')}</td><td className="border border-black p-3">{viewCaseData.respondentAddress || viewCaseData.defendantAddress}</td></tr>
                         <tr><td colSpan="4" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('incident_details')}</td></tr>
                         <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('date_filed')}</td><td className="border border-black p-3">{viewCaseData.incidentDate}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('location')}</td><td className="border border-black p-3">{viewCaseData.incidentLocation}</td></tr>
                         <tr><td className="border border-black p-3 font-bold bg-gray-50 align-top">{t('description')}</td><td colSpan="3" className="border border-black p-3 whitespace-pre-wrap leading-relaxed">{viewCaseData.incidentDesc}</td></tr>
@@ -315,7 +344,7 @@ export default function CaseLogs() {
                 <div className="p-10 space-y-8">
                     <div className="grid grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-500 mb-2">{t('report_type')}</label><div className="bg-slate-100 p-4 rounded-lg font-bold text-gray-700">{viewCaseData.selectedReportType}</div></div><div><label className="block text-sm font-bold text-gray-500 mb-2">{t('assign_moderator')}</label><div className="bg-slate-100 p-4 rounded-lg font-bold text-gray-700">{viewCaseData.selectedRole}</div></div></div>
                     <div className="grid grid-cols-2 gap-6"><div><label className="font-bold text-gray-700">{t('case_no')}</label><input type="text" value={viewCaseData.caseNo} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed font-mono font-bold" /></div><div><label className="font-bold text-gray-700">{t('date_filed')}</label><input type="date" value={viewCaseData.dateFiled} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed font-bold" /></div></div>
-                    <div className="grid grid-cols-2 gap-8"><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4><input type="text" value={viewCaseData.complainantName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.complainantContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.complainantAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /></div><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('defendant')}</h4><input type="text" value={viewCaseData.defendantName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.defendantContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.defendantAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /></div></div>
+                    <div className="grid grid-cols-2 gap-8"><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4><input type="text" value={viewCaseData.complainantName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.complainantContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.complainantAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /></div><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">Respondent</h4><input type="text" value={viewCaseData.respondentName || viewCaseData.defendantName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.respondentContact || viewCaseData.defendantContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.respondentAddress || viewCaseData.defendantAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /></div></div>
                     <div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('incident_details')}</h4><div className="grid grid-cols-2 gap-6"><input type="date" value={viewCaseData.incidentDate} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.incidentLocation} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /></div><textarea value={viewCaseData.incidentDesc} readOnly rows="4" className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed resize-none"></textarea></div>
                 </div>
                 <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4"><button onClick={handlePrintOverview} className="flex items-center px-8 py-3 border-2 border-[#0066FF] text-[#0066FF] font-bold rounded-lg hover:bg-blue-50 transition-colors shadow-sm"><Printer size={18} className="mr-2" />{t('print_details')}</button><button onClick={handleBackToListFromOverview} className="px-8 py-3 border border-gray-300 font-bold text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">{t('back_to_list')}</button></div>
@@ -327,20 +356,59 @@ export default function CaseLogs() {
   if (view === 'SUMMON') {
     return (
       <div className="flex-1 overflow-y-auto bg-slate-50 p-8">
-        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg border overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg border overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-blue-700 py-6 relative overflow-hidden flex items-center justify-center">
             <div className="absolute left-8 top-1/2 -translate-y-1/2"><img src="/icon-summons/assign summon.png" alt="Assign Summon" className="w-16 h-16 object-contain opacity-80" /></div>
             <div className="text-center text-white z-10"><h2 className="text-2xl font-bold tracking-tight">{t('assign_summons')}</h2><p className="text-blue-100 mt-1 text-xs">{t('summon_schedule_subtitle')}</p></div>
           </div>
-          <div className="p-8 space-y-5 bg-slate-50">
-            <div className="grid grid-cols-2 gap-5">
-              <div><label className="block text-xs font-bold text-gray-700 mb-1">{t('case_no')}</label><input type="text" value={summonData.caseNo} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-600 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold" /></div>
-              <div><label className="block text-xs font-bold text-gray-700 mb-1">{t('resident_name')}</label><input type="text" value={summonData.residentName} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-600 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold" /></div>
+          
+          <div className="p-8 space-y-8 bg-slate-50">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">{t('case_no')}</label>
+              <input type="text" value={summonData.caseNo} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-600 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold" />
             </div>
+
+            {/* --- NEW SIDE-BY-SIDE LAYOUT FOR ASSIGN SUMMON --- */}
+            <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-4">
+                    <h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
+                        <input type="text" value={summonData.complainantName} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Contact #</label>
+                        <input type="text" value={summonData.complainantContact} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Address</label>
+                        <input type="text" value={summonData.complainantAddress} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
+                    </div>
+                </div>
+                
+                <div className="space-y-4">
+                    <h4 className="text-blue-600 font-bold border-b pb-2">Respondent</h4>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
+                        <input type="text" value={summonData.residentName} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Contact #</label>
+                        <input type="text" value={summonData.respondentContact} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Address</label>
+                        <input type="text" value={summonData.respondentAddress} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
+                    </div>
+                </div>
+            </div>
+            {/* ----------------------------------------------- */}
+
             <div className="grid grid-cols-2 gap-5">
               <div><label className="block text-xs font-bold text-gray-700 mb-1">{t('summon_date')}</label><div className="relative"><input type="date" name="summonDate" value={summonData.summonDate} onChange={handleSummonInputChange} min={today} className={`${getInputClass('summonDate', summonErrors)} py-2 text-sm`} /><Calendar className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={16} /></div>{summonErrors.summonDate && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}</div>
               <div><label className="block text-xs font-bold text-gray-700 mb-1">{t('summon_time')}</label><div className="relative"><input type="time" name="summonTime" value={summonData.summonTime} onChange={handleSummonInputChange} className={`${getInputClass('summonTime', summonErrors)} py-2 text-sm`} /><Clock className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={16} /></div>{summonErrors.summonTime && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}</div>
             </div>
+            
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">{t('select_summons_no')}</label>
               <div className="relative">
@@ -354,6 +422,7 @@ export default function CaseLogs() {
               </div>
               {summonErrors.summonType && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}
             </div>
+            
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">{t('summon_reason')}</label>
               <div className={`border-2 rounded-xl overflow-hidden shadow-sm flex flex-col h-40 transition-colors ${summonErrors.summonReason ? 'border-red-500' : 'border-gray-200 focus-within:border-blue-500'}`}>
@@ -369,12 +438,14 @@ export default function CaseLogs() {
               </div>
               {summonErrors.summonReason && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}
             </div>
+            
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">{t('noted_by')}</label>
               <input type="text" name="notedBy" value={summonData.notedBy} onChange={handleSummonInputChange} placeholder={t('auth_officer_name')} className={`${getInputClass('notedBy', summonErrors)} py-2 text-sm`} />
               {summonErrors.notedBy && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}
             </div>
           </div>
+          
           <div className="bg-white p-5 border-t border-gray-200 flex justify-end space-x-3">
             <button onClick={handleCancelSummon} className="px-5 py-2 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors text-sm">{t('cancel')}</button>
             <button onClick={handleSubmitSummon} className={`px-6 py-2 rounded-lg font-bold text-sm ${gradientBtnClass}`}>{t('submit_summon')}</button>
@@ -422,7 +493,22 @@ export default function CaseLogs() {
           <div className="p-10 space-y-8">
             <div className="grid grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-500 mb-2">{t('report_type')}</label><div className="bg-gray-100 p-4 rounded-lg font-bold text-blue-800">{selectedReportType}</div></div><div><label className="block text-sm font-bold text-gray-500 mb-2">{t('assign_moderator')}</label><div className="bg-gray-100 p-4 rounded-lg font-bold text-blue-800">{selectedRole}</div></div></div>
             <div className="grid grid-cols-2 gap-6"><div><label className="font-bold">{t('case_no')}</label><input type="text" value={formData.caseNo} readOnly className="w-full bg-slate-100 border p-3 rounded-lg cursor-not-allowed font-mono font-bold" /></div><div><label className="font-bold">{t('date_filed')}</label><input type="date" name="dateFiled" value={formData.dateFiled} readOnly className="w-full bg-slate-100 border p-3 rounded-lg cursor-not-allowed font-bold text-gray-600" /></div></div>
-            <div className="grid grid-cols-2 gap-8"><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4><input type="text" name="complainantName" value={formData.complainantName} placeholder={t('full_name')} onChange={handleInputChange} className={getInputClass('complainantName')} /><input type="text" name="complainantContact" value={formData.complainantContact} maxLength="11" placeholder={t('contact_num_placeholder')} onChange={handleInputChange} className={getInputClass('complainantContact')} /><input type="text" name="complainantAddress" value={formData.complainantAddress} placeholder={t('address')} onChange={handleInputChange} className={getInputClass('complainantAddress')} /></div><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('defendant')}</h4><input type="text" name="defendantName" value={formData.defendantName} placeholder={t('full_name')} onChange={handleInputChange} className={getInputClass('defendantName')} /><input type="text" name="defendantContact" value={formData.defendantContact} maxLength="11" placeholder={t('contact_num_placeholder')} onChange={handleInputChange} className={getInputClass('defendantContact')} /><input type="text" name="defendantAddress" value={formData.defendantAddress} placeholder={t('address')} onChange={handleInputChange} className={getInputClass('defendantAddress')} /></div></div>
+            
+            <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-4">
+                    <h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4>
+                    <input type="text" name="complainantName" value={formData.complainantName} placeholder={t('full_name')} onChange={handleInputChange} className={getInputClass('complainantName')} />
+                    <input type="text" name="complainantContact" value={formData.complainantContact} maxLength="11" placeholder={t('contact_num_placeholder')} onChange={handleInputChange} className={getInputClass('complainantContact')} />
+                    <input type="text" name="complainantAddress" value={formData.complainantAddress} placeholder={t('address')} onChange={handleInputChange} className={getInputClass('complainantAddress')} />
+                </div>
+                <div className="space-y-4">
+                    <h4 className="text-blue-600 font-bold border-b pb-2">Respondent</h4>
+                    <input type="text" name="respondentName" value={formData.respondentName} placeholder={t('full_name')} onChange={handleInputChange} className={getInputClass('respondentName')} />
+                    <input type="text" name="respondentContact" value={formData.respondentContact} maxLength="11" placeholder={t('contact_num_placeholder')} onChange={handleInputChange} className={getInputClass('respondentContact')} />
+                    <input type="text" name="respondentAddress" value={formData.respondentAddress} placeholder="Address (e.g. #123 Gen. Luis St.)" onChange={handleInputChange} className={getInputClass('respondentAddress')} />
+                </div>
+            </div>
+
             <div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('incident_details')}</h4><div className="grid grid-cols-2 gap-6"><input type="date" name="incidentDate" value={formData.incidentDate} onChange={handleInputChange} className={getInputClass('incidentDate')} /><input type="text" name="incidentLocation" value={formData.incidentLocation} placeholder={t('location')} onChange={handleInputChange} className={getInputClass('incidentLocation')} /></div><textarea name="incidentDesc" value={formData.incidentDesc} rows="4" placeholder={t('description')} onChange={handleInputChange} className={getInputClass('incidentDesc')}></textarea></div>
             
             <div>
@@ -524,7 +610,6 @@ export default function CaseLogs() {
                   <td className="py-5 px-4"><span className={`${getStatusStyle(item.status)} px-3 py-1 rounded-full text-[10px] font-bold shadow-sm uppercase tracking-wide`}>{item.status}</span></td>
                   <td className="py-5 px-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-2 justify-center">
-                      {/* --- LOOK HERE! USING YOUR MASTER BUTTON --- */}
                       <CaseLogsButton onClick={() => handleAssignSummonClick(item)}>
                         {t('assign_summon')}
                       </CaseLogsButton>

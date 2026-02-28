@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { ChevronLeft, Calendar, Filter, ChevronDown } from 'lucide-react'; 
 import { useLanguage } from './LanguageContext'; 
-import { ArchivedButton } from './buttons/Buttons'; // Change button name per page
+import { ArchivedButton } from './buttons/Buttons'; 
 
 const getTypeStyle = (type) => {
   switch (type) {
@@ -46,7 +46,6 @@ export default function Archived() {
 
   useEffect(() => {
     const loadData = () => {
-      // Archive ONLY holds "SETTLED" cases
       const storedCases = JSON.parse(localStorage.getItem('cases') || '[]');
       const archivedCases = storedCases.filter(c => c.status === 'SETTLED');
 
@@ -112,12 +111,32 @@ export default function Archived() {
             const updatedCases = allCases.map(c => c.caseNo === row.caseNo ? { ...c, status: 'BLACKLISTED' } : c);
             localStorage.setItem('cases', JSON.stringify(updatedCases));
         } else {
+            // --- FIX: Ensure status is capitalized 'PENDING' when restored ---
             const allCases = JSON.parse(localStorage.getItem('cases') || '[]');
-            const updatedCases = allCases.map(c => c.caseNo === row.caseNo ? { ...c, status: 'PENDING' } : c);
+            const updatedCases = allCases.map(c => {
+                if (c.caseNo === row.caseNo) {
+                    return { ...c, status: 'PENDING' }; // Changes case status
+                }
+                return c;
+            });
             localStorage.setItem('cases', JSON.stringify(updatedCases));
+
+            // --- FIX: Also sync the Summons status to 'Pending' ---
+            const allSummons = JSON.parse(localStorage.getItem('summons') || '[]');
+            const updatedSummons = allSummons.map(s => {
+                if (s.caseNo === row.caseNo) {
+                    return { ...s, status: 'Pending' }; // Changes summon status
+                }
+                return s;
+            });
+            localStorage.setItem('summons', JSON.stringify(updatedSummons));
         }
         
         window.dispatchEvent(new Event('storage'));
+        
+        // Remove it locally from the view immediately
+        setRows(prevRows => prevRows.filter(r => r.caseNo !== row.caseNo));
+        
         if(view === 'DETAILS') setView('TABLE');
         Swal.fire(t('swal_restored') || 'Restored!', t('swal_restored_text') || 'The record has been restored to its previous page.', 'success');
       }
@@ -222,7 +241,6 @@ export default function Archived() {
                       <td className="px-4 py-5 font-medium text-gray-600">{row.resident || row.complainantName}</td>
                       <td className="px-4 py-5">
                         <div className="flex gap-2">
-                          {/* --- LOOK HERE! USING YOUR MASTER BUTTON --- */}
                           <ArchivedButton actionType="restore" onClick={() => handleRestore(row)}>
                             {t('restore') || 'Restore'}
                           </ArchivedButton>

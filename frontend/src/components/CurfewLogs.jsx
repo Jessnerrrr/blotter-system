@@ -4,7 +4,6 @@ import { useLanguage } from './LanguageContext';
 import { Plus, Folder, MoreVertical, X, Calendar, Clock, Eye, Trash2, ChevronLeft, Link as LinkIcon, Image as ImageIcon, Edit } from 'lucide-react';
 
 // --- CLEAN SINGLE-FILE IMPORT! ---
-// Notice we removed CurfewStatusButton since it's just text now!
 import { CurfewButton } from './buttons/Buttons';
 
 const DEFAULT_OVERVIEW = "The present case arises from the alleged violation of the city/state-imposed curfew, intended to maintain public safety and order. The petitioner contends that the respondent breached the curfew restrictions, thereby potentially endangering community welfare. The matter requires judicial consideration to determine whether the respondent's actions constitute a lawful exception or a contravention of the established curfew regulations.";
@@ -88,14 +87,13 @@ export default function CurfewLogs() {
   const [statusMenuOpen, setStatusMenuOpen] = useState(null);
 
   // Forms
-  const [curfewForm, setCurfewForm] = useState({ resident: '', address: '', age: '' });
+  const [curfewForm, setCurfewForm] = useState({ resident: '', address: '', age: '', issueDesc: '' });
   const [notesForm, setNotesForm] = useState({ content: '' });
 
   // --- OVERVIEW EDITOR STATE ---
   const [isEditingOverview, setIsEditingOverview] = useState(false);
   const [overviewHtml, setOverviewHtml] = useState(() => ensureHtml(DEFAULT_OVERVIEW));
   const [draftOverviewHtml, setDraftOverviewHtml] = useState(() => ensureHtml(DEFAULT_OVERVIEW));
-  const [overviewDate, setOverviewDate] = useState('');
   const [formatActive, setFormatActive] = useState({ bold: false, italic: false, underline: false });
 
   const editorRef = useRef(null);
@@ -225,14 +223,14 @@ export default function CurfewLogs() {
 
   const handleSaveOverview = () => {
     Swal.fire({
-      title: t('confirm_save_title') || 'Save Changes?',
-      text: t('confirm_save_text') || 'Are you sure you want to save this record?',
+      title: 'Save Overview?',
+      text: 'Are you sure you want to save changes to this case overview?',
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#2563eb',
       cancelButtonColor: '#d33',
-      confirmButtonText: t('yes_save') || 'Yes, save it!',
-      cancelButtonText: t('cancel')
+      confirmButtonText: 'Yes, Save Overview',
+      cancelButtonText: 'Cancel'
     }).then((result) => {
       if (result.isConfirmed) {
         setOverviewHtml(draftOverviewHtml);
@@ -272,7 +270,7 @@ export default function CurfewLogs() {
 
   const handleAddCurfew = (e) => {
     e.preventDefault();
-    if (!curfewForm.resident || !curfewForm.age || !curfewForm.address) {
+    if (!curfewForm.resident || !curfewForm.age || !curfewForm.address || !curfewForm.issueDesc) {
         Swal.fire({
             title: t('incomplete_fields'),
             text: t('fill_all_required'),
@@ -283,14 +281,14 @@ export default function CurfewLogs() {
     }
     
     Swal.fire({
-      title: t('confirm_save_title') || 'Save Changes?',
-      text: t('confirm_save_text') || 'Are you sure you want to save this record?',
+      title: 'Create Curfew Record?',
+      text: 'Are you sure you want to save this new curfew violation?',
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#2563eb',
       cancelButtonColor: '#d33',
-      confirmButtonText: t('yes_save') || 'Yes, save it!',
-      cancelButtonText: t('cancel')
+      confirmButtonText: 'Yes, Create Record',
+      cancelButtonText: 'Cancel'
     }).then((result) => {
       if (result.isConfirmed) {
         let maxId = 0;
@@ -309,7 +307,7 @@ export default function CurfewLogs() {
         };
 
         setRows([newRecord, ...rows]); 
-        setCurfewForm({ resident: '', address: '', age: '' });
+        setCurfewForm({ resident: '', address: '', age: '', issueDesc: '' });
         setShowAddCurfewModal(false);
         Swal.fire('Added!', `${t('swal_added')} ${curfewForm.resident}`, 'success');
       }
@@ -317,7 +315,7 @@ export default function CurfewLogs() {
   };
 
   const handleCloseAddCurfewModal = () => {
-    if (curfewForm.resident || curfewForm.age || curfewForm.address) {
+    if (curfewForm.resident || curfewForm.age || curfewForm.address || curfewForm.issueDesc) {
         Swal.fire({
             title: t('discard_changes'),
             text: t('unsaved_lost'),
@@ -329,7 +327,7 @@ export default function CurfewLogs() {
             cancelButtonText: t('cancel')
         }).then((result) => {
             if (result.isConfirmed) {
-                setCurfewForm({ resident: '', address: '', age: '' });
+                setCurfewForm({ resident: '', address: '', age: '', issueDesc: '' });
                 setShowAddCurfewModal(false);
             }
         });
@@ -379,14 +377,14 @@ export default function CurfewLogs() {
       }
       
       Swal.fire({
-        title: t('confirm_save_title') || 'Save Changes?',
-        text: t('confirm_save_text') || 'Are you sure you want to save this record?',
+        title: 'Add Curfew Notes?',
+        text: 'Are you sure you want to save these notes to the folder?',
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#2563eb',
         cancelButtonColor: '#d33',
-        confirmButtonText: t('yes_save') || 'Yes, save it!',
-        cancelButtonText: t('cancel')
+        confirmButtonText: 'Yes, Add Notes',
+        cancelButtonText: 'Cancel'
       }).then((result) => {
         if (result.isConfirmed) {
           const newFolderCount = folders.filter(f => f.residentId === selectedResident.id).length + 1;
@@ -451,7 +449,6 @@ export default function CurfewLogs() {
       setSelectedFolder(folder);
       
       setOverviewHtml(folder.notes ? ensureHtml(folder.notes) : ensureHtml(DEFAULT_OVERVIEW));
-      setOverviewDate(folder.date || currentDateTime.rawDate);
       setIsEditingOverview(false);
       setView('OVERVIEW');
   };
@@ -482,7 +479,6 @@ export default function CurfewLogs() {
             <div className="flex items-center justify-between rounded-t-2xl bg-[#2563eb] px-8 py-6 text-white shadow-md shrink-0">
               <h1 className="text-2xl font-bold uppercase tracking-wide">{t('curfew_violations')}</h1>
               
-              {/* USING MASTER BUTTON: Header Add Violation */}
               <CurfewButton variant="header" onClick={(e) => { e.stopPropagation(); setShowAddCurfewModal(true); }} className="gap-2 rounded-lg px-5 py-2.5 text-sm">
                 {t('add_violation')}
               </CurfewButton>
@@ -498,7 +494,6 @@ export default function CurfewLogs() {
                     <th className="px-6 py-4 text-left font-bold uppercase text-[#2563eb] text-xs">{t('address')}</th>
                     <th className="px-6 py-4 text-center font-bold uppercase text-[#2563eb] text-xs">{t('age')}</th>
                     
-                    {/* UPDATED: Status is now just a text column, and Action handles the menu */}
                     <th className="px-6 py-4 text-center font-bold uppercase text-[#2563eb] text-xs">{t('status')}</th>
                     <th className="px-6 py-4 text-center font-bold uppercase text-[#2563eb] text-xs">{t('action') || 'ACTION'}</th>
                   </tr>
@@ -511,14 +506,12 @@ export default function CurfewLogs() {
                       <td className="px-6 py-5 text-sm text-gray-500">{row.address}</td>
                       <td className="px-6 py-5 text-center font-bold text-gray-700">{row.age}</td>
                       
-                      {/* FIXED: Status text without the button background */}
                       <td className="px-6 py-5 text-center font-extrabold text-sm">
                         <span className={row.status === 'Settled' ? 'text-emerald-500' : 'text-[#ef4444]'}>
                           {row.status === 'Settled' ? t('settled').toUpperCase() : t('unsettled').toUpperCase()}
                         </span>
                       </td>
 
-                      {/* FIXED: Action column with the 3-dots dropdown */}
                       <td className="relative px-6 py-5 text-center" onClick={(e) => e.stopPropagation()}>
                         <button 
                           onClick={() => setStatusMenuOpen(statusMenuOpen === row.id ? null : row.id)}
@@ -556,16 +549,17 @@ export default function CurfewLogs() {
             </div>
 
             <div className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap gap-3">
-                <span className="rounded-md bg-blue-700 px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-white shadow-sm">
-                  {t('curfew_no')} {selectedResident.id}
+              
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                <span className="text-base font-bold uppercase tracking-wide text-black">
+                  <span className="text-gray-500 mr-2">{t('curfew_no')} :</span> {selectedResident.id}
                 </span>
-                <span className="rounded-md bg-blue-700 px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-white shadow-sm">
-                  {t('resident_name_caps')} {selectedResident.resident.toUpperCase()}
+                <div className="hidden sm:block h-5 w-px bg-gray-300"></div>
+                <span className="text-base font-bold uppercase tracking-wide text-black">
+                  <span className="text-gray-500 mr-2">{t('resident_name_caps').replace(' :', '')} :</span> {selectedResident.resident.toUpperCase()}
                 </span>
               </div>
               
-              {/* USING MASTER BUTTON: Add Curfew Notes */}
               <CurfewButton variant="gradient" onClick={(e) => { e.stopPropagation(); openAddNotesModal(); }} className="gap-2 rounded-md px-4 py-2.5 text-sm font-semibold">
                 <Folder size={18} fill="currentColor" />
                 <span>{t('add_curfew_notes')}</span>
@@ -582,16 +576,23 @@ export default function CurfewLogs() {
               <div className="flex-1 overflow-y-auto">
                 <ul className="divide-y divide-gray-200">
                   {residentFolders.length > 0 ? residentFolders.map((folder, i) => (
-                    <li key={folder.id} className="flex items-center justify-between bg-white px-6 py-4 hover:bg-gray-50/80 transition-colors">
+                    <li key={folder.id} className="flex items-center justify-between bg-white px-6 py-4 hover:bg-gray-50/80 transition-colors cursor-pointer group" onClick={() => handleViewFolder(folder)}>
                       <div className="flex items-center gap-4">
-                        <Folder size={28} fill="#60a5fa" className="text-[#3b82f6]" />
-                        <span className="font-medium text-slate-800">{folder.name}</span>
+                        
+                        <div className="w-10 h-10 flex-shrink-0 bg-blue-100 text-blue-600 flex items-center justify-center rounded-lg shadow-sm">
+                            <Folder size={24} fill="currentColor" />
+                        </div>
+                        
+                        <div className="flex flex-col">
+                            <span className="font-bold text-gray-800 tracking-wide uppercase group-hover:text-blue-600 transition-colors">{folder.name}</span>
+                            <span className="text-[11px] text-gray-500 font-bold mt-0.5">{folder.date} • {folder.time}</span>
+                        </div>
                       </div>
                       
                       <div className="relative">
                         <button
                           type="button"
-                          className="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                          className="flex h-8 w-8 items-center justify-center rounded text-gray-400 hover:bg-slate-100 hover:text-blue-600 transition-colors"
                           onClick={(e) => { e.stopPropagation(); setFolderActionDropdown(folderActionDropdown === folder.id ? null : folder.id); }}
                         >
                           <MoreVertical size={20} />
@@ -602,7 +603,7 @@ export default function CurfewLogs() {
                             <button
                               type="button"
                               className="rounded-md px-4 py-2 text-left text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors mx-1 flex items-center"
-                              onClick={() => handleViewFolder(folder)}
+                              onClick={(e) => { e.stopPropagation(); handleViewFolder(folder); }}
                             >
                               <Eye size={16} className="mr-2" /> {t('view')}
                             </button>
@@ -610,7 +611,7 @@ export default function CurfewLogs() {
                             <button
                               type="button"
                               className="rounded-md px-4 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors mx-1 flex items-center"
-                              onClick={() => handleDeleteFolder(folder.id)}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
                             >
                               <Trash2 size={16} className="mr-2" /> {t('delete')}
                             </button>
@@ -650,25 +651,17 @@ export default function CurfewLogs() {
                             </span>
 
                             <div className="flex items-center gap-3">
-                                {isEditingOverview ? (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-semibold text-blue-700">{t('date')}</span>
-                                        <input
-                                            type="date"
-                                            value={overviewDate}
-                                            onChange={(e) => setOverviewDate(e.target.value)}
-                                            className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-600"
-                                        />
-                                    </div>
-                                ) : (
-                                    <span className="rounded-full border border-blue-700 bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
-                                        {t('date')}: {overviewDate}
+                                
+                                {/* --- FIX: REALTIME DATE, UNCLICKABLE --- */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-gray-500 uppercase tracking-wide">{t('date')}:</span>
+                                    <span className="rounded-md border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-bold text-gray-700 shadow-sm cursor-not-allowed">
+                                        {currentDateTime.date}
                                     </span>
-                                )}
+                                </div>
 
                                 {!isEditingOverview && (
-                                    /* USING MASTER BUTTON: Edit Case Overview */
-                                    <CurfewButton variant="primary" onClick={handleEditOverviewClick} className="gap-2 rounded-md px-4 py-2.5 text-sm font-semibold">
+                                    <CurfewButton variant="primary" onClick={handleEditOverviewClick} className="gap-2 rounded-md px-4 py-2.5 text-sm font-semibold ml-2">
                                         <Edit size={16} />
                                         {t('edit_case_overview')}
                                     </CurfewButton>
@@ -705,12 +698,7 @@ export default function CurfewLogs() {
                                             <span className="underline font-serif text-lg leading-none px-1">U</span>
                                         </button>
                                         <div className="w-px h-5 bg-gray-300 mx-2"></div>
-                                        <button type="button" onMouseDown={handleToolbarMouseDown} onClick={handleLinkClick} className="rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors" title="Attach Link">
-                                            <LinkIcon size={18} />
-                                        </button>
-                                        <button type="button" onMouseDown={handleToolbarMouseDown} onClick={handleImageClick} className="rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors" title="Insert Image">
-                                            <ImageIcon size={18} />
-                                        </button>
+                                        
                                     </div>
                                     
                                     <input ref={fileInputLinkRef} type="file" className="hidden" accept="*/*" onChange={handleLinkFileSelect} />
@@ -718,7 +706,6 @@ export default function CurfewLogs() {
                                 </div>
 
                                 <div className="flex justify-end gap-3 pt-4">
-                                    {/* USING MASTER BUTTONS: Save / Cancel Overview */}
                                     <CurfewButton variant="outlineLight" onClick={handleCancelOverview} className="rounded-md px-6 py-2 text-sm font-semibold">
                                         {t('cancel')}
                                     </CurfewButton>
@@ -737,7 +724,6 @@ export default function CurfewLogs() {
                                 </div>
 
                                 <div className="flex flex-wrap justify-end gap-3 pt-6">
-                                    {/* USING MASTER BUTTONS: Back to Folder / OK */}
                                     <CurfewButton variant="secondary" onClick={() => setView('FOLDERS')} className="rounded-md px-6 py-2.5 text-sm font-semibold shadow-sm">
                                         {t('back_to_curfew_folders')}
                                     </CurfewButton>
@@ -750,7 +736,6 @@ export default function CurfewLogs() {
                     </div>
                     
                     <div className="border-t border-gray-200 px-6 py-5 md:px-8 flex justify-end bg-gray-50 shrink-0">
-                        {/* USING MASTER BUTTON: Back to Curfew Logs */}
                         <CurfewButton variant="secondary" onClick={() => setView('LIST')} className="rounded-md px-6 py-2.5 text-sm font-semibold shadow-sm">
                             {t('back_to_curfew_logs')}
                         </CurfewButton>
@@ -813,7 +798,6 @@ export default function CurfewLogs() {
                         </div>
 
                         <div className="flex justify-end gap-3 pt-2">
-                            {/* USING MASTER BUTTONS: Cancel / Add Notes */}
                             <CurfewButton variant="outline" onClick={handleCloseAddNotesModal} className="rounded-xl px-8 py-3 text-sm font-extrabold">
                                 {t('cancel')}
                             </CurfewButton>
@@ -874,8 +858,17 @@ export default function CurfewLogs() {
                             <input type="text" placeholder={t('input_full_address')} className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-700 placeholder-gray-400 focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 outline-none transition-all" value={curfewForm.address} onChange={e => setCurfewForm({...curfewForm, address: e.target.value})} />
                         </div>
 
+                        <div>
+                            <label className="mb-2 block text-sm font-bold text-gray-700">{t('issue_description') || 'Issue Description'}</label>
+                            <textarea 
+                                placeholder={t('input_issue_description') || "Enter the description/reason for the violation..."} 
+                                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-700 placeholder-gray-400 focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 outline-none transition-all min-h-[100px] resize-y" 
+                                value={curfewForm.issueDesc} 
+                                onChange={e => setCurfewForm({...curfewForm, issueDesc: e.target.value})} 
+                            />
+                        </div>
+
                         <div className="flex justify-end gap-3 pt-4">
-                            {/* USING MASTER BUTTONS: Cancel / Create Curfew */}
                             <CurfewButton variant="outlineLight" onClick={handleCloseAddCurfewModal} className="rounded-xl px-6 py-2.5 text-sm font-bold">
                                 {t('cancel')}
                             </CurfewButton>

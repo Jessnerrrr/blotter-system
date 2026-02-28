@@ -46,7 +46,6 @@ export default function Summons() {
       const allCases = JSON.parse(casesDataStr);
       let rawData = JSON.parse(rawDataStr);
 
-      // --- CRITICAL FIX: Only hide the summons for the view, DO NOT delete them from localStorage! ---
       const validSummonsForView = rawData.filter(summon => 
           allCases.some(c => c.caseNo === summon.caseNo && c.status !== 'SETTLED' && c.status !== 'BLACKLISTED')
       );
@@ -188,13 +187,13 @@ export default function Summons() {
                         
                         <div className="grid grid-cols-2 gap-8 border-b border-gray-200 pb-6">
                             <div className="space-y-1">
-                                <span className="text-blue-600 font-bold text-sm uppercase tracking-wider mb-2 block flex items-center"><span className="w-2 h-2 rounded-full bg-blue-600 mr-2"></span>Complainant</span>
+                                <span className="text-blue-600 font-bold text-sm uppercase tracking-wider mb-2 flex items-center"><span className="w-2 h-2 rounded-full bg-blue-600 mr-2"></span>Complainant</span>
                                 <p className="text-gray-800 font-extrabold text-lg uppercase">{data.complainantName}</p>
                                 <p className="text-gray-600 text-sm font-medium"><span className="text-gray-400 mr-1">Contact:</span> {data.complainantContact}</p>
                                 <p className="text-gray-600 text-sm font-medium leading-tight"><span className="text-gray-400 mr-1">Address:</span> {data.complainantAddress}</p>
                             </div>
                             <div className="space-y-1">
-                                <span className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2 block flex items-center"><span className="w-2 h-2 rounded-full bg-red-600 mr-2"></span>Respondent</span>
+                               <span className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2 flex items-center"><span className="w-2 h-2 rounded-full bg-red-600 mr-2"></span>Respondent</span>
                                 <p className="text-gray-800 font-extrabold text-lg uppercase">{data.respondentName}</p>
                                 <p className="text-gray-600 text-sm font-medium"><span className="text-gray-400 mr-1">Contact:</span> {data.respondentContact}</p>
                                 <p className="text-gray-600 text-sm font-medium leading-tight"><span className="text-gray-400 mr-1">Address:</span> {data.respondentAddress}</p>
@@ -423,7 +422,11 @@ export default function Summons() {
                 caseSummons.map((summon, index) => (
                   <div key={index} onClick={() => handleOpenSummonDetail(summon)} className="flex items-center justify-between p-4 border-b border-gray-100 last:border-0 hover:bg-blue-50/50 transition-colors group cursor-pointer">
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 flex-shrink-0"><img src="/icon-summons/folder-summon.png" alt="Folder" className="w-full h-full object-contain drop-shadow-sm" onError={(e) => {e.target.onerror = null; e.target.src = "https://cdn-icons-png.flaticon.com/512/3767/3767084.png"}} /></div>
+                      
+                      <div className="w-10 h-10 flex-shrink-0 bg-blue-100 text-blue-600 flex items-center justify-center rounded-lg shadow-sm">
+                          <Folder size={24} fill="currentColor" />
+                      </div>
+
                       <div className="flex flex-col"><span className="text-base font-extrabold text-gray-800 tracking-wide uppercase group-hover:text-[#0066FF] transition-colors">{t('nav_summons')} {summon.summonType}</span><span className="text-[11px] text-gray-500 font-bold mt-0.5">{summon.summonDate} • {summon.summonTime}</span></div>
                     </div>
                     <button className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"><MoreVertical size={20} /></button>
@@ -450,10 +453,16 @@ export default function Summons() {
           <div className="divide-y divide-gray-100 flex-1 bg-white">
             {uniqueCases.length > 0 ? (
               uniqueCases.map((item, index) => {
+                const isPending = !item.status || item.status === 'Pending';
                 return (
                   <div key={index} onClick={() => handleOpenFolder(item)} className="grid grid-cols-12 py-4 px-6 text-center items-center hover:bg-blue-50/40 transition-colors group relative cursor-pointer">
                     <div className="col-span-4 flex items-center pl-2 space-x-4">
-                      <div className={`${getTypeStyle(item.type)} p-2.5 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center w-10 h-10`}><Folder size={20} fill="currentColor" /></div>
+                      
+                      {/* --- FIX: MADE MAIN LIST FOLDER PERMANENTLY BLUE --- */}
+                      <div className="bg-[#0066FF] text-white p-2.5 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center w-10 h-10">
+                          <Folder size={20} fill="currentColor" />
+                      </div>
+
                       <span className="font-bold text-gray-700 text-base tracking-tight">{item.caseNo}</span>
                     </div>
                     <div className="col-span-4 text-left font-semibold text-gray-600 pl-1 text-base">{item.complainantName}</div>

@@ -261,9 +261,9 @@ export default function CaseLogs() {
 
     if (name.includes('Contact')) {
         const rawNumbers = value.replace(/[^0-9]/g, '');
-        if (rawNumbers === '63' || rawNumbers.length === 0) return 'Contact number is required';
-        if (rawNumbers.length > 2 && rawNumbers[2] !== '9') return 'PH mobile numbers must start with 9';
-        if (rawNumbers.length !== 12) return 'Must be exactly 10 digits after +63';
+        if (rawNumbers.length === 0) return 'Contact number is required';
+        if (rawNumbers.length !== 11) return 'Must be exactly 11 digits (e.g., 09123456789)';
+        if (!rawNumbers.startsWith('09')) return 'Must start with 09';
     }
 
     return '';
@@ -275,10 +275,9 @@ export default function CaseLogs() {
 
     if (name.includes('Contact')) {
       let rawNumbers = value.replace(/\D/g, '');
-      if (rawNumbers.startsWith('63')) rawNumbers = rawNumbers.substring(2);
-      else if (rawNumbers.startsWith('0')) rawNumbers = rawNumbers.substring(1);
-      rawNumbers = rawNumbers.substring(0, 10); 
-      finalValue = rawNumbers.length > 0 ? `(+63) ${rawNumbers}` : '';
+      if (rawNumbers.startsWith('63')) rawNumbers = '0' + rawNumbers.substring(2);
+      rawNumbers = rawNumbers.substring(0, 11); 
+      finalValue = rawNumbers;
     }
 
     setFormData(prev => ({ ...prev, [name]: finalValue }));
@@ -492,7 +491,7 @@ export default function CaseLogs() {
     const fieldsToValidate = [
         'complainantName', 'complainantContact', 'complainantAddress', 
         'respondentName', 'respondentContact', 'respondentAddress', 
-        'incidentDate', 'incidentLocation', 'incidentDesc'
+        'incidentDate', 'incidentLocation', 'incidentDesc', 'notedBy'
     ];
     
     fieldsToValidate.forEach(field => {
@@ -800,7 +799,7 @@ export default function CaseLogs() {
                         />
                     </div>
                     <div>
-                        <input type="text" name="complainantContact" value={formData.complainantContact} placeholder="(+63) 9XX XXX XXXX" onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('complainantContact')} />
+                        <input type="text" name="complainantContact" value={formData.complainantContact} placeholder="09XX XXX XXXX" onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('complainantContact')} />
                         {formErrors.complainantContact && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.complainantContact}</p>}
                     </div>
                     <div>
@@ -836,7 +835,7 @@ export default function CaseLogs() {
                         />
                     </div>
                     <div>
-                        <input type="text" name="respondentContact" value={formData.respondentContact} placeholder="(+63) 9XX XXX XXXX" onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('respondentContact')} />
+                        <input type="text" name="respondentContact" value={formData.respondentContact} placeholder="09XX XXX XXXX" onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('respondentContact')} />
                         {formErrors.respondentContact && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.respondentContact}</p>}
                     </div>
                     <div>

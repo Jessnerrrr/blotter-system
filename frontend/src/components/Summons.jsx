@@ -72,7 +72,7 @@ export default function Summons() {
       'VAWC', 
       'BLOTTER', 
       'COMPLAIN', 
-      'ESCALATED' // Added ESCALATED to type options
+     
   ];
 
   useEffect(() => {

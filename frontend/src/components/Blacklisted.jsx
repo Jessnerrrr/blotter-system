@@ -49,7 +49,7 @@ export default function Blacklisted() {
     { label: 'VAWC', color: 'bg-purple-600' },
     { label: 'BLOTTER', color: 'bg-red-600' },
     { label: 'COMPLAIN', color: 'bg-blue-600' },
-    { label: 'CURFEW', color: 'bg-pink-600' }
+    
   ];
 
   useEffect(() => {

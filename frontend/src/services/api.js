@@ -1,5 +1,5 @@
-// API base URL
-const API_BASE_URL = '/_/backend/api';
+// API base URL - Removed the extra /api to prevent the double /api/api/ glitch
+const API_BASE_URL = '/_/backend';
 
 // Generic fetch function with error handling
 const apiFetch = async (endpoint, options = {}) => {

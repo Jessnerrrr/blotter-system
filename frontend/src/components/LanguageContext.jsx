@@ -246,14 +246,6 @@ const translations = {
     "swal_yes_lift": "Yes",
     "swal_restriction_lifted": "Restriction Lifted",
     "swal_record_moved": "Record moved to Archives.",
-"all_types": "All Types",
-"blacklisted_case_records": "BLACKLISTED CASE RECORDS",
-"blacklisted_subtitle": "View residents permanently blacklisted from the community.",
-"total_blacklisted": "Total Blacklisted",
-"no_blacklisted_found": "No blacklisted records found.",
-"archive": "Archive",
-"default_reason_desc": "Resident was permanently blacklisted.",
-"invalid_case_format": "Case No. must only contain numbers and hyphens (e.g. 01-166-01-2026).",
     "confirm_blacklist_title": "Add to Blacklist?",
     "confirm_blacklist_text": "Are you sure you want to blacklist this resident?",
     "yes_add": "Yes",
@@ -458,17 +450,7 @@ const translations = {
     "current_status": "Kasalukuyang Katayuan",
     "save_changes": "I-save ang mga Pagbabago",
     "edit_status": "I-edit ang Katayuan",
-    // Add to the 'en' section:
-    "status_updated": "Status Updated!",
-    "marked_as": "marked as",
-    "moved_to_blacklist": "This case will be moved to Blacklisted Records.",
-    "case_escalated_notice": "This case will be escalated.",
-
 // Add to the 'tl' section:
-    "status_updated": "Na-update ang Katayuan!",
-    "marked_as": "minarkahan bilang",
-    "moved_to_blacklist": "Ang kasong ito ay ililipat sa mga Rekord ng Blacklist.",
-    "case_escalated_notice": "Ang kasong ito ay itataas.",
 
     // -------------------------
     // CURFEW LOGS PAGE
@@ -553,14 +535,6 @@ const translations = {
     "swal_yes_lift": "Oo, Alisin at I-archive",
     "swal_restriction_lifted": "Inalis ang Paghihigpit",
     "swal_record_moved": "Inilipat ang rekord sa Archives.",
-"all_types": "Lahat ng Uri",
-"blacklisted_case_records": "MGA REKORD NG NA-BLACKLIST",
-"blacklisted_subtitle": "Tingnan ang mga residenteng permanenteng na-blacklist mula sa komunidad.",
-"total_blacklisted": "Kabuuang Na-blacklist",
-"no_blacklisted_found": "Walang nakitang rekord ng na-blacklist.",
-"archive": "I-archive",
-"default_reason_desc": "Ang residente ay permanenteng na-blacklist.",
-"invalid_case_format": "Ang Case No. ay dapat maglaman lamang ng mga numero at gitling (hal. 01-166-01-2026).",
     "confirm_blacklist_title": "Idagdag sa Blacklist?",
     "confirm_blacklist_text": "Sigurado ka bang nais mong i-blacklist ang residenteng ito?",
     "yes_add": "Oo",

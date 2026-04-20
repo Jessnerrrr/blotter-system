@@ -1,0 +1,20 @@
+{
+  "services": [
+    {
+      "name": "frontend",
+      "src": "frontend",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist"
+    },
+    {
+      "name": "backend",
+      "src": "backend"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/_/(.*)",
+      "destination": "backend/$1"
+    }
+  ]
+}

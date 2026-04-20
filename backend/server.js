@@ -71,8 +71,12 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL}`);
-  console.log(`🌐 API: http://localhost:${PORT}`);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL}`);
+    console.log(`🌐 API: http://localhost:${PORT}`);
+  });
+}
+
+export default app;

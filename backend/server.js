@@ -70,14 +70,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Export the app for Vercel serverless
-export default app;
-
-// For local development
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL}`);
-    console.log(`🌐 API: http://localhost:${PORT}`);
-  });
-}
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL}`);
+  console.log(`🌐 API: http://localhost:${PORT}`);
+});

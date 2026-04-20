@@ -1,28 +1,23 @@
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
 
 // Primary connection for blotter_db
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/blotter_db');
+    // THE UNBLOCKABLE LINK: Bypasses the ISP's SRV block completely!
+    const unblockableUri = 'mongodb://blotter_service_user:Pm9nxDFMy6pNP8o6@ac-788jzfx-shard-00-00.seb5lfn.mongodb.net:27017,ac-788jzfx-shard-00-01.seb5lfn.mongodb.net:27017,ac-788jzfx-shard-00-02.seb5lfn.mongodb.net:27017/blotter_db?ssl=true&authSource=admin&retryWrites=true&w=majority';
 
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    const conn = await mongoose.connect(unblockableUri);
+
+    console.log(`✅ MongoDB Connected to Cloud: ${conn.connection.host}`);
     console.log(`📊 Database: ${conn.connection.name}`);
   } catch (error) {
     console.error(`❌ Error connecting to MongoDB: ${error.message}`);
-    if (process.env.NODE_ENV === 'production') {
-      process.exit(1);
-    } else {
-      console.log('⚠️  Running in development mode without database connection');
-    }
+    process.exit(1);
   }
 };
 
 // Secondary connection for profiling_db (residents data)
-const profilingUri = (process.env.MONGODB_URI || 'mongodb://localhost:27017/blotter_db').replace('blotter_db', 'profiling_db');
+const profilingUri = 'mongodb://blotter_service_user:Pm9nxDFMy6pNP8o6@ac-788jzfx-shard-00-00.seb5lfn.mongodb.net:27017,ac-788jzfx-shard-00-01.seb5lfn.mongodb.net:27017,ac-788jzfx-shard-00-02.seb5lfn.mongodb.net:27017/profiling_db?ssl=true&authSource=admin&retryWrites=true&w=majority';
 
 export const profilingConnection = mongoose.createConnection(profilingUri);
 

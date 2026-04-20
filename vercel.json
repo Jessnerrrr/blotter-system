@@ -1,20 +1,5 @@
 {
-  "services": [
-    {
-      "name": "frontend",
-      "src": "frontend",
-      "buildCommand": "npm run build",
-      "outputDirectory": "dist"
-    },
-    {
-      "name": "backend",
-      "src": "backend"
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/_/(.*)",
-      "destination": "backend/$1"
-    }
-  ]
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm install && cd frontend && npm install"
 }

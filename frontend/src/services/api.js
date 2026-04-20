@@ -1,5 +1,6 @@
-// API base URL - Removed the extra /api to prevent the double /api/api/ glitch
-const API_BASE_URL = '/_/backend';
+// API base URL - Use environment variable for backend URL
+// Defaults to localhost for development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Generic fetch function with error handling
 const apiFetch = async (endpoint, options = {}) => {

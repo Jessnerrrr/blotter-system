@@ -1,19 +1,30 @@
 import React from 'react';
 
-export const MainButton = ({ imageSrc, label, active, onClick }) => (
-  <div 
+// --- UPDATED MAIN BUTTON FOR EXPANDABLE SIDEBAR ---
+export const MainButton = ({ imageSrc, label, active, onClick, isExpanded = true }) => (
+  <button 
     onClick={onClick}
+    title={!isExpanded ? label : ''} // Shows native tooltip when collapsed
     className={`
-      flex items-center space-x-3 px-3 py-3 rounded-lg cursor-pointer transition-all mb-2
+      w-full flex items-center px-3 py-3 rounded-lg cursor-pointer transition-all duration-300 mb-2 overflow-hidden
       ${active 
-        ? 'bg-blue-100 text-blue-900 shadow-sm border border-blue-200' 
-        : 'text-gray-900 hover:bg-gray-100'}
+        ? 'bg-blue-100 text-blue-900 shadow-sm border border-blue-200 font-extrabold' 
+        : 'text-gray-900 hover:bg-gray-100 font-normal'}
     `}>
-    <img src={imageSrc} alt={label} className={`w-8 h-8 object-contain ${active ? 'opacity-100' : 'opacity-80'}`} />
-    <span className={`text-sm ${active ? 'font-extrabold' : 'font-bold'}`}>{label}</span>
-  </div>
+    <div className="flex-shrink-0 flex items-center justify-center w-8">
+      <img src={imageSrc} alt={label} className={`w-8 h-8 object-contain transition-opacity duration-300 ${active ? 'opacity-100' : 'opacity-80'}`} />
+    </div>
+    
+    {/* Label smoothly fades and shrinks when isExpanded is false */}
+    <span 
+      className={`text-sm transition-all duration-300 ease-in-out whitespace-nowrap
+        ${isExpanded ? 'opacity-100 ml-3 w-auto translate-x-0' : 'opacity-0 w-0 ml-0 -translate-x-4'}
+      `}
+    >
+      {label}
+    </span>
+  </button>
 );
-
 export const ArchivedButton = ({ actionType, onClick, children }) => {
   const colorClass = actionType === 'restore' 
     ? 'bg-green-100 text-green-700 hover:bg-green-200' 
@@ -85,7 +96,6 @@ export const CurfewButton = ({ variant = 'primary', type = "button", onClick, ch
   );
 };
 
-// --- THIS WAS MISSING AND CAUSING YOUR ERROR! ---
 export const DashboardButton = ({ variant = 'export', onClick, children, className = '' }) => {
   const variants = {
     export: "bg-blue-900 hover:bg-blue-800 text-white border border-blue-950 shadow-md",

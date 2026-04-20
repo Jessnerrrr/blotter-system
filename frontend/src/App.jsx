@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Globe, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings as SettingsIcon } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './components/LanguageContext'; 
 import { MainButton } from './components/buttons/Buttons';
 
@@ -9,12 +9,23 @@ import Summons from './components/Summons';
 import CurfewLogs from './components/CurfewLogs';
 import Blacklisted from './components/Blacklisted';
 import Archived from './components/Archived';
+import Settings from './components/Settings'; 
+import { LogoProvider, useLogo } from './components/LogoContext';
 
 function MainLayout() {
-  const [activePage, setActivePage] = useState('Dashboard');
-  const [isLangOpen, setIsLangOpen] = useState(false);
+  // 🔥 FIX: Read from local storage first, default to Dashboard if empty
+  const [activePage, setActivePage] = useState(() => {
+    return localStorage.getItem('saved_active_page') || 'Dashboard';
+  });
   
-  const { language, setLanguage, t } = useLanguage();
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const { t } = useLanguage();
+  const { logoUrl } = useLogo();
+
+  // 🔥 FIX: Save to local storage every time the page changes
+  useEffect(() => {
+    localStorage.setItem('saved_active_page', activePage);
+  }, [activePage]);
 
   const renderContent = () => {
     switch (activePage) {
@@ -24,30 +35,51 @@ function MainLayout() {
       case 'Curfew Logs': return <CurfewLogs />;
       case 'Blacklisted': return <Blacklisted />;
       case 'Archived': return <Archived />;
+      case 'Settings': return <Settings />;
       default: return <Dashboard />;
     }
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-800" onClick={() => setIsLangOpen(false)}>
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-800">
       
       {/* --- SIDEBAR --- */}
-      <div className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0 z-20 shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
-        <div className="p-4 flex flex-col items-center">
-          <div className="w-28 h-28 rounded-full border-4 border-blue-50 mb-2 overflow-hidden shadow-sm">
-            {/* Simple public folder path! */}
-            <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
+      <div 
+        className={`bg-white border-r border-gray-200 flex flex-col shrink-0 z-20 shadow-[2px_0_10px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out ${isSidebarHovered ? 'w-64' : 'w-20'}`}
+        onMouseEnter={() => setIsSidebarHovered(true)}
+        onMouseLeave={() => setIsSidebarHovered(false)}
+      >
+        <div className={`flex flex-col items-center justify-center transition-all duration-300 ${isSidebarHovered ? 'p-4 h-40' : 'p-2 h-24 mt-4'}`}>
+          <div className={`rounded-full border-blue-50 overflow-hidden shadow-sm transition-all duration-300 ${isSidebarHovered ? 'w-28 h-28 border-4 mb-2' : 'w-10 h-10 border-2'}`}>
+           <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
           </div>
         </div>
 
-        <nav className="flex-1 px-3 py-2 space-y-1">
-          {/* Simple public folder paths! */}
-          <MainButton imageSrc="/analytics.png" label={t('dashboard') || 'Dashboard'} active={activePage === 'Dashboard'} onClick={() => setActivePage('Dashboard')} />
-<MainButton imageSrc="/icon-nav/case-logs.png" label={t('case_logs')} active={activePage === 'Case Logs'} onClick={() => setActivePage('Case Logs')} />
-          <MainButton imageSrc="/summon.png" label={t('summons')} active={activePage === 'Summons'} onClick={() => setActivePage('Summons')} />
-          <MainButton imageSrc="/curfew.png" label={t('curfew_logs')} active={activePage === 'Curfew Logs'} onClick={() => setActivePage('Curfew Logs')} />
-          <MainButton imageSrc="/blacklisted.png" label={t('blacklisted')} active={activePage === 'Blacklisted'} onClick={() => setActivePage('Blacklisted')} />
-          <MainButton imageSrc="/archived.png" label={t('archived')} active={activePage === 'Archived'} onClick={() => setActivePage('Archived')} />
+        <nav className="flex-1 px-3 py-2 space-y-1 overflow-x-hidden flex flex-col">
+          <div className="flex-1">
+            <MainButton imageSrc="/analytics.png" label={t('dashboard') || 'Dashboard'} active={activePage === 'Dashboard'} onClick={() => setActivePage('Dashboard')} isExpanded={isSidebarHovered} />
+            <MainButton imageSrc="/icon-nav/case-logs.png" label={t('case_logs')} active={activePage === 'Case Logs'} onClick={() => setActivePage('Case Logs')} isExpanded={isSidebarHovered} />
+            <MainButton imageSrc="/summon.png" label={t('summons')} active={activePage === 'Summons'} onClick={() => setActivePage('Summons')} isExpanded={isSidebarHovered} />
+            <MainButton imageSrc="/curfew.png" label={t('curfew_logs')} active={activePage === 'Curfew Logs'} onClick={() => setActivePage('Curfew Logs')} isExpanded={isSidebarHovered} />
+            <MainButton imageSrc="/blacklisted.png" label={t('blacklisted')} active={activePage === 'Blacklisted'} onClick={() => setActivePage('Blacklisted')} isExpanded={isSidebarHovered} />
+            <MainButton imageSrc="/archived.png" label={t('archived')} active={activePage === 'Archived'} onClick={() => setActivePage('Archived')} isExpanded={isSidebarHovered} />
+          </div>
+
+          {/* Settings Button pushed to the very bottom */}
+          <div className="mt-auto border-t border-gray-100 pt-2 mb-2">
+            <button 
+              onClick={() => setActivePage('Settings')}
+              title={!isSidebarHovered ? "Settings" : ""}
+              className={`w-full flex items-center px-3 py-3 rounded-lg cursor-pointer transition-all duration-300 overflow-hidden ${activePage === 'Settings' ? 'bg-blue-100 text-blue-900 shadow-sm border border-blue-200' : 'text-gray-900 hover:bg-gray-100'}`}
+            >
+              <div className="flex-shrink-0 flex items-center justify-center w-8">
+                <SettingsIcon className={`w-6 h-6 transition-all duration-300 ${activePage === 'Settings' ? 'text-blue-600 opacity-100' : 'text-slate-600 opacity-80'}`} />
+              </div>
+              <span className={`text-sm transition-all duration-300 ease-in-out whitespace-nowrap ${activePage === 'Settings' ? 'font-extrabold' : 'font-bold'} ${isSidebarHovered ? 'opacity-100 ml-3 w-auto translate-x-0' : 'opacity-0 w-0 ml-0 -translate-x-4'}`}>
+                Settings
+              </span>
+            </button>
+          </div>
         </nav>
       </div>
 
@@ -61,27 +93,6 @@ function MainLayout() {
           </div>
 
           <div className="flex items-center space-x-6 flex-1 justify-end">
-            <div className="relative">
-              <button 
-                onClick={(e) => { e.stopPropagation(); setIsLangOpen(!isLangOpen); }}
-                className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 font-bold text-sm transition-colors p-2 rounded-lg hover:bg-slate-50"
-              >
-                <Globe size={20} />
-                <span className="uppercase tracking-wider">
-                    {language === 'en' ? 'ENG' : 'TAG'}
-                </span>
-                <ChevronDown size={16} className={`transition-transform duration-200 ${isLangOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isLangOpen && (
-                <div className="absolute right-0 mt-3 w-40 bg-white border border-gray-100 rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                  <button onClick={() => { setLanguage('en'); setIsLangOpen(false); }} className={`w-full text-left px-5 py-3 text-sm transition-colors ${language === 'en' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-700 hover:bg-gray-50 font-medium'}`}>English (ENG)</button>
-                  <div className="h-px w-full bg-gray-100"></div>
-                  <button onClick={() => { setLanguage('tl'); setIsLangOpen(false); }} className={`w-full text-left px-5 py-3 text-sm transition-colors ${language === 'tl' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-700 hover:bg-gray-50 font-medium'}`}>Tagalog (TAG)</button>
-                </div>
-              )}
-            </div>
-
             <div className="w-9 h-9 bg-slate-900 rounded-full flex items-center justify-center text-white font-bold text-sm cursor-pointer hover:bg-slate-700 transition shrink-0">A</div>
           </div>
         </header>
@@ -95,7 +106,9 @@ function MainLayout() {
 export default function App() {
   return (
     <LanguageProvider>
-      <MainLayout />
+      <LogoProvider>
+        <MainLayout />
+      </LogoProvider>
     </LanguageProvider>
   );
 }

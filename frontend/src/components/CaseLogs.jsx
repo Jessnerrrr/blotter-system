@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, ChevronDown, Check, Upload, Calendar, MapPin, Filter, FileText, Trash2, Clock, FileWarning, Bold, Italic, Underline, Link, AlignLeft, Printer } from 'lucide-react';
+import { Plus, X, ChevronDown, Check, Upload, Calendar, MapPin, Filter, FileText, Trash2, Clock, FileWarning, Bold, Italic, Underline, Link as LinkIcon, AlignLeft, Printer, Search } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 import { useLanguage } from './LanguageContext'; 
-
 import { CaseLogsButton } from "./buttons/Buttons"; 
-import { mockCases } from "../data/mockDatabase";
+import { casesAPI, summonsAPI, residentsAPI } from "../services/api";
+import ResidentAutocomplete from './ResidentAutocomplete';
 
 const getStatusStyle = (status) => {
   switch (status) {
@@ -27,32 +27,79 @@ const getTypeStyle = (type) => {
   }
 };
 
-const gradientBtnClass = "bg-gradient-to-r from-[#0066FF] to-[#0099FF] hover:from-[#0055EE] hover:to-[#0088DD] text-white shadow-md transition-all active:scale-95";
+// Helper function to calculate age from birthdate
+const calculateAge = (birthdate) => {
+  if (!birthdate) return '';
+  const birth = new Date(birthdate);
+  if (isNaN(birth.getTime())) return '';
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  const dayDiff = today.getDate() - birth.getDate();
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age -= 1;
+  }
+  return Math.max(age, 0);
+};
+
+const fetchResidentAge = async (name) => {
+  if (!name || typeof name !== 'string' || name.trim().length === 0) return '';
+  try {
+    const data = await residentsAPI.getAgeByName(name.trim());
+    if (!data) return '';
+    if (data.age !== undefined && data.age !== null) return String(data.age);
+    if (data.birthdate) return String(calculateAge(data.birthdate));
+    return '';
+  } catch (error) {
+    console.error('Error fetching resident age by name:', error);
+    return '';
+  }
+};
 
 export default function CaseLogs() {
   const { t } = useLanguage(); 
   const [view, setView] = useState('TABLE'); 
   
-  const [cases, setCases] = useState(() => {
-    const saved = localStorage.getItem('cases');
-    if (saved && saved !== '[]') {
-      let parsedData = JSON.parse(saved);
-      const cleanedData = parsedData.filter(c => c.fullData !== undefined);
-      if (cleanedData.length !== parsedData.length) {
-        localStorage.setItem('cases', JSON.stringify(cleanedData));
-        parsedData = cleanedData;
-      }
-      return parsedData;
-    }
-    
-    localStorage.setItem('cases', JSON.stringify(mockCases));
-    return mockCases; 
-  });
+  const [cases, setCases] = useState([]);
+  const [allSummonsCache, setAllSummonsCache] = useState([]); // 🔥 ADDED: Cache to quickly check counts
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    localStorage.setItem('cases', JSON.stringify(cases));
-    window.dispatchEvent(new Event('storage'));
-  }, [cases]);
+    const loadCases = async () => {
+      try {
+        setLoading(true);
+        const [casesData, summonsData] = await Promise.all([
+          casesAPI.getAll(),
+          summonsAPI.getAll() // 🔥 Fetch summons to know the count
+        ]);
+        setCases(casesData);
+        setAllSummonsCache(summonsData);
+        setError(null);
+      } catch (err) {
+        console.error('Error loading cases:', err);
+        setError(err.message);
+        Swal.fire({
+          title: 'Error Loading Cases',
+          text: 'Could not load cases from database. Please check backend connection.',
+          icon: 'error'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadCases();
+    
+    const refreshInterval = setInterval(loadCases, 10000);
+    const handleCaseUpdate = () => loadCases();
+    window.addEventListener('caseDataUpdated', handleCaseUpdate);
+    
+    return () => {
+      clearInterval(refreshInterval);
+      window.removeEventListener('caseDataUpdated', handleCaseUpdate);
+    };
+  }, []);
   
   const [isModalOpen, setIsModalOpen] = useState(false); 
   const [isModeratorModalOpen, setIsModeratorModalOpen] = useState(false);
@@ -60,57 +107,110 @@ export default function CaseLogs() {
   const [selectedRole, setSelectedRole] = useState('Lupon Head');
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false); 
-  const [isStatusSortOpen, setIsStatusSortOpen] = useState(false); 
-  const [isYearSortOpen, setIsYearSortOpen] = useState(false); 
-  const [sortStatus, setSortStatus] = useState(t('all_status')); 
-  const [sortYear, setSortYear] = useState(t('all_years'));
+  
+  const [isYearSortOpen, setIsYearSortOpen] = useState(false);
+  const [isMonthSortOpen, setIsMonthSortOpen] = useState(false);
+  const [isTypeSortOpen, setIsTypeSortOpen] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterYear, setFilterYear] = useState('All Years');
+  const [filterMonth, setFilterMonth] = useState('All Months');
+  const [filterType, setFilterType] = useState('All Types');
 
   const [formData, setFormData] = useState({
-    caseNo: '', dateFiled: '', complainantName: '', complainantContact: '', complainantAddress: '',
-    respondentName: '', respondentContact: '', respondentAddress: '', incidentDate: '', incidentLocation: '', incidentDesc: ''
+    caseNo: '', dateFiled: '', 
+    complainantName: '', complainantAge: '', complainantContact: '', complainantAddress: '',
+    respondentName: '', respondentAge: '', respondentContact: '', respondentAddress: '', 
+    incidentDate: '', incidentLocation: '', incidentDesc: ''
   });
+  
+  const [ageLoading, setAgeLoading] = useState({ complainant: false, respondent: false });
   
   const [viewCaseData, setViewCaseData] = useState(null);
   
-  // --- ADDED NEW FIELDS TO SUMMONDATA STATE ---
-  const [summonData, setSummonData] = useState({ 
-      caseNo: '', 
-      residentName: '', respondentContact: '', respondentAddress: '', 
-      complainantName: '', complainantContact: '', complainantAddress: '',
-      summonDate: '', summonTime: '', summonType: '', summonReason: '', notedBy: '' 
-  });
+  useEffect(() => {
+    const fetchMissingAges = async () => {
+      if (view === 'VIEW_CASE' && viewCaseData) {
+        let updated = false;
+        let newData = { ...viewCaseData };
 
+        if (!newData.complainantAge && newData.complainantName) {
+          try {
+            const resolvedAge = await fetchResidentAge(newData.complainantName);
+            if (resolvedAge) {
+              newData.complainantAge = resolvedAge;
+              updated = true;
+            }
+          } catch (e) { console.error('Error auto-fetching complainant age', e); }
+        }
+
+        if (!newData.respondentAge && newData.respondentName) {
+          try {
+            const resolvedAge = await fetchResidentAge(newData.respondentName);
+            if (resolvedAge) {
+              newData.respondentAge = resolvedAge;
+              updated = true;
+            }
+          } catch (e) { console.error('Error auto-fetching respondent age', e); }
+        }
+
+        if (updated) {
+          setViewCaseData(newData);
+        }
+      }
+    };
+
+    fetchMissingAges();
+  }, [view, viewCaseData?.caseNo]);
+
+  const [summonData, setSummonData] = useState({ caseNo: '', residentName: '', summonDate: '', summonTime: '',  selectedHour: '00', selectedMinute: '00',  selectedPeriod: '--', summonType: '', summonReason: '', notedBy: '' });
   const editorRef = useRef(null);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [previewFile, setPreviewFile] = useState(null); 
   const fileInputRef = useRef(null);
+  
   const [formErrors, setFormErrors] = useState({});
   const [summonErrors, setSummonErrors] = useState({});
   const [takenSummons, setTakenSummons] = useState([]); 
 
   const today = new Date().toISOString().split('T')[0]; 
   const currentYear = new Date().getFullYear();
-  const yearOptions = [t('all_years'), ...Array.from({length: 7}, (_, i) => (currentYear - i).toString())];
-  const roles = ['Lupon Head', 'Lupon Tagapamayapa', 'Administration']; 
+  const yearOptions = ['All Years', ...Array.from({length: 7}, (_, i) => (currentYear - i).toString())];
+  const monthOptions = ['All Months', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const typeOptions = ['All Types', 'LUPON', 'VAWC', 'BLOTTER', 'COMPLAIN'];
   
-  const statusOptions = [
-    { label: t('all_status'), color: 'bg-gray-400' },
-    { label: t('settled'), color: 'bg-green-500' }, 
-    { label: t('pending'), color: 'bg-yellow-500' }, 
-    { label: t('escalated'), color: 'bg-red-500' },
-    { label: t('blacklisted'), color: 'bg-black' }
-  ];
+  const roles = ['Lupon Head', 'Lupon Tagapamayapa', 'Administration']; 
 
   const filteredData = cases.filter((item) => {
-    if (item.type === 'MANUAL') return false; 
-    if (sortStatus === t('all_status') && (item.status === 'SETTLED' || item.status === 'BLACKLISTED')) {
-        return false;
+    if (item.type === 'CURFEW') return false; 
+    if (item.status === 'SETTLED' || item.status === 'BLACKLISTED') return false;
+
+    const itemDateParts = item.date ? item.date.split('-') : []; 
+    let itemYear = '';
+    let itemMonth = '';
+
+    if (itemDateParts.length === 3) {
+        if (itemDateParts[2].length === 4) { // MM-DD-YYYY
+            itemYear = itemDateParts[2];
+            itemMonth = itemDateParts[0];
+        } else { // YYYY-MM-DD
+            itemYear = itemDateParts[0];
+            itemMonth = itemDateParts[1];
+        }
     }
-    const matchesStatus = sortStatus === t('all_status') || item.status === sortStatus.toUpperCase();
-    const itemYear = item.date.split('-')[2]; 
-    const matchesYear = sortYear === t('all_years') || itemYear === sortYear;
+
+    const matchesYear = filterYear === 'All Years' || itemYear === filterYear;
+    const matchesMonth = filterMonth === 'All Months' || itemMonth === filterMonth;
+    const matchesType = filterType === 'All Types' || item.type === filterType;
     
-    return matchesStatus && matchesYear;
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch = searchQuery === '' || 
+                          (item.caseNo && item.caseNo.toLowerCase().includes(searchLower)) ||
+                          (item.complainantName && item.complainantName.toLowerCase().includes(searchLower)) ||
+                          (item.resident && item.resident.toLowerCase().includes(searchLower));
+
+    return matchesYear && matchesMonth && matchesType && matchesSearch;
   });
 
   const handleReportTypeSelect = (type) => { setSelectedReportType(type); setIsModeratorModalOpen(true); };
@@ -132,8 +232,8 @@ export default function CaseLogs() {
 
     setFormData({
       caseNo: newCaseNo, dateFiled: today,
-      complainantName: '', complainantContact: '', complainantAddress: '',
-      respondentName: '', respondentContact: '', respondentAddress: '',
+      complainantName: '', complainantAge: '', complainantContact: '', complainantAddress: '',
+      respondentName: '', respondentAge: '', respondentContact: '', respondentAddress: '',
       incidentDate: '', incidentLocation: '', incidentDesc: ''
     });
     setAttachedFiles([]);
@@ -144,41 +244,73 @@ export default function CaseLogs() {
     setView('FORM');
   };
 
+  const validateField = (name, value) => {
+    if (!value || !value.trim()) return 'This field is required';
+
+    if (name.includes('Name')) {
+        const nameRegex = /^[a-zA-ZñÑ\s,\.\-]+$/;
+        if (!nameRegex.test(value)) return 'Only letters, spaces, commas, and periods allowed';
+    }
+
+    if (name.includes('Contact')) {
+        const rawNumbers = value.replace(/[^0-9]/g, '');
+        if (rawNumbers === '63' || rawNumbers.length === 0) return 'Contact number is required';
+        if (rawNumbers.length > 2 && rawNumbers[2] !== '9') return 'PH mobile numbers must start with 9';
+        if (rawNumbers.length !== 12) return 'Must be exactly 10 digits after +63';
+    }
+
+    return '';
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let finalValue = value;
-    if (name.includes('Contact')) finalValue = value.replace(/\D/g, '');
+
+    if (name.includes('Contact')) {
+      let rawNumbers = value.replace(/\D/g, '');
+      if (rawNumbers.startsWith('63')) rawNumbers = rawNumbers.substring(2);
+      else if (rawNumbers.startsWith('0')) rawNumbers = rawNumbers.substring(1);
+      rawNumbers = rawNumbers.substring(0, 10); 
+      finalValue = rawNumbers.length > 0 ? `(+63) ${rawNumbers}` : '';
+    }
+
     setFormData(prev => ({ ...prev, [name]: finalValue }));
-    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
+
+    if (formErrors[name]) {
+        const error = validateField(name, finalValue);
+        setFormErrors(prev => ({ ...prev, [name]: error }));
+    }
   };
 
-  const handleAssignSummonClick = (caseItem) => {
-    const allSummons = JSON.parse(localStorage.getItem('summons') || '[]');
-    const caseSummons = allSummons.filter(s => s.caseNo === caseItem.caseNo);
-    const usedTypes = caseSummons.map(s => s.summonType);
-    setTakenSummons(usedTypes);
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    const error = validateField(name, value);
+    setFormErrors(prev => ({ ...prev, [name]: error }));
+  };
 
-    // --- FETCH ALL CONTACT DATA FOR BOTH PARTIES ---
-    const rAddress = caseItem.fullData?.respondentAddress || caseItem.respondentAddress || 'N/A';
-    const rContact = caseItem.fullData?.respondentContact || caseItem.respondentContact || 'N/A';
-    const cName = caseItem.fullData?.complainantName || caseItem.complainantName || 'N/A';
-    const cContact = caseItem.fullData?.complainantContact || caseItem.complainantContact || 'N/A';
-    const cAddress = caseItem.fullData?.complainantAddress || caseItem.complainantAddress || 'N/A';
+  const getInputClass = (fieldName, errorState = formErrors) => {
+    const base = "w-full border rounded-lg px-4 py-3 outline-none transition-all";
+    return errorState[fieldName] ? `${base} border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200` : `${base} border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100`;
+  };
 
-    setSummonData({
-      caseNo: caseItem.caseNo, 
-      residentName: caseItem.resident || caseItem.respondentName || 'N/A', // Respondent Name
-      respondentContact: rContact,
-      respondentAddress: rAddress,
-      complainantName: cName,
-      complainantContact: cContact,
-      complainantAddress: cAddress,
-      summonDate: '', summonTime: '', summonType: '', summonReason: '', notedBy: ''
-    });
-    
-    setSummonErrors({});
-    if(editorRef.current) editorRef.current.innerHTML = "";
-    setView('SUMMON');
+  const handleAssignSummonClick = async (caseItem) => {
+    try {
+      const allSummons = await summonsAPI.getAll();
+      const caseSummons = allSummons.filter(s => s.caseNo === caseItem.caseNo);
+      const usedTypes = caseSummons.map(s => s.summonType);
+      setTakenSummons(usedTypes);
+
+      setSummonData({
+        caseNo: caseItem.caseNo, residentName: caseItem.resident || caseItem.respondentName || 'Unknown',
+        summonDate: '', summonTime: '', selectedHour: '00', selectedMinute: '00', selectedPeriod: '--', summonType: '', summonReason: '', notedBy: ''
+      });
+      setSummonErrors({});
+      if(editorRef.current) editorRef.current.innerHTML = "";
+      setView('SUMMON');
+    } catch (error) {
+      console.error('Error loading summons:', error);
+      Swal.fire({ title: 'Error', text: 'Failed to load summons data.', icon: 'error', confirmButtonColor: '#d33' });
+    }
   };
 
   const handleViewCase = (caseItem) => {
@@ -187,18 +319,39 @@ export default function CaseLogs() {
     } else {
         setViewCaseData({
             selectedReportType: caseItem.type, selectedRole: '', caseNo: caseItem.caseNo, dateFiled: caseItem.date,
-            complainantName: caseItem.complainantName || caseItem.resident || '', complainantContact: caseItem.contact || '', complainantAddress: '',
-            respondentName: caseItem.resident || caseItem.respondentName || '', respondentContact: '', respondentAddress: '', incidentDate: caseItem.date, incidentLocation: '', incidentDesc: ''
+            complainantName: caseItem.complainantName || caseItem.resident || '', complainantContact: caseItem.contact || '', complainantAddress: '', complainantAge: '',
+            respondentName: caseItem.resident || '', respondentContact: '', respondentAddress: '', respondentAge: '', incidentDate: caseItem.date, incidentLocation: '', incidentDesc: ''
         });
     }
     setView('VIEW_CASE');
   };
 
   const handleSummonInputChange = (e) => {
-    const { name, value } = e.target;
-    setSummonData(prev => ({ ...prev, [name]: value }));
-    if (summonErrors[name]) setSummonErrors(prev => ({ ...prev, [name]: '' }));
-  };
+  const { name, value } = e.target;
+  
+  if (name === 'summonType' && value === '2' && !takenSummons.includes('1')) {
+    Swal.fire({
+      title: 'Cannot Select Second Summon',
+      text: 'You must issue the First Summon before issuing the Second Summon.',
+      icon: 'warning',
+      confirmButtonColor: '#d33'
+    });
+    return;
+  }
+  
+  if (name === 'summonType' && value === '3' && !takenSummons.includes('2')) {
+    Swal.fire({
+      title: 'Cannot Select Third Summon',
+      text: 'You must issue the Second Summon before issuing the Third Summon.',
+      icon: 'warning',
+      confirmButtonColor: '#d33'
+    });
+    return;
+  }
+  
+  setSummonData(prev => ({ ...prev, [name]: value }));
+  if (summonErrors[name]) setSummonErrors(prev => ({ ...prev, [name]: '' }));
+};
 
   const applyCommand = (e, command, value = null) => {
     e.preventDefault(); document.execCommand(command, false, value);
@@ -209,7 +362,7 @@ export default function CaseLogs() {
   const handleBackToListFromOverview = () => { setView('TABLE'); };
 
   const handlePrintOverview = () => {
-    Swal.fire({ title: t('confirm_print_case'), text: t('confirm_print_text'), icon: 'question', showCancelButton: true, confirmButtonColor: '#0066FF', cancelButtonColor: '#d33', confirmButtonText: t('yes_print'), cancelButtonText: t('cancel') }).then((result) => {
+    Swal.fire({ title: t('confirm_print_case'), text: t('confirm_print_text'), icon: 'question', showCancelButton: true, confirmButtonColor: '#0066FF', cancelButtonColor: '#d33', confirmButtonText: t('Print'), cancelButtonText: t('cancel') }).then((result) => {
       if (result.isConfirmed) setTimeout(() => { window.print(); }, 300);
     });
   };
@@ -217,88 +370,177 @@ export default function CaseLogs() {
   const handleCancelSummon = () => { setView('TABLE'); };
 
   const handleSubmitSummon = () => {
-    const currentReason = editorRef.current ? editorRef.current.innerHTML : '';
-    const finalData = { ...summonData, summonReason: currentReason };
-    const errors = {};
-    const required = ['summonDate', 'summonTime', 'summonType', 'notedBy'];
-    required.forEach(f => { if (!finalData[f].trim()) errors[f] = 'Required'; });
-    if (!currentReason || currentReason === '<br>' || currentReason.trim() === '') errors['summonReason'] = 'Required';
-    
-    if (Object.keys(errors).length > 0) {
-      setSummonErrors(errors);
-      Swal.fire({ title: 'Missing Information', text: 'Please fill out all required fields.', icon: 'error', confirmButtonColor: '#d33' });
-      return;
-    }
+  const currentReason = editorRef.current ? editorRef.current.innerHTML : '';
+  const finalData = { ...summonData, summonReason: currentReason };
+  
+  const errors = {};
+  const required = ['summonDate', 'summonType', 'notedBy'];
+  required.forEach(f => { 
+    const value = finalData[f];
+    if (!value || (typeof value === 'string' && !value.trim())) errors[f] = 'Required';
+  });
+  
+  if (finalData.selectedHour === '00') {
+    errors['summonTime'] = 'Required';
+  }
 
-    Swal.fire({ title: t('confirm_save_summon'), text: t('confirm_save_text'), icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('yes_save'), cancelButtonText: t('cancel') }).then((result) => {
+  if (!currentReason || currentReason === '<br>' || currentReason.trim() === '') errors['summonReason'] = 'Required';
+  
+  if (Object.keys(errors).length > 0) {
+    setSummonErrors(errors);
+    Swal.fire({ title: 'Incomplete Details', text: 'Please fill out all required fields highlighted in red.', icon: 'warning', confirmButtonColor: '#d33' });
+    return;
+  }
+
+    Swal.fire({ title: t('confirm_summon?'), text: t('confirm_save_text'), icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('yes_save'), cancelButtonText: t('cancel') }).then(async (result) => {
       if (result.isConfirmed) {
-        const existingSummons = JSON.parse(localStorage.getItem('summons') || '[]');
-        const newSummonRecord = { ...finalData, status: 'Active', id: Date.now() };
-        localStorage.setItem('summons', JSON.stringify([...existingSummons, newSummonRecord]));
-        setView('TABLE');
-        Swal.fire({ title: 'Summon Assigned!', text: `Summon scheduled for ${finalData.residentName}.`, icon: 'success', confirmButtonColor: '#1d4ed8' });
+        try {
+          const newSummonRecord = { ...finalData, status: 'Active' };
+          const saved = await summonsAPI.create(newSummonRecord);
+          window.dispatchEvent(new Event('caseDataUpdated'));
+          setView('TABLE');
+          Swal.fire({ title: 'Summon Assigned!', text: `Summon scheduled for ${finalData.residentName}.`, icon: 'success', confirmButtonColor: '#1d4ed8' });
+        } catch (error) {
+          const errorMsg = error.response?.data?.message || error.message || 'Failed to save summon to database.';
+          Swal.fire({ title: 'Error', text: errorMsg, icon: 'error', confirmButtonColor: '#d33' });
+        }
       }
     });
   };
 
   const handleCancelNewCase = () => { setView('TABLE'); };
 
+  const handleComplainantSelect = async (resident) => {
+    const selectedName = resident.full_name || '';
+    const resolvedAge = resident.age !== undefined && resident.age !== null
+      ? String(resident.age)
+      : resident.birthdate
+        ? String(calculateAge(resident.birthdate))
+        : '';
+
+    setFormData(prev => ({
+      ...prev,
+      complainantName: selectedName,
+      complainantContact: resident.contact_number || '',
+      complainantAddress: resident.address_text || '',
+      complainantAge: resolvedAge
+    }));
+
+    if (!resolvedAge && selectedName) {
+      setAgeLoading(prev => ({ ...prev, complainant: true }));
+      const fetchedAge = await fetchResidentAge(selectedName);
+      setFormData(prev => ({ ...prev, complainantAge: fetchedAge }));
+      setAgeLoading(prev => ({ ...prev, complainant: false }));
+    }
+  };
+
+  const handleComplainantBlur = async (value) => {
+    const normalizedValue = value?.trim();
+    if (!normalizedValue) return;
+    if (formData.complainantName === normalizedValue && formData.complainantAge) return;
+
+    setAgeLoading(prev => ({ ...prev, complainant: true }));
+    const fetchedAge = await fetchResidentAge(normalizedValue);
+    setFormData(prev => ({ ...prev, complainantAge: fetchedAge }));
+    setAgeLoading(prev => ({ ...prev, complainant: false }));
+  };
+
+  const handleRespondentSelect = async (resident) => {
+    const selectedName = resident.full_name || '';
+    const resolvedAge = resident.age !== undefined && resident.age !== null
+      ? String(resident.age)
+      : resident.birthdate
+        ? String(calculateAge(resident.birthdate))
+        : '';
+
+    setFormData(prev => ({
+      ...prev,
+      respondentName: selectedName,
+      respondentContact: resident.contact_number || '',
+      respondentAddress: resident.address_text || '',
+      respondentAge: resolvedAge
+    }));
+
+    if (!resolvedAge && selectedName) {
+      setAgeLoading(prev => ({ ...prev, respondent: true }));
+      const fetchedAge = await fetchResidentAge(selectedName);
+      setFormData(prev => ({ ...prev, respondentAge: fetchedAge }));
+      setAgeLoading(prev => ({ ...prev, respondent: false }));
+    }
+  };
+
+  const handleRespondentBlur = async (value) => {
+    const normalizedValue = value?.trim();
+    if (!normalizedValue) return;
+    if (formData.respondentName === normalizedValue && formData.respondentAge) return;
+
+    setAgeLoading(prev => ({ ...prev, respondent: true }));
+    const fetchedAge = await fetchResidentAge(normalizedValue);
+    setFormData(prev => ({ ...prev, respondentAge: fetchedAge }));
+    setAgeLoading(prev => ({ ...prev, respondent: false }));
+  };
+
   const handleSubmitCase = () => {
     const errors = {};
-    const required = ['dateFiled', 'complainantName', 'complainantContact', 'complainantAddress', 'respondentName', 'respondentContact', 'respondentAddress', 'incidentDate', 'incidentLocation', 'incidentDesc'];
-    required.forEach(f => { if (!formData[f] || !formData[f].trim()) errors[f] = 'Required'; });
+    const fieldsToValidate = [
+        'complainantName', 'complainantContact', 'complainantAddress', 
+        'respondentName', 'respondentContact', 'respondentAddress', 
+        'incidentDate', 'incidentLocation', 'incidentDesc'
+    ];
     
-    let contactError = false;
-    if (formData.complainantContact && formData.complainantContact.length !== 11) {
-        errors.complainantContact = 'Must be exactly 11 digits';
-        contactError = true;
-    }
-    if (formData.respondentContact && formData.respondentContact.length !== 11) {
-        errors.respondentContact = 'Must be exactly 11 digits';
-        contactError = true;
-    }
+    fieldsToValidate.forEach(field => {
+        const error = validateField(field, formData[field]);
+        if (error) errors[field] = error;
+    });
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      if (contactError) {
-          Swal.fire({ title: 'Invalid Contact Number', text: 'Contact numbers must be exactly 11 digits long.', icon: 'error', confirmButtonColor: '#d33' });
-      } else {
-          Swal.fire({ title: 'Incomplete', text: 'Please fill all required fields.', icon: 'error', confirmButtonColor: '#d33' });
-      }
+      Swal.fire({ 
+          title: 'Incomplete Details', 
+          text: 'Please fix the errors highlighted in red before submitting.', 
+          icon: 'warning', 
+          confirmButtonColor: '#d33' 
+      });
       return;
     }
 
-    Swal.fire({ 
-        title: 'Confirm Save Case', 
-        text: 'Are you sure you want to save this new case to the logs?', 
-        icon: 'question', 
-        showCancelButton: true, 
-        confirmButtonColor: '#2563eb', 
-        cancelButtonColor: '#d33', 
-        confirmButtonText: 'Yes, Save Case', 
-        cancelButtonText: 'Cancel' 
-    }).then((result) => {
+    Swal.fire({ title: t('confirm_save_title'), text: t('confirm_save_text'), icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('yes_save'), cancelButtonText: t('cancel') }).then(async (result) => {
         if(result.isConfirmed) {
             const dateObj = new Date(formData.dateFiled);
             const formattedDate = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}-${dateObj.getFullYear()}`;
             
-            setCases([{ type: selectedReportType, status: 'PENDING', caseNo: formData.caseNo, complainantName: formData.complainantName, resident: formData.respondentName, contact: formData.complainantContact, date: formattedDate, fullData: { ...formData, selectedReportType, selectedRole } }, ...cases]);
-            setSortStatus(t('all_status')); setSortYear(t('all_years')); setView('TABLE');
-            Swal.fire({ title: 'Success!', text: 'Case successfully added to logs.', icon: 'success', confirmButtonColor: '#2563eb' });
+            const newCase = { 
+              type: selectedReportType, 
+              status: 'PENDING', 
+              caseNo: formData.caseNo, 
+              complainantName: formData.complainantName, 
+              resident: formData.respondentName, 
+              contact: formData.complainantContact, 
+              date: formattedDate, 
+              fullData: { ...formData, selectedReportType, selectedRole } 
+            };
+
+            try {
+              const savedCase = await casesAPI.create(newCase);
+              setCases([savedCase, ...cases]);
+              setFilterType('All Types');
+              setFilterYear('All Years');
+              setFilterMonth('All Months');
+              setSearchQuery('');
+              setView('TABLE');
+              window.dispatchEvent(new Event('caseDataUpdated'));
+              
+              Swal.fire({ title: 'Success!', text: 'Case saved to database successfully!', icon: 'success' });
+            } catch (err) {
+              Swal.fire({ title: 'Error!', text: 'Failed to save case to database. Please try again.', icon: 'error' });
+            }
         }
     });
   };
 
-  const getInputClass = (fieldName, errorState = formErrors) => {
-    const base = "w-full border rounded-lg px-4 py-3 outline-none transition-all";
-    return errorState[fieldName] ? `${base} border-red-500 bg-red-50` : `${base} border-gray-300 focus:border-blue-500`;
-  };
-  
   const handleFileZoneClick = () => fileInputRef.current.click();
   const handleFileChange = (e) => { if (e.target.files?.length) setAttachedFiles([...attachedFiles, ...Array.from(e.target.files)]); };
-  const handleStatusSelect = (o) => { setSortStatus(o); setIsStatusSortOpen(false); };
-  const handleYearSelect = (o) => { setSortYear(o); setIsYearSortOpen(false); };
-
+  
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024; const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -327,15 +569,16 @@ export default function CaseLogs() {
                     <tbody>
                         <tr><td className="border border-black p-3 font-bold bg-gray-100 w-1/4">{t('report_type')}</td><td className="border border-black p-3 w-1/4">{viewCaseData.selectedReportType}</td><td className="border border-black p-3 font-bold bg-gray-100 w-1/4">{t('assign_moderator')}</td><td className="border border-black p-3 w-1/4">{viewCaseData.selectedRole}</td></tr>
                         <tr><td className="border border-black p-3 font-bold bg-gray-100">{t('case_no')}</td><td className="border border-black p-3">{viewCaseData.caseNo}</td><td className="border border-black p-3 font-bold bg-gray-100">{t('date_filed')}</td><td className="border border-black p-3">{viewCaseData.dateFiled}</td></tr>
-                        <tr><td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('complainant')}</td><td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">Respondent</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('full_name')}</td><td className="border border-black p-3">{viewCaseData.complainantName}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('full_name')}</td><td className="border border-black p-3">{viewCaseData.respondentName || viewCaseData.defendantName}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('contact_no')}</td><td className="border border-black p-3">{viewCaseData.complainantContact}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('contact_no')}</td><td className="border border-black p-3">{viewCaseData.respondentContact || viewCaseData.defendantContact}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('address')}</td><td className="border border-black p-3">{viewCaseData.complainantAddress}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('address')}</td><td className="border border-black p-3">{viewCaseData.respondentAddress || viewCaseData.defendantAddress}</td></tr>
+                        <tr><td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('complainant')}</td><td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('respondent')}</td></tr>
+                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('full_name')}</td><td className="border border-black p-3">{viewCaseData.complainantName}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('full_name')}</td><td className="border border-black p-3">{viewCaseData.respondentName}</td></tr>
+                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('age')}</td><td className="border border-black p-3">{viewCaseData.complainantAge || 'N/A'}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('age')}</td><td className="border border-black p-3">{viewCaseData.respondentAge || 'N/A'}</td></tr>
+                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('contact_no')}</td><td className="border border-black p-3">{viewCaseData.complainantContact}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('contact_no')}</td><td className="border border-black p-3">{viewCaseData.respondentContact}</td></tr>
+                        <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('address')}</td><td className="border border-black p-3">{viewCaseData.complainantAddress}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('address')}</td><td className="border border-black p-3">{viewCaseData.respondentAddress}</td></tr>
                         <tr><td colSpan="4" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('incident_details')}</td></tr>
                         <tr><td className="border border-black p-3 font-bold bg-gray-50">{t('date_filed')}</td><td className="border border-black p-3">{viewCaseData.incidentDate}</td><td className="border border-black p-3 font-bold bg-gray-50">{t('location')}</td><td className="border border-black p-3">{viewCaseData.incidentLocation}</td></tr>
                         <tr><td className="border border-black p-3 font-bold bg-gray-50 align-top">{t('description')}</td><td colSpan="3" className="border border-black p-3 whitespace-pre-wrap leading-relaxed">{viewCaseData.incidentDesc}</td></tr>
                     </tbody>
-                </table>
+                  </table>
                 <div className="mt-16 text-right"><div className="inline-block border-t border-black w-64 text-center pt-2 font-bold text-sm">{t('auth_officer_name')}</div></div>
             </div>
 
@@ -344,7 +587,7 @@ export default function CaseLogs() {
                 <div className="p-10 space-y-8">
                     <div className="grid grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-500 mb-2">{t('report_type')}</label><div className="bg-slate-100 p-4 rounded-lg font-bold text-gray-700">{viewCaseData.selectedReportType}</div></div><div><label className="block text-sm font-bold text-gray-500 mb-2">{t('assign_moderator')}</label><div className="bg-slate-100 p-4 rounded-lg font-bold text-gray-700">{viewCaseData.selectedRole}</div></div></div>
                     <div className="grid grid-cols-2 gap-6"><div><label className="font-bold text-gray-700">{t('case_no')}</label><input type="text" value={viewCaseData.caseNo} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed font-mono font-bold" /></div><div><label className="font-bold text-gray-700">{t('date_filed')}</label><input type="date" value={viewCaseData.dateFiled} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed font-bold" /></div></div>
-                    <div className="grid grid-cols-2 gap-8"><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4><input type="text" value={viewCaseData.complainantName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.complainantContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.complainantAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /></div><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">Respondent</h4><input type="text" value={viewCaseData.respondentName || viewCaseData.defendantName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.respondentContact || viewCaseData.defendantContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.respondentAddress || viewCaseData.defendantAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /></div></div>
+                    <div className="grid grid-cols-2 gap-8"><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4><input type="text" value={viewCaseData.complainantName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.complainantAge || 'N/A'} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.complainantContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.complainantAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /></div><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('Respondent')}</h4><input type="text" value={viewCaseData.respondentName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.respondentAge || 'N/A'} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.respondentContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.respondentAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /></div></div>
                     <div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('incident_details')}</h4><div className="grid grid-cols-2 gap-6"><input type="date" value={viewCaseData.incidentDate} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /><input type="text" value={viewCaseData.incidentLocation} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed" /></div><textarea value={viewCaseData.incidentDesc} readOnly rows="4" className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed resize-none"></textarea></div>
                 </div>
                 <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4"><button onClick={handlePrintOverview} className="flex items-center px-8 py-3 border-2 border-[#0066FF] text-[#0066FF] font-bold rounded-lg hover:bg-blue-50 transition-colors shadow-sm"><Printer size={18} className="mr-2" />{t('print_details')}</button><button onClick={handleBackToListFromOverview} className="px-8 py-3 border border-gray-300 font-bold text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">{t('back_to_list')}</button></div>
@@ -356,76 +599,104 @@ export default function CaseLogs() {
   if (view === 'SUMMON') {
     return (
       <div className="flex-1 overflow-y-auto bg-slate-50 p-8">
-        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg border overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg border overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-blue-700 py-6 relative overflow-hidden flex items-center justify-center">
             <div className="absolute left-8 top-1/2 -translate-y-1/2"><img src="/icon-summons/assign summon.png" alt="Assign Summon" className="w-16 h-16 object-contain opacity-80" /></div>
             <div className="text-center text-white z-10"><h2 className="text-2xl font-bold tracking-tight">{t('assign_summons')}</h2><p className="text-blue-100 mt-1 text-xs">{t('summon_schedule_subtitle')}</p></div>
           </div>
-          
-          <div className="p-8 space-y-8 bg-slate-50">
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t('case_no')}</label>
-              <input type="text" value={summonData.caseNo} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-600 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold" />
-            </div>
-
-            {/* --- NEW SIDE-BY-SIDE LAYOUT FOR ASSIGN SUMMON --- */}
-            <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-4">
-                    <h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
-                        <input type="text" value={summonData.complainantName} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Contact #</label>
-                        <input type="text" value={summonData.complainantContact} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Address</label>
-                        <input type="text" value={summonData.complainantAddress} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
-                    </div>
-                </div>
-                
-                <div className="space-y-4">
-                    <h4 className="text-blue-600 font-bold border-b pb-2">Respondent</h4>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
-                        <input type="text" value={summonData.residentName} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Contact #</label>
-                        <input type="text" value={summonData.respondentContact} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Address</label>
-                        <input type="text" value={summonData.respondentAddress} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-800 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold uppercase" />
-                    </div>
-                </div>
-            </div>
-            {/* ----------------------------------------------- */}
-
+          <div className="p-8 space-y-5 bg-slate-50">
             <div className="grid grid-cols-2 gap-5">
-              <div><label className="block text-xs font-bold text-gray-700 mb-1">{t('summon_date')}</label><div className="relative"><input type="date" name="summonDate" value={summonData.summonDate} onChange={handleSummonInputChange} min={today} className={`${getInputClass('summonDate', summonErrors)} py-2 text-sm`} /><Calendar className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={16} /></div>{summonErrors.summonDate && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}</div>
-              <div><label className="block text-xs font-bold text-gray-700 mb-1">{t('summon_time')}</label><div className="relative"><input type="time" name="summonTime" value={summonData.summonTime} onChange={handleSummonInputChange} className={`${getInputClass('summonTime', summonErrors)} py-2 text-sm`} /><Clock className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={16} /></div>{summonErrors.summonTime && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}</div>
+              <div><label className="block text-xs font-bold text-gray-700 mb-1">{t('case_no')}</label><input type="text" value={summonData.caseNo} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-600 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold" /></div>
+              <div><label className="block text-xs font-bold text-gray-700 mb-1">{t('resident_name')}</label><input type="text" value={summonData.residentName} readOnly className="w-full bg-gray-200 border border-gray-300 text-gray-600 rounded-lg px-3 py-2 text-sm cursor-not-allowed font-bold" /></div>
             </div>
-            
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t('select_summons_no')}</label>
-              <div className="relative">
-                <select name="summonType" value={summonData.summonType} onChange={handleSummonInputChange} className={`${getInputClass('summonType', summonErrors)} appearance-none py-2 text-sm hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 transition-all cursor-pointer`}>
-                  <option value="" disabled>{t('select_option')}</option>
-                  <option value="1" disabled={takenSummons.includes('1')}>{t('first_summon')} {takenSummons.includes('1') ? t('issued') : ''}</option>
-                  <option value="2" disabled={takenSummons.includes('2')}>{t('second_summon')} {takenSummons.includes('2') ? t('issued') : ''}</option>
-                  <option value="3" disabled={takenSummons.includes('3')}>{t('third_summon')} {takenSummons.includes('3') ? t('issued') : ''}</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-3 text-gray-500 pointer-events-none" size={16} />
-              </div>
-              {summonErrors.summonType && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}
-            </div>
-            
+            <div className="grid grid-cols-2 gap-5">
+              <div><label className="block text-xs font-bold text-gray-700 mb-1">{t('summon_date')}</label><div className="relative"><input type="date" name="summonDate" value={summonData.summonDate} onChange={handleSummonInputChange} min={today} className={`${getInputClass('summonDate', summonErrors)} py-2 text-sm`} /><Calendar className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={16} /></div>{summonErrors.summonDate && <p className="text-red-500 text-[10px] mt-1 font-bold">{summonErrors.summonDate}</p>}</div>
+<div>
+  <label className="block text-xs font-bold text-gray-700 mb-1">{t('summon_time')}</label>
+  <div className="flex gap-2 relative">
+    <select 
+      value={summonData.selectedHour || '00'} 
+      onChange={(e) => { 
+        const hour = e.target.value; 
+        let period = '--'; 
+        if (hour === '08' || hour === '09' || hour === '10' || hour === '11') { 
+          period = 'AM'; 
+        } else if (hour === '12' || hour === '01' || hour === '02' || hour === '03' || hour === '04' || hour === '05') { 
+          period = 'PM'; 
+        } 
+        setSummonData(prev => ({ 
+          ...prev, 
+          selectedHour: hour, 
+          selectedPeriod: period, 
+          summonTime: hour === '00' ? '' : `${hour}:${prev.selectedMinute || '00'} ${period}` 
+        })); 
+      }} 
+      className={`${summonErrors.summonTime ? 'border-red-500 bg-red-50 ring-2 ring-red-100' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-100'} flex-1 border rounded-lg px-4 py-3 outline-none focus:ring-2`}
+      style={{ transform: 'rotate(0deg)', direction: 'ltr' }}
+    >
+      <option value="00" disabled>00</option>
+      <option value="08">08</option>
+      <option value="09">09</option>
+      <option value="10">10</option>
+      <option value="11">11</option>
+      <option value="12">12</option>
+      <option value="01">01</option>
+      <option value="02">02</option>
+      <option value="03">03</option>
+      <option value="04">04</option>
+      <option value="05">05</option>
+    </select>
+
+    <select 
+      value={summonData.selectedMinute || '00'} 
+      onChange={(e) => { 
+        const minute = e.target.value; 
+        setSummonData(prev => ({ 
+          ...prev, 
+          selectedMinute: minute, 
+          summonTime: prev.selectedHour === '00' ? '' : `${prev.selectedHour || '08'}:${minute} ${prev.selectedPeriod || 'AM'}` 
+        })); 
+      }} 
+      className={`${summonErrors.summonTime ? 'border-red-500 bg-red-50 ring-2 ring-red-100' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-100'} flex-1 border rounded-lg px-4 py-3 outline-none focus:ring-2`}
+      style={{ transform: 'rotate(0deg)', direction: 'ltr' }}
+    >
+      {Array.from({ length: 60 }, (_, i) => { 
+        const minuteStr = i.toString().padStart(2, '0'); 
+        return <option key={i} value={minuteStr}>{minuteStr}</option>; 
+      })}
+    </select>
+
+    <div className={`w-24 border ${summonErrors.summonTime ? 'border-red-500 bg-red-50 text-red-500' : 'border-gray-300 bg-gray-50 text-gray-700'} rounded-lg px-4 py-3 font-medium text-center transition-colors`}>
+      {summonData.selectedHour === '00' ? '--' : summonData.selectedPeriod}
+    </div>
+  </div>
+  {summonErrors.summonTime && <p className="text-red-500 text-[10px] mt-1 font-bold absolute">{summonErrors.summonTime}</p>}
+</div>
+     </div>
+           <div>
+  <label className="block text-xs font-bold text-gray-700 mb-1">{t('select_summons_no')}</label>
+  <div className="relative mt-2">
+    <select 
+      name="summonType" 
+      value={summonData.summonType} 
+      onChange={handleSummonInputChange} 
+      className={`${getInputClass('summonType', summonErrors)} appearance-none py-2 text-sm hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 transition-all cursor-pointer`}
+    >
+      <option value="" disabled>{t('select_option')}</option>
+      {!takenSummons.includes('1') && <option value="1">{t('first_summon')}</option>}
+      {!takenSummons.includes('2') && <option value="2">{t('second_summon')}</option>}
+      {!takenSummons.includes('3') && <option value="3">{t('third_summon')}</option>}
+      {takenSummons.includes('1') && <option value="1" disabled className="opacity-60">{t('first_summon')} {t('issued')}</option>}
+      {takenSummons.includes('2') && <option value="2" disabled className="opacity-60">{t('second_summon')} {t('issued')}</option>}
+      {takenSummons.includes('3') && <option value="3" disabled className="opacity-60">{t('third_summon')} {t('issued')}</option>}
+    </select>
+    <ChevronDown className="absolute right-3 top-3 text-gray-500 pointer-events-none" size={16} />
+  </div>
+  {summonErrors.summonType && <p className="text-red-500 text-[10px] mt-1 font-bold">{summonErrors.summonType}</p>}
+</div>
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">{t('summon_reason')}</label>
-              <div className={`border-2 rounded-xl overflow-hidden shadow-sm flex flex-col h-40 transition-colors ${summonErrors.summonReason ? 'border-red-500' : 'border-gray-200 focus-within:border-blue-500'}`}>
+              <div className={`border-2 rounded-xl overflow-hidden shadow-sm flex flex-col h-40 transition-colors ${summonErrors.summonReason ? 'border-red-500 focus-within:border-red-600 ring-2 ring-red-100' : 'border-gray-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'}`}>
                 <div className="relative flex-1 bg-white cursor-text" onClick={() => editorRef.current?.focus()}>
                   <div ref={editorRef} contentEditable suppressContentEditableWarning={true} className="w-full h-full p-4 text-sm text-gray-600 focus:outline-none overflow-y-auto" style={{ minHeight: '100%' }} placeholder={t('detailed_description')} />
                 </div>
@@ -436,19 +707,17 @@ export default function CaseLogs() {
                   <div className="h-4 w-px bg-gray-300 mx-2"></div>
                 </div>
               </div>
-              {summonErrors.summonReason && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}
+              {summonErrors.summonReason && <p className="text-red-500 text-[10px] mt-1 font-bold">{summonErrors.summonReason}</p>}
             </div>
-            
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">{t('noted_by')}</label>
               <input type="text" name="notedBy" value={summonData.notedBy} onChange={handleSummonInputChange} placeholder={t('auth_officer_name')} className={`${getInputClass('notedBy', summonErrors)} py-2 text-sm`} />
-              {summonErrors.notedBy && <p className="text-red-500 text-[10px] mt-1 font-bold">Required</p>}
+              {summonErrors.notedBy && <p className="text-red-500 text-[10px] mt-1 font-bold">{summonErrors.notedBy}</p>}
             </div>
           </div>
-          
           <div className="bg-white p-5 border-t border-gray-200 flex justify-end space-x-3">
             <button onClick={handleCancelSummon} className="px-5 py-2 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors text-sm">{t('cancel')}</button>
-            <button onClick={handleSubmitSummon} className={`px-6 py-2 rounded-lg font-bold text-sm ${gradientBtnClass}`}>{t('submit_summon')}</button>
+            <button onClick={handleSubmitSummon} className="px-6 py-2 rounded-lg font-bold text-sm bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white shadow-md transition-all active:scale-95">{t('submit_summon')}</button>
           </div>
         </div>
       </div>
@@ -497,19 +766,94 @@ export default function CaseLogs() {
             <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-4">
                     <h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4>
-                    <input type="text" name="complainantName" value={formData.complainantName} placeholder={t('full_name')} onChange={handleInputChange} className={getInputClass('complainantName')} />
-                    <input type="text" name="complainantContact" value={formData.complainantContact} maxLength="11" placeholder={t('contact_num_placeholder')} onChange={handleInputChange} className={getInputClass('complainantContact')} />
-                    <input type="text" name="complainantAddress" value={formData.complainantAddress} placeholder={t('address')} onChange={handleInputChange} className={getInputClass('complainantAddress')} />
+                    <div>
+                        <ResidentAutocomplete
+                            value={formData.complainantName}
+                            onChange={(value) => {
+                                handleInputChange({ target: { name: 'complainantName', value } });
+                            }}
+                            onSelect={handleComplainantSelect}
+                            onBlur={handleComplainantBlur}
+                            placeholder={t('full_name')}
+                            label=""
+                            required={false}
+                        />
+                        {formErrors.complainantName && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.complainantName}</p>}
+                    </div>
+                    <div>
+                        <input 
+                            type="text" 
+                            name="complainantAge" 
+                            value={formData.complainantAge} 
+                            onChange={handleInputChange}
+                            placeholder={ageLoading.complainant ? 'Calculating age...' : 'Age (Type if missing)'} 
+                            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
+                        />
+                    </div>
+                    <div>
+                        <input type="text" name="complainantContact" value={formData.complainantContact} placeholder="(+63) 9XX XXX XXXX" onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('complainantContact')} />
+                        {formErrors.complainantContact && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.complainantContact}</p>}
+                    </div>
+                    <div>
+                        <input type="text" name="complainantAddress" value={formData.complainantAddress} placeholder={t('address')} onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('complainantAddress')} />
+                        {formErrors.complainantAddress && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.complainantAddress}</p>}
+                    </div>
                 </div>
+                
                 <div className="space-y-4">
-                    <h4 className="text-blue-600 font-bold border-b pb-2">Respondent</h4>
-                    <input type="text" name="respondentName" value={formData.respondentName} placeholder={t('full_name')} onChange={handleInputChange} className={getInputClass('respondentName')} />
-                    <input type="text" name="respondentContact" value={formData.respondentContact} maxLength="11" placeholder={t('contact_num_placeholder')} onChange={handleInputChange} className={getInputClass('respondentContact')} />
-                    <input type="text" name="respondentAddress" value={formData.respondentAddress} placeholder="Address (e.g. #123 Gen. Luis St.)" onChange={handleInputChange} className={getInputClass('respondentAddress')} />
+                    <h4 className="text-blue-600 font-bold border-b pb-2">{t('Respondent')}</h4>
+                    <div>
+                        <ResidentAutocomplete
+                            value={formData.respondentName}
+                            onChange={(value) => {
+                                handleInputChange({ target: { name: 'respondentName', value } });
+                            }}
+                            onSelect={handleRespondentSelect}
+                            onBlur={handleRespondentBlur}
+                            placeholder={t('full_name')}
+                            label=""
+                            required={false}
+                        />
+                        {formErrors.respondentName && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.respondentName}</p>}
+                    </div>
+                    <div>
+                        <input 
+                            type="text" 
+                            name="respondentAge" 
+                            value={formData.respondentAge} 
+                            onChange={handleInputChange}
+                            placeholder={ageLoading.respondent ? 'Calculating age...' : 'Age (Type if missing)'} 
+                            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
+                        />
+                    </div>
+                    <div>
+                        <input type="text" name="respondentContact" value={formData.respondentContact} placeholder="(+63) 9XX XXX XXXX" onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('respondentContact')} />
+                        {formErrors.respondentContact && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.respondentContact}</p>}
+                    </div>
+                    <div>
+                        <input type="text" name="respondentAddress" value={formData.respondentAddress} placeholder={t('address')} onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('respondentAddress')} />
+                        {formErrors.respondentAddress && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.respondentAddress}</p>}
+                    </div>
                 </div>
             </div>
 
-            <div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('incident_details')}</h4><div className="grid grid-cols-2 gap-6"><input type="date" name="incidentDate" value={formData.incidentDate} onChange={handleInputChange} className={getInputClass('incidentDate')} /><input type="text" name="incidentLocation" value={formData.incidentLocation} placeholder={t('location')} onChange={handleInputChange} className={getInputClass('incidentLocation')} /></div><textarea name="incidentDesc" value={formData.incidentDesc} rows="4" placeholder={t('description')} onChange={handleInputChange} className={getInputClass('incidentDesc')}></textarea></div>
+            <div className="space-y-4">
+                <h4 className="text-blue-600 font-bold border-b pb-2">{t('incident_details')}</h4>
+                <div className="grid grid-cols-2 gap-6">
+                    <div>
+                        <input type="date" name="incidentDate" value={formData.incidentDate} max={today} onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('incidentDate')} />
+                        {formErrors.incidentDate && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.incidentDate}</p>}
+                    </div>
+                    <div>
+                        <input type="text" name="incidentLocation" value={formData.incidentLocation} placeholder={t('location')} onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('incidentLocation')} />
+                        {formErrors.incidentLocation && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.incidentLocation}</p>}
+                    </div>
+                </div>
+                <div>
+                    <textarea name="incidentDesc" value={formData.incidentDesc} rows="4" placeholder={t('description')} onChange={handleInputChange} onBlur={handleBlur} className={getInputClass('incidentDesc')}></textarea>
+                    {formErrors.incidentDesc && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.incidentDesc}</p>}
+                </div>
+            </div>
             
             <div>
               <h4 className="text-blue-600 font-bold border-b pb-2 mb-4">{t('attachments_optional')}</h4>
@@ -562,34 +906,103 @@ export default function CaseLogs() {
             </div>
 
           </div>
-          <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4"><button onClick={handleCancelNewCase} className="px-8 py-3 border font-bold rounded-lg hover:bg-white transition-colors">{t('cancel')}</button><button onClick={handleSubmitCase} className={`px-10 py-3 rounded-lg font-bold ${gradientBtnClass}`}>{t('submit_case')}</button></div>
+          <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4"><button onClick={handleCancelNewCase} className="px-8 py-3 border font-bold rounded-lg hover:bg-white transition-colors">{t('cancel')}</button><button onClick={handleSubmitCase} className="px-10 py-3 rounded-lg font-bold bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white shadow-md transition-all active:scale-95">{t('submit_case')}</button></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 p-8 relative">
+    <div className="flex-1 overflow-y-auto bg-slate-50 p-8 relative" onClick={() => {
+        setIsYearSortOpen(false);
+        setIsMonthSortOpen(false);
+        setIsTypeSortOpen(false);
+    }}>
       <div className="max-w-[1600px] mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold text-blue-600 tracking-wide uppercase">{t('cases_logs_title')}</h2>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <button type="button" onClick={() => setIsYearSortOpen(!isYearSortOpen)} className="flex items-center bg-white px-5 py-3 rounded-lg shadow-sm border border-gray-200"><Calendar size={18} className="mr-2 text-gray-500" /> <span className="text-sm font-bold">{sortYear}</span> <ChevronDown size={16} className="ml-2" /></button>
-              {isYearSortOpen && (<div className="absolute top-full right-0 mt-2 w-32 bg-white border rounded-xl shadow-xl z-50">{yearOptions.map(y => <div key={y} onClick={() => handleYearSelect(y)} className="px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer">{y}</div>)}</div>)}
+          <div>
+            <h2 className="text-3xl font-bold text-blue-600 tracking-wide uppercase">{t('cases_logs_title')}</h2>
+            <p className="text-sm font-bold text-gray-700 whitespace-nowrap mt-1">{t('total_cases') || 'Total Records'}: {filteredData.length}</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            
+            <div className="relative w-64 mr-2" onClick={e => e.stopPropagation()}>
+              <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 shadow-sm text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+              />
             </div>
-            <div className="relative">
-              <button type="button" onClick={() => setIsStatusSortOpen(!isStatusSortOpen)} className="flex items-center bg-white px-5 py-3 rounded-lg shadow-sm border border-gray-200"><Filter size={18} className="mr-2 text-gray-500" /> <span className="text-sm font-bold">{sortStatus}</span> <ChevronDown size={16} className="ml-2" /></button>
-              {isStatusSortOpen && (<div className="absolute top-full right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl z-50">{statusOptions.map(o => <div key={o.label} onClick={() => handleStatusSelect(o.label)} className="px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer flex items-center"><span className={`w-2 h-2 rounded-full ${o.color} mr-2`} />{o.label}</div>)}</div>)}
+
+            <div className="relative" onClick={e => e.stopPropagation()}>
+              <button type="button" onClick={() => { setIsYearSortOpen(!isYearSortOpen); setIsMonthSortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                <Calendar size={16} className="mr-2 text-gray-500" /> 
+                <span className="text-xs font-bold text-gray-700 w-16 text-left">{filterYear}</span> 
+                <ChevronDown size={14} className="ml-1 text-gray-400" />
+              </button>
+              {isYearSortOpen && (
+                <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                  {yearOptions.map(y => (
+                    <div key={y} onClick={() => { setFilterYear(y); setIsYearSortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterYear === y ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>{y}</div>
+                  ))}
+                </div>
+              )}
             </div>
-            <button onClick={() => setIsModalOpen(true)} className={`flex items-center pr-6 pl-2 py-1.5 rounded-lg ${gradientBtnClass}`}><div className="relative w-8 h-9 mr-2 flex items-center justify-center"><div className="absolute w-6 h-7 bg-white/30 rounded-[2px] rotate-6"></div><div className="absolute w-6 h-7 bg-white rounded-[2px] flex items-center justify-center shadow-sm z-10"><Plus className="text-[#0066FF]" size={18} strokeWidth={4} /></div></div><span className="text-xl font-bold pt-1">{t('new_case')}</span></button>
+
+            <div className="relative" onClick={e => e.stopPropagation()}>
+              <button type="button" onClick={() => { setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                <Calendar size={16} className="mr-2 text-gray-500" /> 
+                <span className="text-xs font-bold text-gray-700 w-20 text-left">{filterMonth === 'All Months' ? 'All Months' : monthNames[parseInt(filterMonth)-1] || filterMonth}</span> 
+                <ChevronDown size={14} className="ml-1 text-gray-400" />
+              </button>
+              {isMonthSortOpen && (
+                <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                  {monthOptions.map((m, i) => (
+                    <div key={m} onClick={() => { setFilterMonth(m); setIsMonthSortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterMonth === m ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>
+                      {m === 'All Months' ? m : monthNames[parseInt(m)-1] || m}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative" onClick={e => e.stopPropagation()}>
+              <button type="button" onClick={() => { setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                <Filter size={16} className="mr-2 text-gray-500" /> 
+                <span className="text-xs font-bold text-gray-700 w-20 text-left">{filterType}</span> 
+                <ChevronDown size={14} className="ml-1 text-gray-400" />
+              </button>
+              {isTypeSortOpen && (
+                <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                  {typeOptions.map(tOption => (
+                    <div key={tOption} onClick={() => { setFilterType(tOption); setIsTypeSortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer flex items-center ${filterType === tOption ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>
+                      <span className={`w-2 h-2 rounded-full mr-2 ${tOption === 'LUPON' ? 'bg-green-500' : tOption === 'VAWC' ? 'bg-purple-500' : tOption === 'BLOTTER' ? 'bg-red-500' : tOption === 'COMPLAIN' ? 'bg-blue-500' : 'bg-gray-400'}`} />
+                      {tOption}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all active:scale-95 ml-2">
+              <div className="relative w-8 h-9 mr-2 flex items-center justify-center">
+                <div className="absolute w-6 h-7 bg-white/30 rounded-[2px] rotate-6"></div>
+                <div className="absolute w-6 h-7 bg-white rounded-[2px] flex items-center justify-center shadow-sm z-10">
+                  <Plus className="text-[#0066FF]" size={18} strokeWidth={4} />
+                </div>
+              </div>
+              <span className="text-xl font-bold pt-1">{t('new_case')}</span>
+            </button>
           </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="w-full text-center border-collapse">
             <thead>
-              <tr className="bg-blue-700 text-white">
+              <tr className="bg-gradient-to-br from-blue-800 to-blue-500 text-white">
                 <th className="py-5 px-4 font-bold">{t('report_type')}</th>
                 <th className="py-5 px-4 font-bold">{t('case_no')}</th>
                 <th className="py-5 px-4 font-bold">{t('complainant_name')}</th>
@@ -600,7 +1013,12 @@ export default function CaseLogs() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredData.length > 0 ? filteredData.map((item, idx) => (
+              {filteredData.length > 0 ? filteredData.map((item, idx) => {
+                // 🔥 FIX: Check if this specific case already has 3 or more summons
+                const caseSummonsCount = allSummonsCache.filter(s => s.caseNo === item.caseNo).length;
+                const isMaxSummons = caseSummonsCount >= 3;
+
+                return (
                 <tr key={idx} onClick={() => handleViewCase(item)} className="hover:bg-slate-50 transition-colors cursor-pointer">
                   <td className="py-5 px-4"><span className={`${getTypeStyle(item.type)} px-3 py-1 rounded text-[10px] font-bold shadow-sm uppercase tracking-wide`}>{item.type}</span></td>
                   <td className="py-5 px-4 font-semibold text-gray-700">{item.caseNo}</td>
@@ -610,13 +1028,21 @@ export default function CaseLogs() {
                   <td className="py-5 px-4"><span className={`${getStatusStyle(item.status)} px-3 py-1 rounded-full text-[10px] font-bold shadow-sm uppercase tracking-wide`}>{item.status}</span></td>
                   <td className="py-5 px-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-2 justify-center">
-                      <CaseLogsButton onClick={() => handleAssignSummonClick(item)}>
-                        {t('assign_summon')}
-                      </CaseLogsButton>
+                      {/* 🔥 FIX: Disable button if max summons reached 🔥 */}
+                      <button 
+                        onClick={() => {
+                          if (!isMaxSummons) handleAssignSummonClick(item);
+                        }} 
+                        disabled={isMaxSummons}
+                        className={`${isMaxSummons ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white shadow-md active:scale-95'} text-xs font-bold px-4 py-2 rounded-lg transition-all`}
+                        title={isMaxSummons ? "Maximum of 3 summons reached for this case" : ""}
+                      >
+                        {isMaxSummons ? 'MAX SUMMONS' : t('assign_summon')}
+                      </button>
                     </div>
                   </td>
                 </tr>
-              )) : <tr><td colSpan="7" className="py-10 text-gray-400 font-bold">{t('no_records_found')}</td></tr>}
+              )}) : <tr><td colSpan="7" className="py-10 text-gray-400 font-bold">{searchQuery ? `No records found matching "${searchQuery}"` : t('no_records_found')}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -656,7 +1082,7 @@ export default function CaseLogs() {
                 </div>
                 {isDropdownOpen && (<div className="absolute top-full left-0 w-full bg-white border shadow-lg rounded-lg z-[120] mt-1 overflow-hidden">{roles.map((r) => (<div key={r} onClick={() => handleRoleSelect(r)} className={`p-4 cursor-pointer border-b last:border-0 font-medium hover:bg-blue-600 hover:text-white ${selectedRole === r ? 'text-blue-600 bg-blue-50' : 'text-gray-700'}`}>{r}</div>))}</div>)}
               </div>
-              <div className="flex space-x-3"><button onClick={handleCancelModerator} className="flex-1 border py-3 rounded-lg font-bold hover:bg-gray-50 transition-colors">{t('cancel')}</button><button onClick={handleContinueToForm} className={`flex-1 py-3 rounded-lg font-bold ${gradientBtnClass}`}>{t('continue')}</button></div>
+              <div className="flex space-x-3"><button onClick={handleCancelModerator} className="flex-1 border py-3 rounded-lg font-bold hover:bg-gray-50 transition-colors">{t('cancel')}</button><button onClick={handleContinueToForm} className="flex-1 py-3 rounded-lg font-bold bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white shadow-md transition-all active:scale-95">{t('continue')}</button></div>
             </div>
           </div>
         </div>

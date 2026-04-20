@@ -1,0 +1,5 @@
+[     267ms] TypeError: Cannot read properties of undefined (reading 'ReactCurrentDispatcher')
+    at http://localhost:5173/node_modules/.vite/deps/@splinetool_react-spline.js?v=331d8a0a:51568:15
+    at Er2 (http://localhost:5173/node_modules/.vite/deps/@splinetool_react-spline.js?v=331d8a0a:51999:5)
+    at http://localhost:5173/node_modules/.vite/deps/@splinetool_react-spline.js?v=331d8a0a:52002:42
+    at http://localhost:5173/node_modules/.vite/deps/@splinetool_react-spline.js?v=331d8a0a:52003:3

@@ -51,6 +51,35 @@ const translations = {
     "case_resolution_overview": "Case Resolution Overview",
     "recent_activities": "Recent Activities",
     "sun": "SUN", "mon": "MON", "tue": "TUE", "wed": "WED", "thu": "THU", "fri": "FRI", "sat": "SAT",
+"resolved_cases": "Resolved Cases",
+"resolution_rate": "Resolution Rate",
+"pending_cases": "Pending Cases",
+"avg_days_to_resolve": "Avg. days to resolve",
+"dismissed": "Dismissed",
+    // -------------------------
+    // SETTINGS PAGE (NEWLY ADDED)
+    // -------------------------
+    "settings_title": "Settings",
+    "settings_subtitle": "Manage your system preferences and customizations",
+    "system_language": "System Language",
+    "system_language_desc": "Choose your preferred language for the interface.",
+    "english": "English",
+    "tagalog": "Tagalog",
+    "system_logo": "System Logo",
+    "system_logo_desc": "Upload a custom logo for the sidebar, login screen, and printed reports.",
+    "upload_custom_logo": "Upload Custom Logo",
+    "restore_default_logo": "Restore Default Logo",
+    // Add these to your en section
+"change_logo_title": "Change System Logo?",
+"change_logo_text": "Are you sure you want to apply this new logo?",
+"yes_change": "Yes",
+"updated": "Updated!",
+"logo_applied": "Your new logo has been applied.",
+"restore_logo_title": "Restore Default Logo?",
+"restore_logo_text": "This will remove your custom logo and bring back the original.",
+"yes_restore": "Restore",
+"restored": "Restored!",
+"default_logo_back": "The default logo is back.",
 
     // -------------------------
     // CASE LOGS PAGE
@@ -73,7 +102,7 @@ const translations = {
     "case_report_overview": "Case Report Overview",
     "date_filed": "Date Filed",
     "complainant": "Complainant",
-    "defendant": "Defendant",
+    "respondent": "respondent",
     "full_name": "Full Name",
     "contact_num_placeholder": "Contact # (11 digits)",
     "address": "Address",
@@ -101,6 +130,11 @@ const translations = {
     "noted_by": "Noted By",
     "auth_officer_name": "Authorized Officer Name",
     "submit_summon": "Submit Summon",
+    "confirm_back_to_list": "Are you sure you want to return to the list?",
+    "yes_back": "Yes, go back",
+"confirm_print_title": "Print Case Details?",
+    "confirm_print_text": "Are you sure you want to print this document?",
+    "yes_print": "Yes, print it",
 
     // -------------------------
     // SUMMONS PAGE
@@ -144,7 +178,7 @@ const translations = {
     "create": "Create",
     "records": "Records",
     "curfew_no": "CURFEW NO. :",
-    "resident_name_caps": "RESIDENT NAME :",
+    "resident_name_caps": "Resident Name :",
     "curfew_folders": "CURFEW FOLDERS",
     "actions": "ACTIONS",
     "curfew_folder_prefix": "CURFEW",
@@ -159,7 +193,23 @@ const translations = {
     "view_note": "View Note",
     "no_folders": "No folders found for this resident.",
     "curfew_notes_added": "Curfew notes added successfully!",
-
+    "curfew_overview_title": "CURFEW {num} OVERVIEW",
+    "curfew_overview_subtitle": "Official summary of the conducted curfew session",
+    "type_overview_here": "Type overview here...",
+    "save": "Save",
+    "back_to_curfew_folders": "Back to Curfew Folders",
+    "back_to_curfew_logs": "Back to Curfew Logs",
+    "case_overview_saved": "Case overview saved successfully!",
+    "curfew_overview_label": "CURFEW OVERVIEW",
+    "incomplete_fields": "Incomplete Fields",
+    "fill_all_required": "Please fill out all required fields.",
+    "discard_changes": "Discard Changes?",
+    "unsaved_lost": "Any unsaved changes will be lost.",
+    "yes_discard": "Discard",
+    "no_keep": "No, keep editing",
+    "confirm_save_title": "Save Changes?",
+    "confirm_save_text": "Are you sure you want to save this record?",
+    "yes_save": "Yes",
     // -------------------------
     // BLACKLISTED PAGE
     // -------------------------
@@ -196,31 +246,29 @@ const translations = {
     "swal_yes_lift": "Yes",
     "swal_restriction_lifted": "Restriction Lifted",
     "swal_record_moved": "Record moved to Archives.",
-    // Add to the 'en' section:
-    "invalid_case_format": "Case No. must only contain numbers and hyphens (e.g. 01-166-01-2026).",
-
-// Add to the 'tl' section:
-    "invalid_case_format": "Ang Case No. ay dapat maglaman lamang ng mga numero at gitling (hal. 01-166-01-2026).",
-// Add to the 'en' section:
+"all_types": "All Types",
+"blacklisted_case_records": "BLACKLISTED CASE RECORDS",
+"blacklisted_subtitle": "View residents permanently blacklisted from the community.",
+"total_blacklisted": "Total Blacklisted",
+"no_blacklisted_found": "No blacklisted records found.",
+"archive": "Archive",
+"default_reason_desc": "Resident was permanently blacklisted.",
+"invalid_case_format": "Case No. must only contain numbers and hyphens (e.g. 01-166-01-2026).",
     "confirm_blacklist_title": "Add to Blacklist?",
     "confirm_blacklist_text": "Are you sure you want to blacklist this resident?",
     "yes_add": "Yes",
-
-// Add to the 'tl' section:
-    "confirm_blacklist_title": "Idagdag sa Blacklist?",
-    "confirm_blacklist_text": "Sigurado ka bang nais mong i-blacklist ang residenteng ito?",
-    "yes_add": "Oo",
+    
     // -------------------------
     // ARCHIVED PAGE
     // -------------------------
     "swal_restore_title": "Restore Case?",
     "swal_restore_text": "Case {caseNo} will be moved back to Active Logs (Pending).",
-    "swal_yes_restore": "Yes, Restore it!",
+    "swal_yes_restore": "Restore",
     "swal_restored": "Restored!",
-    "swal_restored_text": "The case has been moved to Active Logs.",
+    "swal_restored_text": "The case has been moved to Curfew Logs.",
     "swal_delete_title": "Delete Permanently?",
     "swal_delete_text": "This record will be gone forever.",
-    "swal_yes_delete": "Yes, delete it!",
+    "swal_yes_delete": "Yes",
     "swal_deleted": "Deleted!",
     "swal_deleted_text": "The record has been permanently removed.",
     "archived_case_details": "Archived Case Details",
@@ -229,7 +277,7 @@ const translations = {
     "date_closed": "Date Closed",
     "archived_date": "Archived Date",
     "case_details_title": "Case Details",
-    "defendants": "Defendants",
+    "respondents": "respondents",
     "incident_date": "Incident Date",
     "archived_mock_desc": "The complainant reported repeated disturbance and violation of barangay mediation agreement. Multiple summons were issued but respondent failed to comply.",
     "resolution_summary": "Resolution Summary",
@@ -299,6 +347,34 @@ const translations = {
     "case_resolution_overview": "Pangkalahatang-ideya ng Resolusyon",
     "recent_activities": "Mga Kamakailang Aktibidad",
     "sun": "LIN", "mon": "LUN", "tue": "MAR", "wed": "MIY", "thu": "HUW", "fri": "BIY", "sat": "SAB",
+"resolved_cases": "Naayos na Kaso",
+"resolution_rate": "Resolution Rate",
+"pending_cases": "Nakabinbing Kaso", 
+"avg_days_to_resolve": "Avg. araw bago maayos",
+"dismissed": "Hindi Isinulong",
+    // -------------------------
+    // SETTINGS PAGE (NEWLY ADDED)
+    // -------------------------
+    "settings_title": "Mga Setting",
+    "settings_subtitle": "Pamahalaan ang iyong mga kagustuhan at pag-customize ng sistema",
+    "system_language": "Wika ng Sistema",
+    "system_language_desc": "Piliin ang iyong gustong wika para sa interface.",
+    "english": "Ingles",
+    "tagalog": "Tagalog",
+    "system_logo": "Logo ng Sistema",
+    "system_logo_desc": "Mag-upload ng custom na logo para sa sidebar, login screen, at mga naka-print na ulat.",
+    "upload_custom_logo": "Mag-upload ng Custom na Logo",
+    "restore_default_logo": "Ibalik ang Default na Logo",
+"change_logo_title": "Palitan ang Logo ng Sistema?",
+"change_logo_text": "Sigurado ka bang nais mong gamitin ang bagong logo na ito?",
+"yes_change": "Palitan",
+"updated": "Na-update!",
+"logo_applied": "Ang iyong bagong logo ay nailapat na.",
+"restore_logo_title": "Ibalik ang Default na Logo?",
+"restore_logo_text": "Ito ay mag-aalis ng iyong custom na logo at ibabalik ang orihinal.",
+"yes_restore": "Ibalik!",
+"restored": "Naibalik!",
+"default_logo_back": "Ang default na logo ay ibinalik.",
 
     // -------------------------
     // CASE LOGS PAGE
@@ -321,7 +397,7 @@ const translations = {
     "case_report_overview": "Pangkalahatang-ideya ng Kaso",
     "date_filed": "Petsa ng Pagkakahain",
     "complainant": "Nagrereklamo",
-    "defendant": "Inirereklamo",
+    "respondent": "Inirereklamo",
     "full_name": "Buong Pangalan",
     "contact_num_placeholder": "Numero # (11 numero)",
     "address": "Address",
@@ -349,22 +425,11 @@ const translations = {
     "noted_by": "Naitala ni",
     "auth_officer_name": "Pangalan ng Awtorisadong Opisyal",
     "submit_summon": "Isumite",
-    // Add to the 'en' section:
-    "confirm_back_to_list": "Are you sure you want to return to the list?",
-    "yes_back": "Yes, go back",
-
-// Add to the 'tl' section:
     "confirm_back_to_list": "Sigurado ka bang nais mong bumalik sa listahan?",
     "yes_back": "Oo, bumalik",
-    // Add to the 'en' section:
-    "confirm_print_title": "Print Case Details?",
-    "confirm_print_text": "Are you sure you want to print this document?",
-    "yes_print": "Yes, print it",
-
-// Add to the 'tl' section:
     "confirm_print_title": "I-print ang mga Detalye?",
     "confirm_print_text": "Sigurado ka bang nais mong i-print ang dokumentong ito?",
-    "yes_print": "Oo, i-print",
+    "yes_print": "Oo, i-print",    
 
     // -------------------------
     // SUMMONS PAGE
@@ -434,17 +499,6 @@ const translations = {
     "view_note": "Tingnan ang Tala",
     "no_folders": "Walang natagpuang folder para sa residenteng ito.",
     "curfew_notes_added": "Matagumpay na naidagdag ang tala ng curfew!",
-    // Add to the 'en' section:
-    "curfew_overview_title": "CURFEW {num} OVERVIEW",
-    "curfew_overview_subtitle": "Official summary of the conducted curfew session",
-    "type_overview_here": "Type overview here...",
-    "save": "Save",
-    "back_to_curfew_folders": "Back to Curfew Folders",
-    "back_to_curfew_logs": "Back to Curfew Logs",
-    "case_overview_saved": "Case overview saved successfully!",
-    "curfew_overview_label": "CURFEW OVERVIEW",
-
-// Add to the 'tl' section:
     "curfew_overview_title": "PANGKALAHATANG-IDEYA NG CURFEW {num}",
     "curfew_overview_subtitle": "Opisyal na buod ng isinagawang sesyon ng curfew",
     "type_overview_here": "I-type ang pangkalahatang-ideya dito...",
@@ -453,27 +507,12 @@ const translations = {
     "back_to_curfew_logs": "Bumalik sa Talaan ng Curfew",
     "case_overview_saved": "Matagumpay na na-save ang pangkalahatang-ideya!",
     "curfew_overview_label": "PANGKALAHATANG-IDEYA NG CURFEW",
-    // Add to the 'en' section:
-    "incomplete_fields": "Incomplete Fields",
-    "fill_all_required": "Please fill out all required fields.",
-    "discard_changes": "Discard Changes?",
-    "unsaved_lost": "Any unsaved changes will be lost.",
-    "yes_discard": "Yes, discard",
-    "no_keep": "No, keep editing",
-
-// Add to the 'tl' section:
     "incomplete_fields": "Hindi Kumpletong Impormasyon",
     "fill_all_required": "Pakipunuan ang lahat ng impormasyon.",
     "discard_changes": "Kanselahin ang mga Pagbabago?",
     "unsaved_lost": "Mawawala ang anumang hindi na-save na pagbabago.",
     "yes_discard": "Oo, kanselahin",
     "no_keep": "Hindi, ituloy ang pag-edit",
-    // Add to the 'en' section:
-    "confirm_save_title": "Save Changes?",
-    "confirm_save_text": "Are you sure you want to save this record?",
-    "yes_save": "Yes, save it!",
-
-// Add to the 'tl' section:
     "confirm_save_title": "I-save ang mga Pagbabago?",
     "confirm_save_text": "Sigurado ka bang nais mong i-save ang rekord na ito?",
     "yes_save": "Oo, i-save!",
@@ -514,7 +553,17 @@ const translations = {
     "swal_yes_lift": "Oo, Alisin at I-archive",
     "swal_restriction_lifted": "Inalis ang Paghihigpit",
     "swal_record_moved": "Inilipat ang rekord sa Archives.",
-
+"all_types": "Lahat ng Uri",
+"blacklisted_case_records": "MGA REKORD NG NA-BLACKLIST",
+"blacklisted_subtitle": "Tingnan ang mga residenteng permanenteng na-blacklist mula sa komunidad.",
+"total_blacklisted": "Kabuuang Na-blacklist",
+"no_blacklisted_found": "Walang nakitang rekord ng na-blacklist.",
+"archive": "I-archive",
+"default_reason_desc": "Ang residente ay permanenteng na-blacklist.",
+"invalid_case_format": "Ang Case No. ay dapat maglaman lamang ng mga numero at gitling (hal. 01-166-01-2026).",
+    "confirm_blacklist_title": "Idagdag sa Blacklist?",
+    "confirm_blacklist_text": "Sigurado ka bang nais mong i-blacklist ang residenteng ito?",
+    "yes_add": "Oo",
     // -------------------------
     // ARCHIVED PAGE
     // -------------------------
@@ -534,7 +583,7 @@ const translations = {
     "date_closed": "Petsa ng Pagsasara",
     "archived_date": "Petsa ng Pag-archive",
     "case_details_title": "Mga Detalye ng Kaso",
-    "defendants": "Mga Inirereklamo",
+    "respondents": "Mga Inirereklamo",
     "incident_date": "Petsa ng Insidente",
     "archived_mock_desc": "Inireport ng nagrereklamo ang paulit-ulit na panggugulo at paglabag sa kasunduan sa barangay. Ilang beses nagpadala ng pagpapatawag ngunit hindi sumunod ang inirereklamo.",
     "resolution_summary": "Buod ng Resolusyon",

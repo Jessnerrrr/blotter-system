@@ -1,0 +1,18 @@
+# Default owner (you) for everything
+* @Dukeabaddon
+
+# Profiling System - YOUR SUBSYSTEM (includes public pages)
+/profiling-system/** @Dukeabaddon
+
+# Blotter System - TEAM B
+/blotter-system/** @kiriiqt
+
+# Document System - TEAM C
+/document-system/** @TeamLeadCGitHubUsername
+
+# Shared code - Requires your approval for changes
+/shared/** @Dukeabaddon
+
+
+# Documentation - All team leads can contribute
+/docs/** @Dukeabaddon

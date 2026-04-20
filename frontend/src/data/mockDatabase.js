@@ -16,9 +16,9 @@ export const mockCases = [
       complainantName: 'Maria Clara',
       complainantContact: '09123456789',
       complainantAddress: '123 Sampaguita St.',
-      defendantName: 'Juan Dela Cruz',
-      defendantContact: '09987654321',
-      defendantAddress: '456 Rosal St.',
+      respondentName: 'Juan Dela Cruz',
+      respondentContact: '09987654321',
+      respondentAddress: '456 Rosal St.',
       incidentDate: '2026-02-25',
       incidentLocation: 'Barangay Hall Area',
       incidentDesc: 'Verbal dispute regarding property boundaries.'

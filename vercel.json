@@ -1,0 +1,12 @@
+{
+  "services": [
+    {
+      "src": "frontend",
+      "dest": "/"
+    },
+    {
+      "src": "backend",
+      "dest": "/_/backend"
+    }
+  ]
+}

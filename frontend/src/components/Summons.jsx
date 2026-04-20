@@ -48,20 +48,24 @@ export default function Summons() {
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
 
-  // 🔥 NEW FILTER STATE 🔥
+  // 🔥 NEW FILTER STATE WITH DAY 🔥
   const [searchQuery, setSearchQuery] = useState('');
   const [filterYear, setFilterYear] = useState('All Years');
   const [filterMonth, setFilterMonth] = useState('All Months');
+  const [filterDay, setFilterDay] = useState('All Days'); // Added Day State
   const [filterType, setFilterType] = useState('All Types');
   
   const [isYearSortOpen, setIsYearSortOpen] = useState(false);
   const [isMonthSortOpen, setIsMonthSortOpen] = useState(false);
+  const [isDaySortOpen, setIsDaySortOpen] = useState(false); // Added Day Dropdown State
   const [isTypeSortOpen, setIsTypeSortOpen] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const yearOptions = ['All Years', ...Array.from({length: 7}, (_, i) => (currentYear - i).toString())];
   const monthOptions = ['All Months', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const dayOptions = ['All Days', ...Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))]; // Added Day Options
+  
   const typeOptions = [
       'All Types', 
       'LUPON', 
@@ -129,24 +133,30 @@ export default function Summons() {
     return acc;
   }, {}));
 
-  // 🔥 FILTER LOGIC FOR SUMMONS TABLE 🔥
+  // 🔥 FILTER LOGIC FOR SUMMONS TABLE WITH DAY 🔥
   const filteredData = uniqueCases.filter((item) => {
-    const itemDateParts = item.originalDate ? item.originalDate.split('-') : []; 
+    // 🔥 FIX: Now uses summonDate first, falling back to originalDate if empty
+    const dateToFilter = item.summonDate || item.originalDate || '';
+    const itemDateParts = dateToFilter.split('-'); 
     let itemYear = '';
     let itemMonth = '';
+    let itemDay = ''; 
 
     if (itemDateParts.length === 3) {
         if (itemDateParts[2].length === 4) { // MM-DD-YYYY
             itemYear = itemDateParts[2];
-            itemMonth = itemDateParts[0];
+            itemMonth = itemDateParts[0].padStart(2, '0');
+            itemDay = itemDateParts[1].padStart(2, '0');
         } else { // YYYY-MM-DD
             itemYear = itemDateParts[0];
-            itemMonth = itemDateParts[1];
+            itemMonth = itemDateParts[1].padStart(2, '0');
+            itemDay = itemDateParts[2].padStart(2, '0');
         }
     }
 
     const matchesYear = filterYear === 'All Years' || itemYear === filterYear;
-    const matchesMonth = filterMonth === 'All Months' || itemMonth === filterMonth;
+    const matchesMonth = filterMonth === 'All Months' || itemMonth === filterMonth.padStart(2, '0');
+    const matchesDay = filterDay === 'All Days' || itemDay === filterDay; // Day is already padded from options
     
     // Check both standard type AND Escalted Status
     const matchesType = filterType === 'All Types' || 
@@ -159,7 +169,7 @@ export default function Summons() {
                           (item.complainantName && item.complainantName.toLowerCase().includes(searchLower)) ||
                           (item.residentName && item.residentName.toLowerCase().includes(searchLower));
 
-    return matchesYear && matchesMonth && matchesType && matchesSearch;
+    return matchesYear && matchesMonth && matchesDay && matchesType && matchesSearch; 
   });
 
   const handleOpenFolder = (caseItem) => { setSelectedCase(caseItem); setView('FOLDER'); };
@@ -730,6 +740,7 @@ export default function Summons() {
         setActiveActionDropdown(null);
         setIsYearSortOpen(false);
         setIsMonthSortOpen(false);
+        setIsDaySortOpen(false);
         setIsTypeSortOpen(false);
         setNoteDropdownOpen(null);
     }}>
@@ -755,7 +766,7 @@ export default function Summons() {
             </div>
 
             <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsYearSortOpen(!isYearSortOpen); setIsMonthSortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+              <button type="button" onClick={() => { setIsYearSortOpen(!isYearSortOpen); setIsMonthSortOpen(false); setIsDaySortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                 <Calendar size={16} className="mr-2 text-gray-500" /> 
                 <span className="text-xs font-bold text-gray-700 w-16 text-left">{filterYear}</span> 
                 <ChevronDown size={14} className="ml-1 text-gray-400" />
@@ -770,7 +781,7 @@ export default function Summons() {
             </div>
 
             <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+              <button type="button" onClick={() => { setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsDaySortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                 <Calendar size={16} className="mr-2 text-gray-500" /> 
                 <span className="text-xs font-bold text-gray-700 w-20 text-left">{filterMonth === 'All Months' ? 'All Months' : monthNames[parseInt(filterMonth)-1] || filterMonth}</span> 
                 <ChevronDown size={14} className="ml-1 text-gray-400" />
@@ -778,7 +789,7 @@ export default function Summons() {
               {isMonthSortOpen && (
                 <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
                   {monthOptions.map((m, i) => (
-                    <div key={m} onClick={() => { setFilterMonth(m); setIsDropdownOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterMonth === m ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>
+                    <div key={m} onClick={() => { setFilterMonth(m); setIsMonthSortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterMonth === m ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>
                       {m === 'All Months' ? m : monthNames[parseInt(m)-1] || m}
                     </div>
                   ))}
@@ -786,17 +797,33 @@ export default function Summons() {
               )}
             </div>
 
+            {/* 🔥 ADDED: Day Dropdown Filter 🔥 */}
             <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+              <button type="button" onClick={() => { setIsDaySortOpen(!isDaySortOpen); setIsMonthSortOpen(false); setIsYearSortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                <Calendar size={16} className="mr-2 text-gray-500" /> 
+                <span className="text-xs font-bold text-gray-700 w-16 text-left">{filterDay}</span> 
+                <ChevronDown size={14} className="ml-1 text-gray-400" />
+              </button>
+              {isDaySortOpen && (
+                <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar">
+                  {dayOptions.map(d => (
+                    <div key={d} onClick={() => { setFilterDay(d); setIsDaySortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterDay === d ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>{d}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative" onClick={e => e.stopPropagation()}>
+              <button type="button" onClick={() => { setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                 <Filter size={16} className="mr-2 text-gray-500" /> 
-                <span className="text-xs font-bold text-gray-700 w-20 text-left">{filterType}</span> 
+                <span className="text-xs font-bold text-gray-700 w-24 text-left">{filterType}</span> 
                 <ChevronDown size={14} className="ml-1 text-gray-400" />
               </button>
               {isTypeSortOpen && (
                 <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
                   {typeOptions.map(tOption => (
                     <div key={tOption} onClick={() => { setFilterType(tOption); setIsTypeSortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer flex items-center ${filterType === tOption ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>
-                      <span className={`w-2 h-2 rounded-full mr-2 ${tOption === 'LUPON' ? 'bg-green-500' : tOption === 'VAWC' ? 'bg-purple-500' : tOption === 'BLOTTER' ? 'bg-red-500' : tOption === 'COMPLAIN' ? 'bg-blue-500' : 'bg-gray-400'}`} />
+                      <span className={`w-2 h-2 rounded-full mr-2 ${tOption === 'LUPON' ? 'bg-green-500' : tOption === 'VAWC' ? 'bg-purple-500' : tOption === 'BLOTTER' ? 'bg-red-500' : tOption === 'COMPLAIN' ? 'bg-blue-500' : tOption === 'ESCALATED' ? 'bg-red-600' : 'bg-gray-400'}`} />
                       {tOption}
                     </div>
                   ))}
@@ -806,7 +833,7 @@ export default function Summons() {
 
           </div>
         </div>
-        
+
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-visible relative min-h-[600px] flex flex-col">
           <div className="bg-gradient-to-br from-blue-800 to-blue-500 text-white font-bold text-sm uppercase tracking-wider grid grid-cols-12 py-5 px-6 text-center items-center shadow-md rounded-t-lg w-full">
             <div className="col-span-4 text-left pl-6">{t('case_no')}</div><div className="col-span-4 text-left">{t('complainant_name')}</div><div className="col-span-2">{t('date_assigned')}</div><div className="col-span-2">{t('action')}</div>

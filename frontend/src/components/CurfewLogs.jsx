@@ -51,18 +51,21 @@ export default function CurfewLogs() {
     return []; 
   });
 
-  // 🔥 NEW FILTER STATE 🔥
+  // 🔥 NEW FILTER STATE WITH DAY 🔥
   const [searchQuery, setSearchQuery] = useState('');
   const [filterYear, setFilterYear] = useState('All Years');
   const [filterMonth, setFilterMonth] = useState('All Months');
+  const [filterDay, setFilterDay] = useState('All Days');
   
   const [isYearSortOpen, setIsYearSortOpen] = useState(false);
   const [isMonthSortOpen, setIsMonthSortOpen] = useState(false);
+  const [isDaySortOpen, setIsDaySortOpen] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const yearOptions = ['All Years', ...Array.from({length: 7}, (_, i) => (currentYear - i).toString())];
   const monthOptions = ['All Months', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const dayOptions = ['All Days', ...Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))];
 
   useEffect(() => {
     const loadCurfews = async () => {
@@ -263,6 +266,7 @@ export default function CurfewLogs() {
           setRows(prevRows => [savedRecord || { ...newRecord, _id: Date.now() }, ...prevRows]); 
           setFilterYear('All Years');
           setFilterMonth('All Months');
+          setFilterDay('All Days');
           setCurfewForm({ resident: '', address: '', age: '' }); setShowAddCurfewModal(false);
           Swal.fire({title: 'Successfully Added!', icon: 'success'});
         } catch (error) { Swal.fire({ title: 'Error', text: 'Failed to save curfew violation.', icon: 'error', confirmButtonColor: '#d33' }); }
@@ -341,29 +345,34 @@ export default function CurfewLogs() {
     setFolderActionDropdown(null); 
     setIsYearSortOpen(false);
     setIsMonthSortOpen(false);
+    setIsDaySortOpen(false);
   };
 
-  // 🔥 FILTER LOGIC FOR CURFEW TABLE 🔥
+  // 🔥 FILTER LOGIC FOR CURFEW TABLE WITH DAY 🔥
   const activeRows = rows.filter((r) => {
     if (r.status === 'RESOLVED' || r.status === 'Settled') return false;
     
     const itemDateParts = r.violationDate || r.date || r.createdAt ? (r.violationDate || r.date || r.createdAt).split('-') : []; 
     let itemYear = '';
     let itemMonth = '';
+    let itemDay = '';
 
-    // Extract year and month assuming YYYY-MM-DD for curfews (adjust if it's MM-DD-YYYY)
+    // Extract year, month, and day assuming YYYY-MM-DD for curfews (adjust if it's MM-DD-YYYY)
     if (itemDateParts.length === 3) {
         if (itemDateParts[0].length === 4) { // YYYY-MM-DD
             itemYear = itemDateParts[0];
-            itemMonth = itemDateParts[1];
+            itemMonth = itemDateParts[1].padStart(2, '0');
+            itemDay = itemDateParts[2].padStart(2, '0');
         } else { // MM-DD-YYYY
             itemYear = itemDateParts[2];
-            itemMonth = itemDateParts[0];
+            itemMonth = itemDateParts[0].padStart(2, '0');
+            itemDay = itemDateParts[1].padStart(2, '0');
         }
     }
 
     const matchesYear = filterYear === 'All Years' || itemYear === filterYear;
-    const matchesMonth = filterMonth === 'All Months' || itemMonth === filterMonth;
+    const matchesMonth = filterMonth === 'All Months' || itemMonth === filterMonth.padStart(2, '0');
+    const matchesDay = filterDay === 'All Days' || itemDay === filterDay.padStart(2, '0');
     
     const searchLower = searchQuery.toLowerCase();
     const resName = r.residentName || r.resident || '';
@@ -372,7 +381,7 @@ export default function CurfewLogs() {
                           resName.toLowerCase().includes(searchLower) ||
                           loc.toLowerCase().includes(searchLower);
 
-    return matchesYear && matchesMonth && matchesSearch;
+    return matchesYear && matchesMonth && matchesDay && matchesSearch;
   });
 
   const selectedResId = selectedResident ? (selectedResident._id || selectedResident.id) : '';
@@ -386,6 +395,10 @@ export default function CurfewLogs() {
         .rich-text-content b, .rich-text-content strong { font-weight: 900 !important; }
         .rich-text-content i, .rich-text-content em { font-style: italic !important; }
         .rich-text-content u { text-decoration: underline !important; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
       `}</style>
 
       {showSuccessAlert && ( <SuccessAlert message={alertMessage} onClose={() => setShowSuccessAlert(false)} /> )}
@@ -401,7 +414,6 @@ export default function CurfewLogs() {
               </div>
               
               <div className="flex items-center space-x-3">
-                {/* 🔥 NEW SEARCH BAR 🔥 */}
                 <div className="relative w-64 mr-2" onClick={e => e.stopPropagation()}>
                   <Search className="absolute left-3 top-3 text-gray-400" size={18} />
                   <input 
@@ -413,15 +425,14 @@ export default function CurfewLogs() {
                   />
                 </div>
 
-                {/* 🔥 UPDATED YEAR FILTER 🔥 */}
                 <div className="relative" onClick={e => e.stopPropagation()}>
-                  <button type="button" onClick={() => { setIsYearSortOpen(!isYearSortOpen); setIsMonthSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <button type="button" onClick={() => { setIsYearSortOpen(!isYearSortOpen); setIsMonthSortOpen(false); setIsDaySortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                     <Calendar size={16} className="mr-2 text-gray-500" /> 
                     <span className="text-xs font-bold text-gray-700 w-16 text-left">{filterYear}</span> 
                     <ChevronDown size={14} className="ml-1 text-gray-400" />
                   </button>
                   {isYearSortOpen && (
-                    <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                    <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar">
                       {yearOptions.map(y => (
                         <div key={y} onClick={() => { setFilterYear(y); setIsYearSortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterYear === y ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>{y}</div>
                       ))}
@@ -429,19 +440,34 @@ export default function CurfewLogs() {
                   )}
                 </div>
 
-                {/* 🔥 NEW MONTH FILTER 🔥 */}
                 <div className="relative" onClick={e => e.stopPropagation()}>
-                  <button type="button" onClick={() => { setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <button type="button" onClick={() => { setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsDaySortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                     <Calendar size={16} className="mr-2 text-gray-500" /> 
                     <span className="text-xs font-bold text-gray-700 w-20 text-left">{filterMonth === 'All Months' ? 'All Months' : monthNames[parseInt(filterMonth)-1] || filterMonth}</span> 
                     <ChevronDown size={14} className="ml-1 text-gray-400" />
                   </button>
                   {isMonthSortOpen && (
-                    <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                    <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar">
                       {monthOptions.map((m, i) => (
                         <div key={m} onClick={() => { setFilterMonth(m); setIsMonthSortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterMonth === m ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>
                           {m === 'All Months' ? m : monthNames[parseInt(m)-1] || m}
                         </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 🔥 NEW DAY FILTER 🔥 */}
+                <div className="relative" onClick={e => e.stopPropagation()}>
+                  <button type="button" onClick={() => { setIsDaySortOpen(!isDaySortOpen); setIsMonthSortOpen(false); setIsYearSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <Calendar size={16} className="mr-2 text-gray-500" /> 
+                    <span className="text-xs font-bold text-gray-700 w-16 text-left">{filterDay}</span> 
+                    <ChevronDown size={14} className="ml-1 text-gray-400" />
+                  </button>
+                  {isDaySortOpen && (
+                    <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar">
+                      {dayOptions.map(d => (
+                        <div key={d} onClick={() => { setFilterDay(d); setIsDaySortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterDay === d ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>{d}</div>
                       ))}
                     </div>
                   )}
@@ -506,10 +532,9 @@ export default function CurfewLogs() {
           <div className="flex-1 flex flex-col w-full h-full animate-in fade-in duration-300">
             <div className="mb-6 flex items-center gap-2 text-gray-500 hover:text-[#2563eb] cursor-pointer w-fit transition-colors" onClick={() => setView('LIST')}><ChevronLeft size={20} /><span className="font-bold text-sm uppercase">{t('back')}</span></div>
             <div className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
-            {/* New top section - aligned to container */}
             <div className="mb-2 pl-1">
               <span className="text-gray-400 font-bold text-sm">
-CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r.status !== 'RESOLVED' && r.status !== 'Settled').findIndex(r => (r._id || r.id) === (selectedResident._id || selectedResident.id)) + 1).padStart(2, '0')}</span>              </span>
+CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r.status !== 'RESOLVED' && r.status !== 'Settled').findIndex(r => (r._id || r.id) === (selectedResident._id || selectedResident.id)) + 1).padStart(2, '0')}</span>             </span>
               <span className="text-gray-400 font-bold text-sm ml-6">
                 RESIDENT NAME: <span className="text-gray-900 text-base">{(selectedResident.residentName || selectedResident.resident).toUpperCase()}</span>
               </span>

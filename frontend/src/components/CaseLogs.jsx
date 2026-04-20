@@ -61,7 +61,7 @@ export default function CaseLogs() {
   const [view, setView] = useState('TABLE'); 
   
   const [cases, setCases] = useState([]);
-  const [allSummonsCache, setAllSummonsCache] = useState([]); // 🔥 ADDED: Cache to quickly check counts
+  const [allSummonsCache, setAllSummonsCache] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -71,7 +71,7 @@ export default function CaseLogs() {
         setLoading(true);
         const [casesData, summonsData] = await Promise.all([
           casesAPI.getAll(),
-          summonsAPI.getAll() // 🔥 Fetch summons to know the count
+          summonsAPI.getAll() 
         ]);
         setCases(casesData);
         setAllSummonsCache(summonsData);
@@ -110,11 +110,13 @@ export default function CaseLogs() {
   
   const [isYearSortOpen, setIsYearSortOpen] = useState(false);
   const [isMonthSortOpen, setIsMonthSortOpen] = useState(false);
+  const [isDaySortOpen, setIsDaySortOpen] = useState(false); // 🔥 NEW: Day Dropdown State
   const [isTypeSortOpen, setIsTypeSortOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterYear, setFilterYear] = useState('All Years');
   const [filterMonth, setFilterMonth] = useState('All Months');
+  const [filterDay, setFilterDay] = useState('All Days'); // 🔥 NEW: Day Filter State
   const [filterType, setFilterType] = useState('All Types');
 
   const [formData, setFormData] = useState({
@@ -178,6 +180,7 @@ export default function CaseLogs() {
   const yearOptions = ['All Years', ...Array.from({length: 7}, (_, i) => (currentYear - i).toString())];
   const monthOptions = ['All Months', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const dayOptions = ['All Days', ...Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))]; // 🔥 NEW: Day Options
   const typeOptions = ['All Types', 'LUPON', 'VAWC', 'BLOTTER', 'COMPLAIN'];
   
   const roles = ['Lupon Head', 'Lupon Tagapamayapa', 'Administration']; 
@@ -189,19 +192,23 @@ export default function CaseLogs() {
     const itemDateParts = item.date ? item.date.split('-') : []; 
     let itemYear = '';
     let itemMonth = '';
+    let itemDay = ''; // 🔥 NEW: Day Extractor
 
     if (itemDateParts.length === 3) {
         if (itemDateParts[2].length === 4) { // MM-DD-YYYY
             itemYear = itemDateParts[2];
-            itemMonth = itemDateParts[0];
+            itemMonth = itemDateParts[0].padStart(2, '0');
+            itemDay = itemDateParts[1].padStart(2, '0');
         } else { // YYYY-MM-DD
             itemYear = itemDateParts[0];
-            itemMonth = itemDateParts[1];
+            itemMonth = itemDateParts[1].padStart(2, '0');
+            itemDay = itemDateParts[2].padStart(2, '0');
         }
     }
 
     const matchesYear = filterYear === 'All Years' || itemYear === filterYear;
-    const matchesMonth = filterMonth === 'All Months' || itemMonth === filterMonth;
+    const matchesMonth = filterMonth === 'All Months' || itemMonth === filterMonth.padStart(2, '0');
+    const matchesDay = filterDay === 'All Days' || itemDay === filterDay; // 🔥 NEW: Day Matcher
     const matchesType = filterType === 'All Types' || item.type === filterType;
     
     const searchLower = searchQuery.toLowerCase();
@@ -210,7 +217,7 @@ export default function CaseLogs() {
                           (item.complainantName && item.complainantName.toLowerCase().includes(searchLower)) ||
                           (item.resident && item.resident.toLowerCase().includes(searchLower));
 
-    return matchesYear && matchesMonth && matchesType && matchesSearch;
+    return matchesYear && matchesMonth && matchesDay && matchesType && matchesSearch;
   });
 
   const handleReportTypeSelect = (type) => { setSelectedReportType(type); setIsModeratorModalOpen(true); };
@@ -526,6 +533,7 @@ export default function CaseLogs() {
               setFilterType('All Types');
               setFilterYear('All Years');
               setFilterMonth('All Months');
+              setFilterDay('All Days');
               setSearchQuery('');
               setView('TABLE');
               window.dispatchEvent(new Event('caseDataUpdated'));
@@ -916,6 +924,7 @@ export default function CaseLogs() {
     <div className="flex-1 overflow-y-auto bg-slate-50 p-8 relative" onClick={() => {
         setIsYearSortOpen(false);
         setIsMonthSortOpen(false);
+        setIsDaySortOpen(false);
         setIsTypeSortOpen(false);
     }}>
       <div className="max-w-[1600px] mx-auto">
@@ -938,7 +947,7 @@ export default function CaseLogs() {
             </div>
 
             <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsYearSortOpen(!isYearSortOpen); setIsMonthSortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+              <button type="button" onClick={() => { setIsYearSortOpen(!isYearSortOpen); setIsMonthSortOpen(false); setIsDaySortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                 <Calendar size={16} className="mr-2 text-gray-500" /> 
                 <span className="text-xs font-bold text-gray-700 w-16 text-left">{filterYear}</span> 
                 <ChevronDown size={14} className="ml-1 text-gray-400" />
@@ -953,7 +962,7 @@ export default function CaseLogs() {
             </div>
 
             <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+              <button type="button" onClick={() => { setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsDaySortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                 <Calendar size={16} className="mr-2 text-gray-500" /> 
                 <span className="text-xs font-bold text-gray-700 w-20 text-left">{filterMonth === 'All Months' ? 'All Months' : monthNames[parseInt(filterMonth)-1] || filterMonth}</span> 
                 <ChevronDown size={14} className="ml-1 text-gray-400" />
@@ -969,8 +978,24 @@ export default function CaseLogs() {
               )}
             </div>
 
+            {/* 🔥 ADDED: Day Dropdown Filter 🔥 */}
             <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+              <button type="button" onClick={() => { setIsDaySortOpen(!isDaySortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                <Calendar size={16} className="mr-2 text-gray-500" /> 
+                <span className="text-xs font-bold text-gray-700 w-16 text-left">{filterDay}</span> 
+                <ChevronDown size={14} className="ml-1 text-gray-400" />
+              </button>
+              {isDaySortOpen && (
+                <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                  {dayOptions.map(d => (
+                    <div key={d} onClick={() => { setFilterDay(d); setIsDaySortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterDay === d ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>{d}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative" onClick={e => e.stopPropagation()}>
+              <button type="button" onClick={() => { setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                 <Filter size={16} className="mr-2 text-gray-500" /> 
                 <span className="text-xs font-bold text-gray-700 w-20 text-left">{filterType}</span> 
                 <ChevronDown size={14} className="ml-1 text-gray-400" />
@@ -1014,7 +1039,6 @@ export default function CaseLogs() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredData.length > 0 ? filteredData.map((item, idx) => {
-                // 🔥 FIX: Check if this specific case already has 3 or more summons
                 const caseSummonsCount = allSummonsCache.filter(s => s.caseNo === item.caseNo).length;
                 const isMaxSummons = caseSummonsCount >= 3;
 
@@ -1028,7 +1052,6 @@ export default function CaseLogs() {
                   <td className="py-5 px-4"><span className={`${getStatusStyle(item.status)} px-3 py-1 rounded-full text-[10px] font-bold shadow-sm uppercase tracking-wide`}>{item.status}</span></td>
                   <td className="py-5 px-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-2 justify-center">
-                      {/* 🔥 FIX: Disable button if max summons reached 🔥 */}
                       <button 
                         onClick={() => {
                           if (!isMaxSummons) handleAssignSummonClick(item);

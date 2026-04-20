@@ -29,11 +29,19 @@ export default function Blacklisted() {
 
   const [isYearSortOpen, setIsYearSortOpen] = useState(false);
   const [isTypeSortOpen, setIsTypeSortOpen] = useState(false);
+  const [isMonthSortOpen, setIsMonthSortOpen] = useState(false); // Added Month Sort State
+  const [isDaySortOpen, setIsDaySortOpen] = useState(false); // Added Day Sort State
+
   const [sortYear, setSortYear] = useState(allYearsText);
+  const [filterMonth, setFilterMonth] = useState('All Months'); // Added Month Filter State
+  const [filterDay, setFilterDay] = useState('All Days'); // Added Day Filter State
   const [sortType, setSortType] = useState(allTypesText);
 
   const currentYear = new Date().getFullYear();
   const yearOptions = [allYearsText, ...Array.from({length: 7}, (_, i) => (currentYear - i).toString())];
+  const monthOptions = ['All Months', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']; // Added Month Options
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']; // Added Month Names
+  const dayOptions = ['All Days', ...Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))]; // Added Day Options
   
   const typeOptions = [
     { label: allTypesText, color: 'bg-gray-400' },
@@ -58,7 +66,7 @@ export default function Blacklisted() {
       } catch (error) {
         console.error('Error loading blacklist data:', error);
         Swal.fire({ title: 'Error', text: 'Failed to load blacklist data.', icon: 'error', confirmButtonColor: '#d33' });
-      }0
+      }
     };
 
     loadData();
@@ -81,14 +89,39 @@ export default function Blacklisted() {
         (row.complainantName && row.complainantName.toLowerCase().includes(searchLower));
 
     let rowYear = '';
+    let rowMonth = '';
+    let rowDay = '';
+
+    // Extract year, month, and day based on the date format
     if (row.date) {
-        const d = new Date(row.date);
-        if (!isNaN(d)) rowYear = d.getFullYear().toString();
+        const itemDateParts = row.date.split('-');
+        if (itemDateParts.length === 3) {
+            if (itemDateParts[2].length === 4) { // MM-DD-YYYY
+                rowYear = itemDateParts[2];
+                rowMonth = itemDateParts[0].padStart(2, '0');
+                rowDay = itemDateParts[1].padStart(2, '0');
+            } else { // YYYY-MM-DD
+                rowYear = itemDateParts[0];
+                rowMonth = itemDateParts[1].padStart(2, '0');
+                rowDay = itemDateParts[2].padStart(2, '0');
+            }
+        } else {
+            // Fallback for valid dates not caught by manual split
+            const d = new Date(row.date);
+            if (!isNaN(d)) {
+                rowYear = d.getFullYear().toString();
+                rowMonth = String(d.getMonth() + 1).padStart(2, '0');
+                rowDay = String(d.getDate()).padStart(2, '0');
+            }
+        }
     }
+
     const matchesYear = (sortYear === allYearsText) || rowYear === sortYear;
+    const matchesMonth = filterMonth === 'All Months' || rowMonth === filterMonth;
+    const matchesDay = filterDay === 'All Days' || rowDay === filterDay;
     const matchesType = (sortType === allTypesText) || row.type === sortType;
 
-    return matchesSearch && matchesYear && matchesType;
+    return matchesSearch && matchesYear && matchesMonth && matchesDay && matchesType;
   });
 
   const handleViewDetails = (row) => { setSelected(row); setView('DETAILS'); };
@@ -183,7 +216,7 @@ export default function Blacklisted() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={() => { setIsYearSortOpen(false); setIsTypeSortOpen(false); }}>
+    <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={() => { setIsYearSortOpen(false); setIsTypeSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); }}>
       <div className="flex-1 flex flex-col h-full min-h-0 w-full">
         {view === 'DETAILS' && selected ? (
           <div className="flex-1 flex flex-col w-full rounded-xl overflow-hidden bg-white shadow-md animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-200">
@@ -231,11 +264,44 @@ export default function Blacklisted() {
                 <p className="text-sm font-bold text-gray-700 whitespace-nowrap">{t('total_blacklisted') || 'Total Blacklisted'}: {filteredRows.length}</p>
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
                   <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsYearSortOpen(!isYearSortOpen); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"><div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{sortYear}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" /></button>
-                    {isYearSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">{yearOptions.map(y => (<div key={y} onClick={() => { setSortYear(y); setIsYearSortOpen(false); }} className="px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b last:border-0">{y}</div>))}</div>)}
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsYearSortOpen(!isYearSortOpen); setIsTypeSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"><div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{sortYear}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" /></button>
+                    {isYearSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-y-auto max-h-60 custom-scrollbar">{yearOptions.map(y => (<div key={y} onClick={() => { setSortYear(y); setIsYearSortOpen(false); }} className="px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b last:border-0">{y}</div>))}</div>)}
                   </div>
+                  
+                  {/* 🔥 NEW MONTH FILTER 🔥 */}
                   <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"><div className="flex items-center"><Filter size={18} className="mr-2 text-gray-500" /><span>{sortType}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" /></button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsTypeSortOpen(false); setIsDaySortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{filterMonth === 'All Months' ? 'All Months' : monthNames[parseInt(filterMonth)-1] || filterMonth}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
+                    </button>
+                    {isMonthSortOpen && (
+                      <div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-y-auto max-h-60 custom-scrollbar">
+                        {monthOptions.map(m => (
+                          <div key={m} onClick={() => { setFilterMonth(m); setIsMonthSortOpen(false); }} className="px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b last:border-0">
+                            {m === 'All Months' ? m : monthNames[parseInt(m)-1] || m}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 🔥 NEW DAY FILTER 🔥 */}
+                  <div className="relative w-full sm:w-auto">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsDaySortOpen(!isDaySortOpen); setIsMonthSortOpen(false); setIsYearSortOpen(false); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{filterDay}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
+                    </button>
+                    {isDaySortOpen && (
+                      <div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-y-auto max-h-60 custom-scrollbar">
+                        {dayOptions.map(d => (
+                          <div key={d} onClick={() => { setFilterDay(d); setIsDaySortOpen(false); }} className="px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b last:border-0">
+                            {d}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative w-full sm:w-auto">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"><div className="flex items-center"><Filter size={18} className="mr-2 text-gray-500" /><span>{sortType}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" /></button>
                     {isTypeSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">{typeOptions.map(o => (<div key={o.label} onClick={() => { setSortType(o.label); setIsTypeSortOpen(false); }} className="px-4 py-3 text-sm font-bold hover:bg-blue-50 cursor-pointer flex items-center text-gray-700 border-b last:border-0"><span className={`w-2.5 h-2.5 rounded-full ${o.color} mr-3`} />{o.label}</div>))}</div>)}
                   </div>
                   <div className="relative w-full sm:w-72">

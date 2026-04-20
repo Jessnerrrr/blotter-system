@@ -51,9 +51,12 @@ export default function Archived() {
 
   const [isYearSortOpen, setIsYearSortOpen] = useState(false);
   const [isMonthSortOpen, setIsMonthSortOpen] = useState(false);
+  const [isDaySortOpen, setIsDaySortOpen] = useState(false); // Added Day Dropdown State
   const [isTypeSortOpen, setIsTypeSortOpen] = useState(false);
+  
   const [sortYear, setSortYear] = useState(allYearsText);
   const [sortMonth, setSortMonth] = useState(allMonthsText);
+  const [filterDay, setFilterDay] = useState('All Days'); // Added Day Filter State
   const [sortType, setSortType] = useState(allTypesText);
 
   const currentYear = new Date().getFullYear();
@@ -75,6 +78,8 @@ export default function Archived() {
     { label: 'DECEMBER', value: '12', number: 11 }
   ];
   
+  const dayOptions = ['All Days', ...Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))]; // Added Day Options
+
   const typeOptions = [
     { label: allTypesText, color: 'bg-gray-400' },
     { label: 'LUPON', color: 'bg-green-600' },
@@ -156,22 +161,39 @@ export default function Archived() {
         (row.complainantName && String(row.complainantName).toLowerCase().includes(searchLower));
 
     let rowYear = '';
-    if (row.date) {
-        const d = new Date(row.date);
-        if (!isNaN(d.getTime())) rowYear = d.getFullYear().toString();
-    }
-    const matchesYear = (sortYear === allYearsText) || rowYear === sortYear;
-    
     let rowMonth = '';
+    let rowDay = '';
+
+    // Advanced Date Extraction for Filtering
     if (row.date) {
-        const d = new Date(row.date);
-        if (!isNaN(d.getTime())) {
-            const monthNum = d.getMonth() + 1;
-            rowMonth = monthNum.toString().padStart(2, '0');
+        const itemDateParts = row.date.split('-');
+        if (itemDateParts.length === 3) {
+            if (itemDateParts[2].length === 4) { // MM-DD-YYYY
+                rowYear = itemDateParts[2];
+                rowMonth = itemDateParts[0].padStart(2, '0');
+                rowDay = itemDateParts[1].padStart(2, '0');
+            } else { // YYYY-MM-DD
+                rowYear = itemDateParts[0];
+                rowMonth = itemDateParts[1].padStart(2, '0');
+                rowDay = itemDateParts[2].padStart(2, '0');
+            }
+        } else {
+            // Fallback
+            const d = new Date(row.date);
+            if (!isNaN(d.getTime())) {
+                rowYear = d.getFullYear().toString();
+                rowMonth = String(d.getMonth() + 1).padStart(2, '0');
+                rowDay = String(d.getDate()).padStart(2, '0');
+            }
         }
     }
+
+    const matchesYear = (sortYear === allYearsText) || rowYear === sortYear;
+    
     const selectedMonth = monthOptions.find(m => m.label === sortMonth);
     const matchesMonth = (sortMonth === allMonthsText) || rowMonth === selectedMonth?.value;
+    
+    const matchesDay = (filterDay === 'All Days') || rowDay === filterDay; // Added Day matching
     
     let matchesType = true;
     if (sortType !== allTypesText) {
@@ -182,7 +204,7 @@ export default function Archived() {
         }
     }
 
-    return matchesSearch && matchesYear && matchesMonth && matchesType;
+    return matchesSearch && matchesYear && matchesMonth && matchesDay && matchesType; // Included Day matching in return
   });
 
   const handleViewDetails = async (row) => { 
@@ -489,7 +511,7 @@ export default function Archived() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={() => { setIsYearSortOpen(false); setIsMonthSortOpen(false); setIsTypeSortOpen(false); }}>
+    <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={() => { setIsYearSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); setIsTypeSortOpen(false); }}>
       
       {renderPrintModal()}
 
@@ -654,7 +676,7 @@ export default function Archived() {
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
                   {/* Year Filter */}
                   <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsYearSortOpen(!isYearSortOpen); setIsMonthSortOpen(false); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsYearSortOpen(!isYearSortOpen); setIsMonthSortOpen(false); setIsDaySortOpen(false); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
                       <div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{sortYear}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
                     </button>
                     {isYearSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
@@ -664,17 +686,27 @@ export default function Archived() {
                   
                   {/* Month Filter */}
                   <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsDaySortOpen(false); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
                       <div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{sortMonth}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
                     </button>
                     {isMonthSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-44 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden max-h-80 overflow-y-auto">
                       {monthOptions.map(m => (<div key={m.label} onClick={() => { setSortMonth(m.label); setIsMonthSortOpen(false); }} className="px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b last:border-0">{m.label}</div>))}
                     </div>)}
                   </div>
+
+                  {/* 🔥 NEW DAY FILTER 🔥 */}
+                  <div className="relative w-full sm:w-auto">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsDaySortOpen(!isDaySortOpen); setIsMonthSortOpen(false); setIsYearSortOpen(false); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{filterDay}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
+                    </button>
+                    {isDaySortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-y-auto max-h-60 custom-scrollbar">
+                      {dayOptions.map(d => (<div key={d} onClick={() => { setFilterDay(d); setIsDaySortOpen(false); }} className="px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b last:border-0">{d}</div>))}
+                    </div>)}
+                  </div>
                   
                   {/* Type Filter */}
                   <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
                       <div className="flex items-center"><Filter size={18} className="mr-2 text-gray-500" /><span>{sortType}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
                     </button>
                     {isTypeSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
@@ -695,7 +727,7 @@ export default function Archived() {
 
             <div className="flex-1 overflow-y-auto px-6 pb-8 pt-6 md:px-8 w-full z-10 relative">
               <table className="w-full border-collapse text-sm">
-                <thead className="sticky top--5 bg-white z-10 shadow-sm">
+                <thead className="sticky top-0 bg-white z-10 shadow-sm">
                   <tr className="border-b-2 border-blue-100 text-blue-900">
                     <th className="px-4 py-4 text-left font-bold uppercase w-[12%]">{t('report_type')}</th>
                     <th className="px-4 py-4 text-left font-bold uppercase w-[18%]">{t('case_number')}</th>

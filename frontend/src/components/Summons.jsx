@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Folder, List, MoreVertical, ChevronLeft, Plus, ClipboardList, Edit, Calendar, Save, Eye, ChevronDown, Bold, Italic, Underline, Search, Filter, Trash2 } from 'lucide-react';
+import { Folder, List, MoreVertical, ChevronLeft, Plus, ClipboardList, Edit, Calendar, Save, Eye, ChevronDown, Bold, Italic, Underline, Search, Filter, Trash2, ChevronRight } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useLanguage } from './LanguageContext'; 
 
@@ -48,23 +48,25 @@ export default function Summons() {
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
 
-  // 🔥 NEW FILTER STATE WITH DAY 🔥
+  // FILTER STATE
   const [searchQuery, setSearchQuery] = useState('');
   const [filterYear, setFilterYear] = useState('All Years');
   const [filterMonth, setFilterMonth] = useState('All Months');
-  const [filterDay, setFilterDay] = useState('All Days'); // Added Day State
+  const [filterDay, setFilterDay] = useState('All Days');
   const [filterType, setFilterType] = useState('All Types');
   
-  const [isYearSortOpen, setIsYearSortOpen] = useState(false);
-  const [isMonthSortOpen, setIsMonthSortOpen] = useState(false);
-  const [isDaySortOpen, setIsDaySortOpen] = useState(false); // Added Day Dropdown State
+  // Custom Calendar Dropdown States
+  const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+
   const [isTypeSortOpen, setIsTypeSortOpen] = useState(false);
 
-  const currentYear = new Date().getFullYear();
-  const yearOptions = ['All Years', ...Array.from({length: 7}, (_, i) => (currentYear - i).toString())];
-  const monthOptions = ['All Months', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+  const realToday = new Date();
+  const currentYear = realToday.getFullYear();
+  const currentMonth = realToday.getMonth();
+  const currentDate = realToday.getDate();
+
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const dayOptions = ['All Days', ...Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))]; // Added Day Options
   
   const typeOptions = [
       'All Types', 
@@ -72,7 +74,7 @@ export default function Summons() {
       'VAWC', 
       'BLOTTER', 
       'COMPLAIN', 
-     
+      'ESCALATED'
   ];
 
   useEffect(() => {
@@ -133,9 +135,9 @@ export default function Summons() {
     return acc;
   }, {}));
 
-  // 🔥 FILTER LOGIC FOR SUMMONS TABLE WITH DAY 🔥
+  // 🔥 FILTER LOGIC FOR SUMMONS TABLE 🔥
   const filteredData = uniqueCases.filter((item) => {
-    // 🔥 FIX: Now uses summonDate first, falling back to originalDate if empty
+    // Uses summonDate (Date Assigned) first, falling back to originalDate if empty
     const dateToFilter = item.summonDate || item.originalDate || '';
     const itemDateParts = dateToFilter.split('-'); 
     let itemYear = '';
@@ -156,7 +158,7 @@ export default function Summons() {
 
     const matchesYear = filterYear === 'All Years' || itemYear === filterYear;
     const matchesMonth = filterMonth === 'All Months' || itemMonth === filterMonth.padStart(2, '0');
-    const matchesDay = filterDay === 'All Days' || itemDay === filterDay; // Day is already padded from options
+    const matchesDay = filterDay === 'All Days' || itemDay === filterDay; 
     
     // Check both standard type AND Escalted Status
     const matchesType = filterType === 'All Types' || 
@@ -462,6 +464,37 @@ export default function Summons() {
     updateFormattingState();
   };
 
+  // Calendar Calculation logic
+  const calYear = calendarViewDate.getFullYear();
+  const calMonth = calendarViewDate.getMonth();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const firstDayOfMonth = new Date(calYear, calMonth, 1).getDay();
+
+  const handleDateSelect = (day, m = calMonth, y = calYear) => {
+    setFilterYear(String(y));
+    setFilterMonth(String(m + 1).padStart(2, '0'));
+    setFilterDay(String(day).padStart(2, '0'));
+    setIsDateFilterOpen(false);
+  };
+
+  const clearDateFilter = () => {
+    setFilterYear('All Years');
+    setFilterMonth('All Months');
+    setFilterDay('All Days');
+    setIsDateFilterOpen(false);
+  };
+
+  let displayDate = `${monthNames[realToday.getMonth()]} ${realToday.getDate()}, ${realToday.getFullYear()}`;
+  if (filterYear !== 'All Years' && filterMonth !== 'All Months') {
+    if (filterDay === 'All Days') {
+      displayDate = `${monthNames[parseInt(filterMonth) - 1]} ${filterYear}`;
+    } else {
+      displayDate = `${monthNames[parseInt(filterMonth) - 1]} ${parseInt(filterDay)}, ${filterYear}`;
+    }
+  } else if (filterYear !== 'All Years' && filterMonth === 'All Months') {
+    displayDate = filterYear;
+  }
+
   const renderPreviewModal = () => {
     if (!previewModal.isOpen || !previewModal.data) return null;
     const { data } = previewModal;
@@ -738,9 +771,7 @@ export default function Summons() {
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 p-8" onClick={() => {
         setActiveActionDropdown(null);
-        setIsYearSortOpen(false);
-        setIsMonthSortOpen(false);
-        setIsDaySortOpen(false);
+        setIsDateFilterOpen(false);
         setIsTypeSortOpen(false);
         setNoteDropdownOpen(null);
     }}>
@@ -765,56 +796,133 @@ export default function Summons() {
               />
             </div>
 
+            {/* Beautiful Calendar Dropdown Filter */}
             <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsYearSortOpen(!isYearSortOpen); setIsMonthSortOpen(false); setIsDaySortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
-                <Calendar size={16} className="mr-2 text-gray-500" /> 
-                <span className="text-xs font-bold text-gray-700 w-16 text-left">{filterYear}</span> 
-                <ChevronDown size={14} className="ml-1 text-gray-400" />
+              <button type="button" onClick={() => { setIsDateFilterOpen(!isDateFilterOpen); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                <Calendar size={16} className="mr-2 text-blue-500" />
+                <span className="text-xs font-bold text-gray-700 whitespace-nowrap">{displayDate}</span>
+                <ChevronDown size={14} className={`ml-2 text-gray-400 transition-transform ${isDateFilterOpen ? 'rotate-180' : ''}`} />
               </button>
-              {isYearSortOpen && (
-                <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
-                  {yearOptions.map(y => (
-                    <div key={y} onClick={() => { setFilterYear(y); setIsYearSortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterYear === y ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>{y}</div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsDaySortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
-                <Calendar size={16} className="mr-2 text-gray-500" /> 
-                <span className="text-xs font-bold text-gray-700 w-20 text-left">{filterMonth === 'All Months' ? 'All Months' : monthNames[parseInt(filterMonth)-1] || filterMonth}</span> 
-                <ChevronDown size={14} className="ml-1 text-gray-400" />
-              </button>
-              {isMonthSortOpen && (
-                <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
-                  {monthOptions.map((m, i) => (
-                    <div key={m} onClick={() => { setFilterMonth(m); setIsMonthSortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterMonth === m ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>
-                      {m === 'All Months' ? m : monthNames[parseInt(m)-1] || m}
+              {isDateFilterOpen && (
+                <div className="absolute top-full right-0 mt-2 w-[340px] bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 p-5 animate-in fade-in zoom-in-95 duration-200">
+                  
+                  <div className="flex justify-between items-center mb-5">
+                    <button 
+                      onClick={() => setCalendarViewDate(new Date(calYear, calMonth - 1, 1))} 
+                      className="p-2 hover:bg-slate-100 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"
+                    >
+                      <ChevronLeft size={18} strokeWidth={2.5} />
+                    </button>
+                    
+                    <div className="flex items-center gap-2">
+                      <div className="relative group">
+                        <select
+                          value={calMonth}
+                          onChange={(e) => {
+                            const newMonth = parseInt(e.target.value);
+                            setCalendarViewDate(new Date(calYear, newMonth, 1));
+                          }}
+                          className="appearance-none bg-white border border-gray-200 hover:border-blue-400 text-gray-800 font-bold text-sm rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+                        >
+                          {monthNames.map((m, i) => (
+                            <option key={m} value={i} disabled={calYear === currentYear && i > currentMonth}>{m}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none group-hover:text-blue-500 transition-colors" />
+                      </div>
+                      
+                      <div className="relative group">
+                        <select
+                          value={calYear}
+                          onChange={(e) => {
+                            const newYear = parseInt(e.target.value);
+                            let newMonth = calMonth;
+                            if (newYear === currentYear && newMonth > currentMonth) {
+                              newMonth = currentMonth;
+                            }
+                            setCalendarViewDate(new Date(newYear, newMonth, 1));
+                          }}
+                          className="appearance-none bg-white border border-gray-200 hover:border-blue-400 text-gray-800 font-bold text-sm rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+                        >
+                          {Array.from({ length: 10 }, (_, i) => currentYear - i).map(y => (
+                             <option key={y} value={y}>{y}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none group-hover:text-blue-500 transition-colors" />
+                      </div>
                     </div>
-                  ))}
+
+                    <button 
+                      onClick={() => setCalendarViewDate(new Date(calYear, calMonth + 1, 1))} 
+                      disabled={calYear === currentYear && calMonth === currentMonth}
+                      className={`p-2 rounded-xl transition-colors ${calYear === currentYear && calMonth === currentMonth ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-slate-100 hover:text-blue-600'}`}
+                    >
+                      <ChevronRight size={18} strokeWidth={2.5} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-7 mb-3 gap-1">
+                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                      <div key={d} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">{d}</div>
+                    ))}
+                  </div>
+                  
+                  <div className="grid grid-cols-7 gap-1">
+                    {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} />)}
+                    {Array.from({ length: daysInMonth }).map((_, i) => {
+                      const day = i + 1;
+                      const isSelected = filterYear === String(calYear) && filterMonth === String(calMonth + 1).padStart(2, '0') && filterDay === String(day).padStart(2, '0');
+                      const isToday = currentYear === calYear && currentMonth === calMonth && currentDate === day;
+                      const isFuture = calYear === currentYear && calMonth === currentMonth && day > currentDate;
+
+                      return (
+                        <button
+                          key={day}
+                          disabled={isFuture}
+                          onClick={() => handleDateSelect(day)}
+                          className={`h-10 w-full rounded-xl text-sm font-bold transition-all duration-200 
+                            ${isFuture ? 'opacity-30 cursor-not-allowed text-gray-400' : 
+                              isSelected ? 'bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md shadow-blue-200 scale-105' : 
+                              isToday ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'text-gray-600 hover:bg-slate-100 hover:text-gray-900'
+                            }`}
+                        >
+                          {day}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  
+                  <div className="mt-5 pt-4 border-t border-gray-100 flex justify-between items-center">
+                    <button onClick={clearDateFilter} className="text-xs font-bold text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded-md hover:bg-red-50">
+                      Clear
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setFilterYear(String(calYear));
+                        setFilterMonth(String(calMonth + 1).padStart(2, '0'));
+                        setFilterDay('All Days');
+                        setIsDateFilterOpen(false);
+                      }} 
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-1 rounded-md hover:bg-indigo-50"
+                    >
+                      {t('whole_month') || 'Whole Month'}
+                    </button>
+
+                    <button onClick={() => {
+                        setCalendarViewDate(realToday);
+                        handleDateSelect(realToday.getDate(), realToday.getMonth(), realToday.getFullYear());
+                    }} className="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors px-2 py-1 rounded-md hover:bg-blue-50">
+                      Today
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* 🔥 ADDED: Day Dropdown Filter 🔥 */}
             <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsDaySortOpen(!isDaySortOpen); setIsMonthSortOpen(false); setIsYearSortOpen(false); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
-                <Calendar size={16} className="mr-2 text-gray-500" /> 
-                <span className="text-xs font-bold text-gray-700 w-16 text-left">{filterDay}</span> 
-                <ChevronDown size={14} className="ml-1 text-gray-400" />
-              </button>
-              {isDaySortOpen && (
-                <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar">
-                  {dayOptions.map(d => (
-                    <div key={d} onClick={() => { setFilterDay(d); setIsDaySortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer ${filterDay === d ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>{d}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+              <button type="button" onClick={() => { setIsTypeSortOpen(!isTypeSortOpen); setIsDateFilterOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                 <Filter size={16} className="mr-2 text-gray-500" /> 
                 <span className="text-xs font-bold text-gray-700 w-24 text-left">{filterType}</span> 
                 <ChevronDown size={14} className="ml-1 text-gray-400" />

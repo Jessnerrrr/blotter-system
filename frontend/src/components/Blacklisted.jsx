@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import { ChevronLeft, Calendar, Filter, ChevronDown, Search } from 'lucide-react'; 
+import { ChevronLeft, Calendar, Filter, ChevronDown, Search, ChevronRight } from 'lucide-react'; 
 import { useLanguage } from './LanguageContext'; 
 import { blacklistAPI, casesAPI, summonsAPI } from "../services/api"; 
 
@@ -24,24 +24,25 @@ export default function Blacklisted() {
   const [selected, setSelected] = useState(null); 
   const [search, setSearch] = useState('');
 
-  const allYearsText = t('all_years') || 'All Years';
   const allTypesText = t('all_types') || 'All Types';
 
-  const [isYearSortOpen, setIsYearSortOpen] = useState(false);
   const [isTypeSortOpen, setIsTypeSortOpen] = useState(false);
-  const [isMonthSortOpen, setIsMonthSortOpen] = useState(false); // Added Month Sort State
-  const [isDaySortOpen, setIsDaySortOpen] = useState(false); // Added Day Sort State
-
-  const [sortYear, setSortYear] = useState(allYearsText);
-  const [filterMonth, setFilterMonth] = useState('All Months'); // Added Month Filter State
-  const [filterDay, setFilterDay] = useState('All Days'); // Added Day Filter State
   const [sortType, setSortType] = useState(allTypesText);
 
-  const currentYear = new Date().getFullYear();
-  const yearOptions = [allYearsText, ...Array.from({length: 7}, (_, i) => (currentYear - i).toString())];
-  const monthOptions = ['All Months', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']; // Added Month Options
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']; // Added Month Names
-  const dayOptions = ['All Days', ...Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))]; // Added Day Options
+  // Custom Calendar Dropdown States
+  const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+
+  const [filterYear, setFilterYear] = useState('All Years');
+  const [filterMonth, setFilterMonth] = useState('All Months');
+  const [filterDay, setFilterDay] = useState('All Days');
+
+  const realToday = new Date();
+  const currentYear = realToday.getFullYear();
+  const currentMonth = realToday.getMonth();
+  const currentDate = realToday.getDate();
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   
   const typeOptions = [
     { label: allTypesText, color: 'bg-gray-400' },
@@ -49,7 +50,6 @@ export default function Blacklisted() {
     { label: 'VAWC', color: 'bg-purple-600' },
     { label: 'BLOTTER', color: 'bg-red-600' },
     { label: 'COMPLAIN', color: 'bg-blue-600' },
-    
   ];
 
   useEffect(() => {
@@ -116,9 +116,9 @@ export default function Blacklisted() {
         }
     }
 
-    const matchesYear = (sortYear === allYearsText) || rowYear === sortYear;
-    const matchesMonth = filterMonth === 'All Months' || rowMonth === filterMonth;
-    const matchesDay = filterDay === 'All Days' || rowDay === filterDay;
+    const matchesYear = filterYear === 'All Years' || rowYear === filterYear;
+    const matchesMonth = filterMonth === 'All Months' || rowMonth === filterMonth.padStart(2, '0');
+    const matchesDay = filterDay === 'All Days' || rowDay === filterDay.padStart(2, '0');
     const matchesType = (sortType === allTypesText) || row.type === sortType;
 
     return matchesSearch && matchesYear && matchesMonth && matchesDay && matchesType;
@@ -166,14 +166,13 @@ export default function Blacklisted() {
     });
   };
 
-  // --- 🔥 NEW ARCHIVE LOGIC INSTEAD OF DELETE 🔥 ---
   const handleArchive = (row) => {
     Swal.fire({
       title: 'Move to Archives?',
       text: `Are you sure you want to archive ${row.caseNo}? It will be marked as Settled.`,
       icon: 'info',
       showCancelButton: true,
-      confirmButtonColor: '#f59e0b', // Yellow/Orange warning color
+      confirmButtonColor: '#f59e0b', 
       cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes',
       cancelButtonText: t('cancel') || 'Cancel'
@@ -181,20 +180,15 @@ export default function Blacklisted() {
       if (result.isConfirmed) {
         try {
           if (row.type === 'CURFEW') {
-              // If it's purely a manual blacklist entry, moving to archive just deletes it from the blacklist 
-              // because manual entries don't have a "Settled" state in the database.
               await blacklistAPI.delete(row._id);
           } else {
-              // If it's a real case, update the status to SETTLED so it moves to Archives
               await casesAPI.update(row._id, { ...row, status: 'SETTLED' });
               
-              // Also update any attached summons to Settled
               const allSummons = await summonsAPI.getAll();
               const summonsToArchive = allSummons.filter(s => s.caseNo === row.caseNo);
               await Promise.all(summonsToArchive.map(s => summonsAPI.update(s._id, { ...s, status: 'Settled' })));
           }
 
-          // Reload data to remove it from this page
           const [storedCases, manualBlacklists] = await Promise.all([
             casesAPI.getAll(),
             blacklistAPI.getAll()
@@ -215,9 +209,40 @@ export default function Blacklisted() {
     });
   };
 
+  // Calendar Calculation logic
+  const calYear = calendarViewDate.getFullYear();
+  const calMonth = calendarViewDate.getMonth();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const firstDayOfMonth = new Date(calYear, calMonth, 1).getDay();
+
+  const handleDateSelect = (day, m = calMonth, y = calYear) => {
+    setFilterYear(String(y));
+    setFilterMonth(String(m + 1).padStart(2, '0'));
+    setFilterDay(String(day).padStart(2, '0'));
+    setIsDateFilterOpen(false);
+  };
+
+  const clearDateFilter = () => {
+    setFilterYear('All Years');
+    setFilterMonth('All Months');
+    setFilterDay('All Days');
+    setIsDateFilterOpen(false);
+  };
+
+  let displayDate = `${monthNames[realToday.getMonth()]} ${realToday.getDate()}, ${realToday.getFullYear()}`;
+  if (filterYear !== 'All Years' && filterMonth !== 'All Months') {
+    if (filterDay === 'All Days') {
+      displayDate = `${monthNames[parseInt(filterMonth) - 1]} ${filterYear}`;
+    } else {
+      displayDate = `${monthNames[parseInt(filterMonth) - 1]} ${parseInt(filterDay)}, ${filterYear}`;
+    }
+  } else if (filterYear !== 'All Years' && filterMonth === 'All Months') {
+    displayDate = filterYear;
+  }
+
   return (
-    <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={() => { setIsYearSortOpen(false); setIsTypeSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); }}>
-      <div className="flex-1 flex flex-col h-full min-h-0 w-full">
+    <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={() => { setIsDateFilterOpen(false); setIsTypeSortOpen(false); }}>
+      <div className="flex-1 flex flex-col h-full min-h-0 w-full max-w-[1600px] mx-auto">
         {view === 'DETAILS' && selected ? (
           <div className="flex-1 flex flex-col w-full rounded-xl overflow-hidden bg-white shadow-md animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-200">
             <div className="bg-[#0044CC] px-6 py-4 text-white shadow-md shrink-0 rounded-t-xl flex items-center gap-3">
@@ -263,51 +288,140 @@ export default function Blacklisted() {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <p className="text-sm font-bold text-gray-700 whitespace-nowrap">{t('total_blacklisted') || 'Total Blacklisted'}: {filteredRows.length}</p>
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                  <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsYearSortOpen(!isYearSortOpen); setIsTypeSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"><div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{sortYear}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" /></button>
-                    {isYearSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-y-auto max-h-60 custom-scrollbar">{yearOptions.map(y => (<div key={y} onClick={() => { setSortYear(y); setIsYearSortOpen(false); }} className="px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b last:border-0">{y}</div>))}</div>)}
-                  </div>
                   
-                  {/* 🔥 NEW MONTH FILTER 🔥 */}
-                  <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsMonthSortOpen(!isMonthSortOpen); setIsYearSortOpen(false); setIsTypeSortOpen(false); setIsDaySortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{filterMonth === 'All Months' ? 'All Months' : monthNames[parseInt(filterMonth)-1] || filterMonth}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
+                  {/* Beautiful Calendar Dropdown Filter */}
+                  <div className="relative w-full sm:w-auto" onClick={e => e.stopPropagation()}>
+                    <button type="button" onClick={() => { setIsDateFilterOpen(!isDateFilterOpen); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center"><Calendar size={18} className="mr-2 text-blue-500" /><span>{displayDate}</span></div>
+                      <ChevronDown size={16} className={`ml-3 text-gray-400 transition-transform ${isDateFilterOpen ? 'rotate-180' : ''}`} />
                     </button>
-                    {isMonthSortOpen && (
-                      <div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-y-auto max-h-60 custom-scrollbar">
-                        {monthOptions.map(m => (
-                          <div key={m} onClick={() => { setFilterMonth(m); setIsMonthSortOpen(false); }} className="px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b last:border-0">
-                            {m === 'All Months' ? m : monthNames[parseInt(m)-1] || m}
+
+                    {isDateFilterOpen && (
+                      <div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-[340px] bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 p-5 animate-in fade-in zoom-in-95 duration-200">
+                        
+                        <div className="flex justify-between items-center mb-5">
+                          <button 
+                            onClick={() => setCalendarViewDate(new Date(calYear, calMonth - 1, 1))} 
+                            className="p-2 hover:bg-slate-100 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"
+                          >
+                            <ChevronLeft size={18} strokeWidth={2.5} />
+                          </button>
+                          
+                          <div className="flex items-center gap-2">
+                            <div className="relative group">
+                              <select
+                                value={calMonth}
+                                onChange={(e) => {
+                                  const newMonth = parseInt(e.target.value);
+                                  setCalendarViewDate(new Date(calYear, newMonth, 1));
+                                }}
+                                className="appearance-none bg-white border border-gray-200 hover:border-blue-400 text-gray-800 font-bold text-sm rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+                              >
+                                {monthNames.map((m, i) => (
+                                  <option key={m} value={i} disabled={calYear === currentYear && i > currentMonth}>{m}</option>
+                                ))}
+                              </select>
+                              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none group-hover:text-blue-500 transition-colors" />
+                            </div>
+                            
+                            <div className="relative group">
+                              <select
+                                value={calYear}
+                                onChange={(e) => {
+                                  const newYear = parseInt(e.target.value);
+                                  let newMonth = calMonth;
+                                  if (newYear === currentYear && newMonth > currentMonth) {
+                                    newMonth = currentMonth;
+                                  }
+                                  setCalendarViewDate(new Date(newYear, newMonth, 1));
+                                }}
+                                className="appearance-none bg-white border border-gray-200 hover:border-blue-400 text-gray-800 font-bold text-sm rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+                              >
+                                {Array.from({ length: 10 }, (_, i) => currentYear - i).map(y => (
+                                   <option key={y} value={y}>{y}</option>
+                                ))}
+                              </select>
+                              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none group-hover:text-blue-500 transition-colors" />
+                            </div>
                           </div>
-                        ))}
+
+                          <button 
+                            onClick={() => setCalendarViewDate(new Date(calYear, calMonth + 1, 1))} 
+                            disabled={calYear === currentYear && calMonth === currentMonth}
+                            className={`p-2 rounded-xl transition-colors ${calYear === currentYear && calMonth === currentMonth ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-slate-100 hover:text-blue-600'}`}
+                          >
+                            <ChevronRight size={18} strokeWidth={2.5} />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-7 mb-3 gap-1">
+                          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                            <div key={d} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">{d}</div>
+                          ))}
+                        </div>
+                        
+                        <div className="grid grid-cols-7 gap-1">
+                          {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} />)}
+                          {Array.from({ length: daysInMonth }).map((_, i) => {
+                            const day = i + 1;
+                            const isSelected = filterYear === String(calYear) && filterMonth === String(calMonth + 1).padStart(2, '0') && filterDay === String(day).padStart(2, '0');
+                            const isToday = currentYear === calYear && currentMonth === calMonth && currentDate === day;
+                            const isFuture = calYear === currentYear && calMonth === currentMonth && day > currentDate;
+
+                            return (
+                              <button
+                                key={day}
+                                disabled={isFuture}
+                                onClick={() => handleDateSelect(day)}
+                                className={`h-10 w-full rounded-xl text-sm font-bold transition-all duration-200 
+                                  ${isFuture ? 'opacity-30 cursor-not-allowed text-gray-400' : 
+                                    isSelected ? 'bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md shadow-blue-200 scale-105' : 
+                                    isToday ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'text-gray-600 hover:bg-slate-100 hover:text-gray-900'
+                                  }`}
+                              >
+                                {day}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        
+                        <div className="mt-5 pt-4 border-t border-gray-100 flex justify-between items-center">
+                          <button onClick={clearDateFilter} className="text-xs font-bold text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded-md hover:bg-red-50">
+                            Clear
+                          </button>
+                          
+                          <button 
+                            onClick={() => {
+                              setFilterYear(String(calYear));
+                              setFilterMonth(String(calMonth + 1).padStart(2, '0'));
+                              setFilterDay('All Days');
+                              setIsDateFilterOpen(false);
+                            }} 
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-1 rounded-md hover:bg-indigo-50"
+                          >
+                            {t('whole_month') || 'Whole Month'}
+                          </button>
+
+                          <button onClick={() => {
+                              setCalendarViewDate(realToday);
+                              handleDateSelect(realToday.getDate(), realToday.getMonth(), realToday.getFullYear());
+                          }} className="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors px-2 py-1 rounded-md hover:bg-blue-50">
+                            Today
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {/* 🔥 NEW DAY FILTER 🔥 */}
                   <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsDaySortOpen(!isDaySortOpen); setIsMonthSortOpen(false); setIsYearSortOpen(false); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center"><Calendar size={18} className="mr-2 text-gray-500" /><span>{filterDay}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
-                    </button>
-                    {isDaySortOpen && (
-                      <div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-y-auto max-h-60 custom-scrollbar">
-                        {dayOptions.map(d => (
-                          <div key={d} onClick={() => { setFilterDay(d); setIsDaySortOpen(false); }} className="px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b last:border-0">
-                            {d}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsYearSortOpen(false); setIsMonthSortOpen(false); setIsDaySortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"><div className="flex items-center"><Filter size={18} className="mr-2 text-gray-500" /><span>{sortType}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" /></button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsDateFilterOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"><div className="flex items-center"><Filter size={18} className="mr-2 text-gray-500" /><span>{sortType}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" /></button>
                     {isTypeSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">{typeOptions.map(o => (<div key={o.label} onClick={() => { setSortType(o.label); setIsTypeSortOpen(false); }} className="px-4 py-3 text-sm font-bold hover:bg-blue-50 cursor-pointer flex items-center text-gray-700 border-b last:border-0"><span className={`w-2.5 h-2.5 rounded-full ${o.color} mr-3`} />{o.label}</div>))}</div>)}
                   </div>
+                  
                   <div className="relative w-full sm:w-72">
-  <Search className="absolute left-3 top-3.5 text-gray-400" size={18} />
-  <input type="text" placeholder={t('search_placeholder') || 'Search...'} value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-xl border border-gray-300 bg-slate-50 py-3 pl-10 pr-4 text-sm font-bold outline-none focus:border-blue-600 transition-all" />
-</div>
+                    <Search className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                    <input type="text" placeholder={t('search_placeholder') || 'Search...'} value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-xl border border-gray-300 bg-slate-50 py-3 pl-10 pr-4 text-sm font-bold outline-none focus:border-blue-600 transition-all" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -332,7 +446,6 @@ export default function Blacklisted() {
                         <div className="flex gap-2">
                           <BlacklistedButton actionType="restore" onClick={() => handleRestore(row)}>{t('restore')}</BlacklistedButton>
                           <BlacklistedButton actionType="view" onClick={() => handleViewDetails(row)}>{t('view')}</BlacklistedButton>
-                          {/* 🔥 NEW ARCHIVE BUTTON REPLACES DELETE 🔥 */}
                           <button 
                             onClick={() => handleArchive(row)}
                             className="px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all shadow-sm border border-amber-500 text-amber-600 bg-amber-50 hover:bg-amber-100 uppercase tracking-wide"

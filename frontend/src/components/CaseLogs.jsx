@@ -378,27 +378,45 @@ export default function CaseLogs() {
   const handleCancelSummon = () => { setView('TABLE'); };
 
   const handleSubmitSummon = () => {
-  const currentReason = editorRef.current ? editorRef.current.innerHTML : '';
-  const finalData = { ...summonData, summonReason: currentReason };
-  
-  const errors = {};
-  const required = ['summonDate', 'summonType', 'notedBy'];
-  required.forEach(f => { 
-    const value = finalData[f];
-    if (!value || (typeof value === 'string' && !value.trim())) errors[f] = 'Required';
-  });
-  
-  if (finalData.selectedHour === '00') {
-    errors['summonTime'] = 'Required';
-  }
+    const currentReason = editorRef.current ? editorRef.current.innerHTML : '';
+    const finalData = { ...summonData, summonReason: currentReason };
+    
+    const errors = {};
+    const required = ['summonDate', 'summonType', 'notedBy'];
+    required.forEach(f => { 
+      const value = finalData[f];
+      if (!value || (typeof value === 'string' && !value.trim())) errors[f] = 'Required';
+    });
+    
+    if (finalData.selectedHour === '00') {
+      errors['summonTime'] = 'Required';
+    }
 
-  if (!currentReason || currentReason === '<br>' || currentReason.trim() === '') errors['summonReason'] = 'Required';
-  
-  if (Object.keys(errors).length > 0) {
-    setSummonErrors(errors);
-    Swal.fire({ title: 'Incomplete Details', text: 'Please fill out all required fields highlighted in red.', icon: 'warning', confirmButtonColor: '#d33' });
-    return;
-  }
+    if (!currentReason || currentReason === '<br>' || currentReason.trim() === '') errors['summonReason'] = 'Required';
+    
+    if (Object.keys(errors).length > 0) {
+      setSummonErrors(errors);
+      Swal.fire({ title: 'Incomplete Details', text: 'Please fill out all required fields highlighted in red.', icon: 'warning', confirmButtonColor: '#d33' });
+      return;
+    }
+
+    // 🔥 NEW VALIDATION: Check for scheduling conflicts across all active summons 🔥
+    const isTimeSlotTaken = allSummonsCache.some((s) => {
+      return s.summonDate === finalData.summonDate && 
+             s.summonTime === finalData.summonTime && 
+             s.status !== 'Settled' && 
+             s.status !== 'Resolved';
+    });
+
+    if (isTimeSlotTaken) {
+      Swal.fire({
+        title: 'Schedule Conflict!',
+        text: `There is already a hearing scheduled on ${finalData.summonDate} at ${finalData.summonTime}. Please select a different date or time.`,
+        icon: 'error',
+        confirmButtonColor: '#d33'
+      });
+      return; // Stop submission
+    }
 
     Swal.fire({ title: t('confirm_summon?'), text: t('confirm_save_text'), icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('yes_save'), cancelButtonText: t('cancel') }).then(async (result) => {
       if (result.isConfirmed) {

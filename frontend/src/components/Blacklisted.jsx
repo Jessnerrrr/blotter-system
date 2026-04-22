@@ -247,40 +247,45 @@ export default function Blacklisted() {
           <div className="flex-1 flex flex-col w-full rounded-xl overflow-hidden bg-white shadow-md animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-200">
             <div className="bg-[#0044CC] px-6 py-4 text-white shadow-md shrink-0 rounded-t-xl flex items-center gap-3">
               <button onClick={handleBackToTable} className="hover:bg-blue-600 p-1.5 rounded-full transition-colors flex items-center justify-center -ml-2"><ChevronLeft size={26} strokeWidth={2.5} /></button>
-              <h1 className="text-xl font-bold">{t('blacklisted_case_details') || 'Blacklisted Case Details'}</h1>
+              <h1 className="text-xl font-bold uppercase">{t('blacklisted_case_details') || 'Blacklisted Case Details'}</h1>
             </div>
 
             <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-[#F8FAFC]">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="border-l-4 border-[#0044CC] pl-3 mb-6"><h3 className="text-lg font-bold text-[#0044CC]">{t('case_summary')}</h3></div>
+                <div className="border-l-4 border-[#0044CC] pl-3 mb-6"><h3 className="text-lg font-bold text-[#0044CC] uppercase">{t('case_summary')}</h3></div>
                 <div className="flex gap-2 mb-6">
                     <span className={`${getTypeStyle(selected.type)} text-[10px] font-bold px-3 py-1 rounded shadow-sm uppercase tracking-wide`}>{selected.type}</span>
                     <span className="bg-black text-white text-[10px] font-bold px-3 py-1 rounded shadow-sm uppercase tracking-wide">{t('blacklisted')}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-y-6">
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('case_number')}</p><p className="text-sm font-bold text-gray-800">{selected.caseNo}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('resident_name')}</p><p className="text-sm font-bold text-gray-800">{selected.resident}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800">{selected.date}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('moderator')}</p><p className="text-sm font-bold text-gray-800">{selected.fullData?.selectedRole || 'Admin'}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('case_number')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.caseNo}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('resident_name')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.date}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('moderator')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.selectedRole || 'Admin'}</p></div>
                 </div>
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="border-l-4 border-[#0044CC] pl-3 mb-6"><h3 className="text-lg font-bold text-[#0044CC]">{t('case_details_title')}</h3></div>
+                <div className="border-l-4 border-[#0044CC] pl-3 mb-6"><h3 className="text-lg font-bold text-[#0044CC] uppercase">{t('case_details_title')}</h3></div>
                 <div className="grid grid-cols-2 gap-y-6 mb-6">
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('complainant')}</p><p className="text-sm font-bold text-gray-800">{selected.complainantName || 'N/A'}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('respondents')}</p><p className="text-sm font-bold text-gray-800">{selected.resident}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800">{selected.fullData?.incidentDate || selected.date}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('location')}</p><p className="text-sm font-bold text-gray-800">{selected.fullData?.incidentLocation || '166, Caloocan City'}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('complainant')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.complainantName || 'N/A'}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('respondents')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.incidentDate || selected.date}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('location')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.incidentLocation || '166, Caloocan City'}</p></div>
                 </div>
-                <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">{t('detailed_description')}</p><div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-xs text-gray-700 leading-relaxed font-medium">{selected.fullData?.incidentDesc || t('default_reason_desc') || 'Resident was permanently blacklisted.'}</div></div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">{t('detailed_description')}</p>
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-xs text-gray-700 leading-relaxed font-medium uppercase">
+                    {selected.fullData?.incidentDesc || t('default_reason_desc') || 'Resident was permanently blacklisted.'}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         ) : (
           <section className="flex-1 flex flex-col w-full overflow-hidden rounded-2xl bg-white shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-200">
             <div className="bg-gradient-to-br from-blue-800 to-blue-500 px-6 py-5 text-white shadow-md shrink-0">
-              <h1 className="text-2xl font-bold">{t('blacklisted_case_records') || 'BLACKLISTED CASES'}</h1>
+              <h1 className="text-2xl font-bold uppercase">{t('blacklisted_case_records') || 'BLACKLISTED CASES'}</h1>
               <p className="text-sm text-white/80">{t('blacklisted_subtitle') || 'View residents permanently blacklisted from the community.'}</p>
             </div>
 
@@ -412,12 +417,20 @@ export default function Blacklisted() {
                       </div>
                     )}
                   </div>
-
+                  
+                  {/* Type Filter */}
                   <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsDateFilterOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"><div className="flex items-center"><Filter size={18} className="mr-2 text-gray-500" /><span>{sortType}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" /></button>
-                    {isTypeSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">{typeOptions.map(o => (<div key={o.label} onClick={() => { setSortType(o.label); setIsTypeSortOpen(false); }} className="px-4 py-3 text-sm font-bold hover:bg-blue-50 cursor-pointer flex items-center text-gray-700 border-b last:border-0"><span className={`w-2.5 h-2.5 rounded-full ${o.color} mr-3`} />{o.label}</div>))}</div>)}
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsDateFilterOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center"><Filter size={18} className="mr-2 text-gray-500" /><span>{sortType}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
+                    </button>
+                    {isTypeSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                      {typeOptions.map(o => (<div key={o.label} onClick={() => { setSortType(o.label); setIsTypeSortOpen(false); }} className="px-4 py-3 text-sm font-bold hover:bg-blue-50 cursor-pointer flex items-center text-gray-700 border-b last:border-0">
+                        <span className={`w-2.5 h-2.5 rounded-full ${o.color} mr-3`} />{o.label}
+                      </div>))}
+                    </div>)}
                   </div>
                   
+                  {/* Search Input */}
                   <div className="relative w-full sm:w-72">
                     <Search className="absolute left-3 top-3.5 text-gray-400" size={18} />
                     <input type="text" placeholder={t('search_placeholder') || 'Search...'} value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-xl border border-gray-300 bg-slate-50 py-3 pl-10 pr-4 text-sm font-bold outline-none focus:border-blue-600 transition-all" />
@@ -440,8 +453,8 @@ export default function Blacklisted() {
                   {filteredRows.map((row) => (
                     <tr key={row.id || row.caseNo} className="hover:bg-blue-50/50 transition-colors">
                       <td className="px-4 py-5"><span className={`inline-block rounded px-3 py-1 text-[10px] font-bold shadow-sm uppercase tracking-wide ${getTypeStyle(row.type)}`}>{row.type}</span></td>
-                      <td className="px-4 py-5 font-bold text-gray-700">{row.caseNo}</td>
-                      <td className="px-4 py-5 font-medium text-gray-600">{row.resident || row.complainantName}</td>
+                      <td className="px-4 py-5 font-bold text-gray-700 uppercase">{row.caseNo}</td>
+                      <td className="px-4 py-5 font-medium text-gray-600 uppercase">{row.complainantName || row.resident}</td>
                       <td className="px-4 py-5">
                         <div className="flex gap-2">
                           <BlacklistedButton actionType="restore" onClick={() => handleRestore(row)}>{t('restore')}</BlacklistedButton>
@@ -457,7 +470,7 @@ export default function Blacklisted() {
                     </tr>
                   ))}
                   {filteredRows.length === 0 && (
-                      <tr><td colSpan={4} className="py-12 text-center text-gray-400 font-bold">{t('no_blacklisted_found') || 'No blacklisted records found.'}</td></tr>
+                      <tr><td colSpan={4} className="py-12 text-center text-gray-400 font-bold uppercase">{t('no_blacklisted_found') || 'No blacklisted records found.'}</td></tr>
                   )}
                 </tbody>
               </table>

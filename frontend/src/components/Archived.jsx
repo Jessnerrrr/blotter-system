@@ -98,7 +98,7 @@ export default function Archived() {
                 ...c,
                 _id: c._id || c.id,
                 type: 'CURFEW',
-                caseNo: `CRF-${String(c._id || c.id).slice(-6).toUpperCase()}`,
+                caseNo: c.caseNo || `CV-166-${String(c._id || c.id).slice(-6).toUpperCase()}`,
                 resident: c.residentName || c.resident,
                 complainantName: 'Barangay Patrol',
                 date: c.violationDate || c.date,
@@ -307,107 +307,274 @@ export default function Archived() {
     }, 300);
   };
 
-  // Build the print layout using purely inline styles and <table> tags
-  const printDate = new Date();
-  const monthYearStringForPrint = printDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
-  
-  // Format the filtered data to fit the table structure
-  const combinedPrintData = filteredRows.map(item => ({
-    caseNo: item.caseNo,
-    title: `${item.complainantName || 'N/A'} VS ${item.resident || item.respondentName || 'N/A'}`,
-    date: item.date || item.createdAt
-  }));
+  const getPrintContent = () => {
+    const printDate = new Date();
+    const monthYearStringForPrint = printDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
 
-  const StandardPrintDocument = (
-    <div style={{ width: '100%', maxWidth: '100%', fontFamily: 'Arial, sans-serif', color: 'black', backgroundColor: 'white' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', borderSpacing: 0, tableLayout: 'fixed', wordWrap: 'break-word' }}>
-        
-        {/* --- STICKY PRINT HEADER --- */}
-        <thead style={{ display: 'table-header-group' }}>
-          <tr>
-            <th colSpan="2" style={{ border: 'none', paddingBottom: '20px', fontWeight: 'normal' }}>
-              <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
-                  <img src="/icon-analytics/analyticsprint logo.png" alt="Republic Logo" style={{ width: '80px', height: '80px', margin: '0 auto 10px auto', display: 'block', objectFit: 'contain' }} />
-                  <p style={{ margin: '0 0 5px 0', fontSize: '14px' }}>Republic of the Philippines</p>
-                  <h1 style={{ margin: '4px 0', fontSize: '24px', fontWeight: '900', color: '#1d4ed8' }}>BARANGAY 166, CAYBIGA</h1>
-                  <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>ZONE 15 DISTRICT I, CALOOCAN CITY</p>
-                  <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>#1 GEN LUIS. ST, CAYBIGA CALOOCAN CITY</p>
-              </div>
-              
-              <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
-                  <h2 style={{ margin: '0', fontSize: '18px', fontWeight: 'bold', color: '#1f2937', letterSpacing: '0.05em' }}>TANGGAPAN NG LUPON TAGAMAPAYAMAPA</h2>
-                  <div style={{ textAlign: 'right', marginTop: '15px' }}>
-                    <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#1f2937' }}>{monthYearStringForPrint}</p>
-                  </div>
-              </div>
-              
-              <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
-                  <h3 style={{ margin: '0', fontSize: '20px', fontWeight: '900', color: '#111827' }}>MONTHLY TRANSMITTAL OF FINAL REPORTS</h3>
-              </div>
-              
-              <div style={{ textAlign: 'left', fontSize: '14px', color: '#111827', marginBottom: '20px' }}>
-                  <div style={{ paddingLeft: '20px', marginBottom: '15px' }}>
-                      <span style={{ fontWeight: 'bold', marginRight: '20px' }}>TO:</span>
-                      <span style={{ display: 'inline-block', verticalAlign: 'top' }}>
-                        <p style={{ margin: '0', fontWeight: 'bold' }}>City / Municipal Judge</p>
-                        <p style={{ margin: '0' }}>Caloocan City</p>
-                      </span>
-                  </div>
-                  <p style={{ margin: '0', textIndent: '40px', lineHeight: '1.6' }}>
-                    Enclosed herewith are the final reports of settlement of disputes and arbitration awards made by the Barangay Captain / Pangkat Tagapagkasundo in the following case:
-                  </p>
-              </div>
-            </th>
-          </tr>
-          
-          <tr style={{ backgroundColor: '#d1d5db' }}>
-              <th style={{ border: '1px solid black', padding: '12px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', width: '35%', color: 'black' }}>
-                Barangay Case No.
-              </th>
-              <th style={{ border: '1px solid black', padding: '12px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', width: '65%', color: 'black' }}>
-                Official Case Record
-                <span style={{ display: 'block', fontSize: '10px', fontWeight: 'normal', fontStyle: 'italic', marginTop: '4px' }}>(Complainant vs Respondent)</span>
-              </th>
-          </tr>
-        </thead>
+    // ==========================================
+    // LAYOUT 1: SINGLE CASE DETAILED PRINT VIEW
+    // ==========================================
+    if (view === 'DETAILS' && selected) {
+      const sortedSummons = [...selectedSummons].sort((a, b) => parseInt(a.summonType) - parseInt(b.summonType));
+      const isEscalated = String(selected.status || '').toUpperCase() === 'ESCALATED';
 
-        {/* --- DYNAMIC TABLE ROWS --- */}
-        <tbody style={{ display: 'table-row-group' }}>
-            {combinedPrintData.length > 0 ? combinedPrintData.map((item, index) => (
-                <tr key={index} style={{ pageBreakInside: 'avoid' }}>
-                    <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937' }}>{item.caseNo}</td>
-                    <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase' }}>{item.title}</td>
-                </tr>
-            )) : (
-                <tr style={{ pageBreakInside: 'avoid' }}><td colSpan="2" style={{ border: '1px solid black', padding: '30px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#6b7280' }}>No cases recorded for the selected filter period.</td></tr>
-            )}
-        </tbody>
+      return (
+        <div style={{ width: '100%', maxWidth: '100%', fontFamily: 'Arial, sans-serif', color: 'black', backgroundColor: 'white' }}>
+            <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
+                <img src="/icon-analytics/analyticsprint logo.png" alt="Republic Logo" style={{ width: '80px', height: '80px', margin: '0 auto 10px auto', display: 'block', objectFit: 'contain' }} />
+                <p style={{ margin: '0 0 5px 0', fontSize: '14px' }}>Republic of the Philippines</p>
+                <h1 style={{ margin: '4px 0', fontSize: '24px', fontWeight: '900', color: '#1d4ed8' }}>BARANGAY 166, CAYBIGA</h1>
+                <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>ZONE 15 DISTRICT I, CALOOCAN CITY</p>
+                <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>#1 GEN LUIS. ST, CAYBIGA CALOOCAN CITY</p>
+            </div>
+            
+            <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
+                <h2 style={{ margin: '0', fontSize: '18px', fontWeight: 'bold', color: '#1f2937', letterSpacing: '0.05em' }}>TANGGAPAN NG LUPON TAGAMAPAYAMAPA</h2>
+                <div style={{ textAlign: 'right', marginTop: '15px' }}>
+                  <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#1f2937' }}>{monthYearStringForPrint}</p>
+                </div>
+            </div>
+            
+            <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px', borderTop: '4px double black', borderBottom: '4px double black', padding: '8px 0' }}>
+                <h3 style={{ margin: '0', fontSize: '20px', fontWeight: '900', color: '#111827' }}>CASE REPORT AND RESOLUTION</h3>
+            </div>
 
-        {/* --- STICKY PRINT FOOTER --- */}
-        <tfoot style={{ display: 'table-footer-group' }}>
-          <tr>
-            <td colSpan="2" style={{ border: 'none', paddingTop: '50px', paddingBottom: '20px' }}>
-                <div style={{ textAlign: 'right', marginBottom: '30px', width: '100%' }}>
-                    <div style={{ display: 'inline-block', textAlign: 'center', width: '250px' }}>
-                        <div style={{ borderBottom: '1px solid black', marginBottom: '8px', width: '100%' }}></div>
-                        <p style={{ margin: '0', fontWeight: 'bold', fontSize: '14px' }}>Clerk of Court</p>
+            {/* Case Info Grid */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '12px', border: '1px solid black', backgroundColor: '#f9fafb', marginBottom: '24px', fontSize: '13px' }}>
+                <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>CASE NUMBER:</span> <b style={{ color: '#111827' }}>{selected.caseNo}</b></div>
+                <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>CASE TYPE:</span> <b style={{ color: '#1d4ed8' }}>{selected.type}</b></div>
+                <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>DATE FILED:</span> <b style={{ color: '#111827' }}>{formatDate(selected.date || selected.fullData?.dateFiled)}</b></div>
+                <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>STATUS:</span> <b style={{ color: isEscalated ? '#dc2626' : '#16a34a' }}>{isEscalated ? 'ESCALATED & ARCHIVED' : 'SETTLED & ARCHIVED'}</b></div>
+            </div>
+
+            {/* I. Parties Involved */}
+            <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>I. Parties Involved</h4>
+            <div style={{ display: 'flex', marginBottom: '24px', fontSize: '13px' }}>
+                <div style={{ width: '50%', paddingRight: '12px' }}>
+                    <div style={{ marginBottom: '8px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>COMPLAINANT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.complainantName || 'N/A'}</div></div>
+                    <div style={{ marginBottom: '8px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>ADDRESS</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.fullData?.complainantAddress || 'N/A'}</div></div>
+                    <div><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>CONTACT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.contact || selected.fullData?.complainantContact || 'N/A'}</div></div>
+                </div>
+                <div style={{ width: '50%', paddingLeft: '12px' }}>
+                    <div style={{ marginBottom: '8px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>RESPONDENT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.resident || selected.fullData?.respondentName || 'N/A'}</div></div>
+                    <div style={{ marginBottom: '8px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>ADDRESS</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.fullData?.respondentAddress || 'N/A'}</div></div>
+                    <div><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>CONTACT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.fullData?.respondentContact || 'N/A'}</div></div>
+                </div>
+            </div>
+
+            {/* II. Incident Details */}
+            <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>II. Incident Details</h4>
+            <div style={{ fontSize: '13px', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', marginBottom: '12px' }}>
+                    <div style={{ width: '50%', paddingRight: '12px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>DATE OF INCIDENT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px' }}>{formatDate(selected.fullData?.incidentDate || selected.date)}</div></div>
+                    <div style={{ width: '50%', paddingLeft: '12px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>LOCATION</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.fullData?.incidentLocation || 'Barangay 166, Caloocan City'}</div></div>
+                </div>
+                <div>
+                    <span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>DESCRIPTION OF INCIDENT</span>
+                    <div style={{ border: '1px solid #9ca3af', padding: '12px', backgroundColor: '#f9fafb', minHeight: '60px', borderRadius: '4px', fontWeight: '500', textTransform: 'uppercase' }}>
+                        {selected.fullData?.incidentDesc || 'CASE HAS BEEN RESOLVED AND ARCHIVED.'}
                     </div>
                 </div>
-                <div style={{ width: '100%', textAlign: 'left', marginBottom: '20px' }}>
-                    <p style={{ margin: '0', fontSize: '10px', color: '#374151', fontWeight: 'bold' }}>
-                      IMPORTANT: <span style={{ fontWeight: 'normal' }}>The Lupon / Pangkat Secretary shall transmit, not later than the first day for preceding month.</span>
+            </div>
+
+            {/* III. Summons Issued */}
+            {selected.type !== 'CURFEW' && (
+                <>
+                    <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>III. Summons Issued</h4>
+                    <div style={{ marginBottom: '24px' }}>
+                        {sortedSummons.length > 0 ? sortedSummons.map((summon, idx) => (
+                            <div key={idx} style={{ border: '1px solid #9ca3af', padding: '12px', marginBottom: '8px', backgroundColor: '#fff7ed', borderLeft: '4px solid #f97316', borderRadius: '4px', pageBreakInside: 'avoid' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #d1d5db', paddingBottom: '6px', marginBottom: '6px' }}>
+                                    <span style={{ fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase' }}>{summon.summonType === '1' ? 'First' : summon.summonType === '2' ? 'Second' : 'Third'} Summon</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', color: summon.status === 'Active' ? '#15803d' : '#1d4ed8' }}>{summon.status}</span>
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', fontSize: '12px', color: '#1f2937' }}>
+                                    <div style={{ width: '50%', marginBottom: '4px' }}><span style={{ fontWeight: 'bold', color: '#6b7280', marginRight: '4px' }}>TO:</span> <b style={{ textTransform: 'uppercase' }}>{summon.residentName}</b></div>
+                                    <div style={{ width: '50%', marginBottom: '4px' }}><span style={{ fontWeight: 'bold', color: '#6b7280', marginRight: '4px' }}>DATE:</span> {formatDate(summon.summonDate)} at {summon.summonTime}</div>
+                                    <div style={{ width: '100%' }}><span style={{ fontWeight: 'bold', color: '#6b7280', marginRight: '4px' }}>NOTED BY:</span> <span style={{ textTransform: 'uppercase' }}>{summon.notedBy}</span></div>
+                                </div>
+                                {summon.summonReason && (
+                                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #d1d5db', fontSize: '12px' }}>
+                                        <span style={{ fontWeight: 'bold', display: 'block', marginBottom: '4px', color: '#6b7280', fontSize: '10px' }}>REASON:</span>
+                                        <div style={{ textTransform: 'uppercase' }} dangerouslySetInnerHTML={{ __html: decodeHTML(summon.summonReason) }} />
+                                    </div>
+                                )}
+                            </div>
+                        )) : <p style={{ fontSize: '13px', fontStyle: 'italic', color: '#6b7280', padding: '12px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>NO SUMMONS WERE ISSUED FOR THIS CASE.</p>}
+                    </div>
+                </>
+            )}
+
+            {/* Timeline */}
+            <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px', pageBreakInside: 'avoid' }}>{selected.type !== 'CURFEW' ? 'IV.' : 'III.'} Case Timeline</h4>
+            <div style={{ marginBottom: '24px', paddingLeft: '16px', borderLeft: '2px solid #d1d5db', marginLeft: '8px', fontSize: '12px', pageBreakInside: 'avoid' }}>
+                <div style={{ marginBottom: '16px', position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', backgroundColor: '#2563eb', borderRadius: '50%', border: '2px solid white' }}></div>
+                    <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>{selected.type === 'CURFEW' ? 'VIOLATION RECORDED' : 'CASE FILED'}</b>
+                    <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{formatDate(selected.date)}</span>
+                </div>
+                {sortedSummons.map((summon, idx) => (
+                    <div key={idx} style={{ marginBottom: '16px', position: 'relative' }}>
+                        <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', backgroundColor: '#f97316', borderRadius: '50%', border: '2px solid white' }}></div>
+                        <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>{summon.summonType === '1' ? '1ST' : summon.summonType === '2' ? '2ND' : '3RD'} SUMMON ISSUED</b>
+                        <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{formatDate(summon.summonDate)} AT {summon.summonTime}</span>
+                    </div>
+                ))}
+                <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid white', backgroundColor: String(selected.status || '').toUpperCase() === 'ESCALATED' ? '#dc2626' : '#16a34a' }}></div>
+                    <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>{String(selected.status || '').toUpperCase() === 'ESCALATED' ? 'CASE ESCALATED' : 'CASE SETTLED'}</b>
+                    <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{formatDate(selected.updatedAt || selected.date)}</span>
+                </div>
+            </div>
+
+            {/* Resolution Text */}
+            <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px', pageBreakInside: 'avoid' }}>{selected.type !== 'CURFEW' ? 'V.' : 'IV.'} Resolution</h4>
+            <div style={{ border: '2px solid black', padding: '16px', fontSize: '13px', textAlign: 'justify', lineHeight: '1.6', marginBottom: '24px', backgroundColor: 'white', fontWeight: '500', pageBreakInside: 'avoid', textTransform: 'uppercase' }}>
+                {isEscalated 
+                  ? "THIS IS TO CERTIFY THAT THE ABOVE-MENTIONED CASE HAS NOT BEEN SUCCESSFULLY MEDIATED AND SETTLED THROUGH THE KATARUNGANG PAMBARANGAY PROCEEDINGS. THE CASE IS HEREBY ESCALATED AND RECORDED IN THE BARANGAY ARCHIVES FOR FURTHER LEGAL ACTION AND REFERENCE."
+                  : "THIS IS TO CERTIFY THAT THE ABOVE-MENTIONED CASE HAS BEEN SUCCESSFULLY MEDIATED AND SETTLED THROUGH THE KATARUNGANG PAMBARANGAY PROCEEDINGS IN ACCORDANCE WITH THE PROVISIONS OF THE LOCAL GOVERNMENT CODE OF 1991. BOTH PARTIES HAVE AGREED TO THE TERMS OF SETTLEMENT AND HAVE COMMITTED TO ABIDE BY THE RESOLUTION REACHED DURING THE MEDIATION PROCESS."
+                }
+            </div>
+            
+            {/* Footer with Signatures */}
+            <div style={{ marginTop: '24px', paddingTop: '16px', width: '100%', pageBreakInside: 'avoid', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', borderTop: '1px solid #d1d5db' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', textAlign: 'center', fontSize: '12px', marginBottom: '32px', marginTop: '8px' }}>
+                    <div style={{ width: '40%' }}>
+                        <div style={{ borderBottom: '1px solid black', fontWeight: 'bold', paddingBottom: '4px', height: '20px', textTransform: 'uppercase' }}>{selected.complainantName || ''}</div>
+                        <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '4px', color: '#4b5563' }}>Complainant's Signature</div>
+                    </div>
+                    <div style={{ width: '40%' }}>
+                        <div style={{ borderBottom: '1px solid black', fontWeight: 'bold', paddingBottom: '4px', height: '20px', textTransform: 'uppercase' }}>{selected.resident || selected.fullData?.respondentName || ''}</div>
+                        <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '4px', color: '#4b5563' }}>Respondent's Signature</div>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', textAlign: 'center', fontSize: '12px', marginBottom: '32px' }}>
+                    <div style={{ width: '40%' }}>
+                        <div style={{ borderBottom: '1px solid black', fontWeight: 'bold', paddingBottom: '4px', height: '20px', textTransform: 'uppercase' }}>{selected.fullData?.selectedRole || 'LUPON TAGAPAMAYAPA'}</div>
+                        <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '4px', color: '#4b5563' }}>Barangay Official</div>
+                    </div>
+                    <div style={{ width: '40%' }}>
+                        <div style={{ borderBottom: '1px solid black', fontWeight: 'bold', paddingBottom: '4px', height: '20px' }}></div>
+                        <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '4px', color: '#4b5563' }}>Punong Barangay</div>
+                    </div>
+                </div>
+
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                    <div style={{ textAlign: 'center', width: '200px' }}>
+                        <div style={{ borderBottom: '1px solid black', marginBottom: '6px' }}></div>
+                        <p style={{ fontWeight: 'bold', fontSize: '10px', margin: 0, textTransform: 'uppercase' }}>CLERK OF COURT</p>
+                    </div>
+                </div>
+
+                <div style={{ fontSize: '9px', color: '#6b7280', width: '100%', marginBottom: '8px', textAlign: 'center' }}>
+                    <p style={{ fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px 0' }}>DOCUMENT GENERATED ON {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}</p>
+                    <p style={{ fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>BARANGAY 166, CALOOCAN CITY | OFFICIAL BARANGAY RECORDS</p>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', height: '48px', width: '100%' }}>
+                    <img src="/icon-analytics/analytics footerprint.png" alt="Bagong Pilipinas" style={{ height: '40px', objectFit: 'contain', zIndex: 10 }} />
+                </div>
+            </div>
+        </div>
+      );
+    } 
+
+    // ==========================================
+    // LAYOUT 2: MONTHLY TRANSMITTAL LIST VIEW
+    // ==========================================
+    const combinedPrintData = filteredRows.map(item => ({
+      caseNo: item.caseNo,
+      title: item.type === 'CURFEW' ? `BARANGAY PATROL VS ${item.resident || 'N/A'}` : `${item.complainantName || 'N/A'} VS ${item.resident || item.respondentName || 'N/A'}`,
+      date: item.date || item.createdAt
+    }));
+
+    return (
+      <div style={{ width: '100%', maxWidth: '100%', fontFamily: 'Arial, sans-serif', color: 'black', backgroundColor: 'white' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', borderSpacing: 0, tableLayout: 'fixed', wordWrap: 'break-word' }}>
+          <thead style={{ display: 'table-header-group' }}>
+            <tr>
+              <th colSpan="2" style={{ border: 'none', paddingBottom: '20px', fontWeight: 'normal' }}>
+                <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
+                    <img src="/icon-analytics/analyticsprint logo.png" alt="Republic Logo" style={{ width: '80px', height: '80px', margin: '0 auto 10px auto', display: 'block', objectFit: 'contain' }} />
+                    <p style={{ margin: '0 0 5px 0', fontSize: '14px' }}>Republic of the Philippines</p>
+                    <h1 style={{ margin: '4px 0', fontSize: '24px', fontWeight: '900', color: '#1d4ed8' }}>BARANGAY 166, CAYBIGA</h1>
+                    <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>ZONE 15 DISTRICT I, CALOOCAN CITY</p>
+                    <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>#1 GEN LUIS. ST, CAYBIGA CALOOCAN CITY</p>
+                </div>
+                
+                <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
+                    <h2 style={{ margin: '0', fontSize: '18px', fontWeight: 'bold', color: '#1f2937', letterSpacing: '0.05em' }}>TANGGAPAN NG LUPON TAGAMAPAYAMAPA</h2>
+                    <div style={{ textAlign: 'right', marginTop: '15px' }}>
+                      <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#1f2937' }}>{monthYearStringForPrint}</p>
+                    </div>
+                </div>
+                
+                <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px', borderTop: '4px double black', borderBottom: '4px double black', padding: '8px 0' }}>
+                    <h3 style={{ margin: '0', fontSize: '20px', fontWeight: '900', color: '#111827' }}>MONTHLY TRANSMITTAL OF FINAL REPORTS</h3>
+                </div>
+                
+                <div style={{ textAlign: 'left', fontSize: '14px', color: '#111827', marginBottom: '20px' }}>
+                    <div style={{ paddingLeft: '20px', marginBottom: '15px' }}>
+                        <span style={{ fontWeight: 'bold', marginRight: '20px' }}>TO:</span>
+                        <span style={{ display: 'inline-block', verticalAlign: 'top' }}>
+                          <p style={{ margin: '0', fontWeight: 'bold' }}>City / Municipal Judge</p>
+                          <p style={{ margin: '0' }}>Caloocan City</p>
+                        </span>
+                    </div>
+                    <p style={{ margin: '0', textIndent: '40px', lineHeight: '1.6' }}>
+                      Enclosed herewith are the final reports of settlement of disputes and arbitration awards made by the Barangay Captain / Pangkat Tagapagkasundo in the following case:
                     </p>
                 </div>
-                <div style={{ width: '100%', textAlign: 'center', marginTop: '20px' }}>
-                    <img src="/icon-analytics/analytics footerprint.png" alt="Bagong Pilipinas" style={{ height: '70px', objectFit: 'contain', display: 'inline-block' }} />
-                </div>
-            </td>
-          </tr>
-        </tfoot>
-
-      </table>
-    </div>
-  );
+              </th>
+            </tr>
+            
+            <tr style={{ backgroundColor: '#d1d5db' }}>
+                <th style={{ border: '1px solid black', padding: '12px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', width: '35%', color: 'black' }}>
+                  Barangay Case No.
+                </th>
+                <th style={{ border: '1px solid black', padding: '12px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', width: '65%', color: 'black' }}>
+                  Official Case Record
+                  <span style={{ display: 'block', fontSize: '10px', fontWeight: 'normal', fontStyle: 'italic', marginTop: '4px' }}>(Complainant vs Respondent)</span>
+                </th>
+            </tr>
+          </thead>
+  
+          <tbody style={{ display: 'table-row-group' }}>
+              {combinedPrintData.length > 0 ? combinedPrintData.map((item, index) => (
+                  <tr key={index} style={{ pageBreakInside: 'avoid' }}>
+                      <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937' }}>{item.caseNo}</td>
+                      <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase' }}>{item.title}</td>
+                  </tr>
+              )) : (
+                  <tr style={{ pageBreakInside: 'avoid' }}><td colSpan="2" style={{ border: '1px solid black', padding: '30px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#6b7280' }}>No cases recorded for the selected filter period.</td></tr>
+              )}
+          </tbody>
+  
+          <tfoot style={{ display: 'table-footer-group' }}>
+            <tr>
+              <td colSpan="2" style={{ border: 'none', paddingTop: '50px', paddingBottom: '20px' }}>
+                  <div style={{ textAlign: 'right', marginBottom: '30px', width: '100%' }}>
+                      <div style={{ display: 'inline-block', textAlign: 'center', width: '250px' }}>
+                          <div style={{ borderBottom: '1px solid black', marginBottom: '8px', width: '100%' }}></div>
+                          <p style={{ margin: '0', fontWeight: 'bold', fontSize: '14px' }}>Clerk of Court</p>
+                      </div>
+                  </div>
+                  <div style={{ width: '100%', textAlign: 'left', marginBottom: '20px' }}>
+                      <p style={{ margin: '0', fontSize: '10px', color: '#374151', fontWeight: 'bold' }}>
+                        IMPORTANT: <span style={{ fontWeight: 'normal' }}>The Lupon / Pangkat Secretary shall transmit, not later than the first day for preceding month.</span>
+                      </p>
+                  </div>
+                  <div style={{ width: '100%', textAlign: 'center', marginTop: '20px' }}>
+                      <img src="/icon-analytics/analytics footerprint.png" alt="Bagong Pilipinas" style={{ height: '70px', objectFit: 'contain', display: 'inline-block' }} />
+                  </div>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    );
+  };
 
   const renderPrintModal = () => {
     if (!isPrintModalOpen) return null;
@@ -415,7 +582,7 @@ export default function Archived() {
       <div className="fixed inset-0 z-[1050] bg-black/60 backdrop-blur-sm flex justify-center items-start overflow-y-auto py-10 print-hide">
         <div className="bg-white relative flex flex-col shrink-0 w-[210mm] min-h-[297mm] p-[15mm_20mm] mx-auto shadow-2xl">
             
-            {StandardPrintDocument}
+            {getPrintContent()}
             
             <div className="mt-12 flex justify-end gap-4 z-[1060] print-hide w-full border-t border-gray-200 pt-4">
                 <button 
@@ -472,7 +639,7 @@ export default function Archived() {
       
       {/* 🔥 THE ACTUAL PRINT DOCUMENT: ONLY VISIBLE DURING PRINTING 🔥 */}
       <div id="real-print-doc" className="hidden print:block w-full m-0 p-0 absolute top-0 left-0 bg-white z-[99999]">
-        {selected ? renderPrintModal() : StandardPrintDocument}
+        {getPrintContent()}
       </div>
 
       {renderPrintModal()}
@@ -539,7 +706,7 @@ export default function Archived() {
       <div className="flex-1 flex flex-col h-full min-h-0 w-full print-hide">
         {view === 'DETAILS' && selected ? (
           <div className="flex-1 flex flex-col w-full rounded-xl overflow-hidden bg-white shadow-md animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-200">
-            <div className="bg-[#0044CC] px-6 py-4 text-white shadow-md shrink-0 rounded-t-xl flex items-center gap-3">
+            <div className="bg-[#0044CC] px-6 py-4 text-white shadow-md shrink-0 rounded-t-xl flex items-center gap-3 z-30 relative">
               <button onClick={handleBackToTable} className="hover:bg-blue-600 p-1.5 rounded-full transition-colors flex items-center justify-center -ml-2"><ChevronLeft size={26} strokeWidth={2.5} /></button>
               <h1 className="text-xl font-bold">{t('archived_case_details') || 'Archived Case Details'}</h1>
             </div>
@@ -549,8 +716,8 @@ export default function Archived() {
                 <div className="flex items-center gap-3 mb-4">
                   <Folder size={32} className="text-blue-600" strokeWidth={2.5} />
                   <div>
-                    <h2 className="text-2xl font-bold text-blue-900">{selected.caseNo}</h2>
-                    <p className="text-sm text-blue-700 font-medium">Case Folder - All Documents & Records</p>
+                    <h2 className="text-2xl font-bold text-blue-900 uppercase">{selected.caseNo}</h2>
+                    <p className="text-sm text-blue-700 font-medium uppercase">Case Folder - All Documents & Records</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -565,27 +732,27 @@ export default function Archived() {
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2 mb-4">
                   <FileText size={20} className="text-blue-600" />
-                  <h3 className="text-lg font-bold text-[#0044CC]">{t('case_summary')}</h3>
+                  <h3 className="text-lg font-bold text-[#0044CC] uppercase">{t('case_summary')}</h3>
                 </div>
                 <div className="grid grid-cols-2 gap-y-6">
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('case_number')}</p><p className="text-sm font-bold text-gray-800">{selected.caseNo}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('complainant')}</p><p className="text-sm font-bold text-gray-800">{selected.complainantName || 'N/A'}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('resident_name')}</p><p className="text-sm font-bold text-gray-800">{selected.resident}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800">{formatDate(selected.date)}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800">{formatDate(selected.fullData?.incidentDate || selected.date)}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('location')}</p><p className="text-sm font-bold text-gray-800">{selected.fullData?.incidentLocation || 'Barangay 166, Caloocan City'}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('moderator')}</p><p className="text-sm font-bold text-gray-800">{selected.fullData?.selectedRole || 'Lupon Tagapamayapa'}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('case_number')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.caseNo}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('complainant')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.complainantName || 'N/A'}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('resident_name')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800 uppercase">{formatDate(selected.date)}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800 uppercase">{formatDate(selected.fullData?.incidentDate || selected.date)}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('location')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.incidentLocation || 'Barangay 166, Caloocan City'}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('moderator')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.selectedRole || 'Lupon Tagapamayapa'}</p></div>
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Status</p>
                       {String(selected.status || '').toUpperCase() === 'ESCALATED' 
-                        ? <p className="text-sm font-bold text-red-600">ESCALATED & ARCHIVED</p>
-                        : <p className="text-sm font-bold text-green-600">SETTLED & ARCHIVED</p>
+                        ? <p className="text-sm font-bold text-red-600 uppercase">ESCALATED & ARCHIVED</p>
+                        : <p className="text-sm font-bold text-green-600 uppercase">SETTLED & ARCHIVED</p>
                       }
                     </div>
                 </div>
                 <div className="mt-6">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">{t('detailed_description')}</p>
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-xs text-gray-700 leading-relaxed font-medium">
-                    {selected.fullData?.incidentDesc || 'Case has been resolved and archived.'}
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-xs text-gray-700 leading-relaxed font-medium uppercase">
+                    {selected.fullData?.incidentDesc || 'CASE HAS BEEN RESOLVED AND ARCHIVED.'}
                   </div>
                 </div>
               </div>
@@ -594,7 +761,7 @@ export default function Archived() {
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                   <div className="flex items-center gap-2 mb-4">
                     <Gavel size={20} className="text-blue-600" />
-                    <h3 className="text-lg font-bold text-[#0044CC]">Summons Records ({selectedSummons.length})</h3>
+                    <h3 className="text-lg font-bold text-[#0044CC] uppercase">Summons Records ({selectedSummons.length})</h3>
                   </div>
                   {selectedSummons.length > 0 ? (
                     <div className="space-y-4">
@@ -602,31 +769,31 @@ export default function Archived() {
                         <div key={idx} className="border-l-4 border-orange-500 bg-orange-50 p-4 rounded-lg">
                           <div className="flex justify-between items-start mb-3">
                             <div>
-                              <h4 className="font-bold text-gray-900">{summon.summonType === '1' ? '1st Summon' : summon.summonType === '2' ? '2nd Summon' : '3rd Summon'}</h4>
-                              <p className="text-xs text-gray-600 font-semibold">Resident: {summon.residentName}</p>
+                              <h4 className="font-bold text-gray-900 uppercase">{summon.summonType === '1' ? '1st Summon' : summon.summonType === '2' ? '2nd Summon' : '3rd Summon'}</h4>
+                              <p className="text-xs text-gray-600 font-semibold uppercase">Resident: {summon.residentName}</p>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
                               summon.status === 'Active' ? 'bg-green-100 text-green-700' : 
                               summon.status === 'Settled' ? 'bg-blue-100 text-blue-700' : 
                               'bg-gray-100 text-gray-700'
                             }`}>{summon.status}</span>
                           </div>
-                          <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="grid grid-cols-2 gap-3 text-xs uppercase">
                             <div><span className="font-bold text-gray-600">Date:</span> <span className="text-gray-800">{formatDate(summon.summonDate)}</span></div>
                             <div><span className="font-bold text-gray-600">Time:</span> <span className="text-gray-800">{summon.summonTime}</span></div>
                             <div className="col-span-2"><span className="font-bold text-gray-600">Noted By:</span> <span className="text-gray-800">{summon.notedBy}</span></div>
                           </div>
                           {summon.summonReason && (
                             <div className="mt-3 pt-3 border-t border-orange-200">
-                              <p className="text-[10px] font-bold text-gray-600 mb-1">SUMMON REASON:</p>
-                              <div className="text-xs text-gray-700 bg-white p-2 rounded [&_b]:font-bold [&_i]:italic [&_u]:underline" dangerouslySetInnerHTML={{ __html: decodeHTML(summon.summonReason) }} />
+                              <p className="text-[10px] font-bold text-gray-600 mb-1 uppercase">SUMMON REASON:</p>
+                              <div className="text-xs text-gray-700 bg-white p-2 rounded uppercase [&_b]:font-bold [&_i]:italic [&_u]:underline" dangerouslySetInnerHTML={{ __html: decodeHTML(summon.summonReason) }} />
                             </div>
                           )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-sm italic py-4">No summons were issued for this case.</p>
+                    <p className="text-gray-500 text-sm italic py-4 uppercase">NO SUMMONS WERE ISSUED FOR THIS CASE.</p>
                   )}
                 </div>
               )}
@@ -634,51 +801,35 @@ export default function Archived() {
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2 mb-4">
                   <Clock size={20} className="text-blue-600" />
-                  <h3 className="text-lg font-bold text-[#0044CC]">Case Timeline</h3>
+                  <h3 className="text-lg font-bold text-[#0044CC] uppercase">Case Timeline</h3>
                 </div>
                 <div className="space-y-4 relative pl-6 border-l-2 border-blue-200">
                   <div className="relative">
                     <div className="absolute -left-[27px] w-4 h-4 rounded-full bg-blue-600 border-2 border-white"></div>
-                    <div className="text-xs">
-                      <p className="font-bold text-gray-900">{selected.type === 'CURFEW' ? 'Violation Recorded' : 'Case Filed'}</p>
+                    <div className="text-xs uppercase">
+                      <p className="font-bold text-gray-900">{selected.type === 'CURFEW' ? 'VIOLATION RECORDED' : 'CASE FILED'}</p>
                       <p className="text-gray-600">{formatDate(selected.date)}</p>
                     </div>
                   </div>
                   {selectedSummons.sort((a, b) => parseInt(a.summonType) - parseInt(b.summonType)).map((summon, idx) => (
                     <div key={idx} className="relative">
                       <div className="absolute -left-[27px] w-4 h-4 rounded-full bg-orange-500 border-2 border-white"></div>
-                      <div className="text-xs">
-                        <p className="font-bold text-gray-900">{summon.summonType === '1' ? '1st' : summon.summonType === '2' ? '2nd' : '3rd'} Summon Issued</p>
-                        <p className="text-gray-600">{formatDate(summon.summonDate)} at {summon.summonTime}</p>
+                      <div className="text-xs uppercase">
+                        <p className="font-bold text-gray-900">{summon.summonType === '1' ? '1st' : summon.summonType === '2' ? '2nd' : '3rd'} SUMMON ISSUED</p>
+                        <p className="text-gray-600">{formatDate(summon.summonDate)} AT {summon.summonTime}</p>
                       </div>
                     </div>
                   ))}
                   <div className="relative">
                     <div className={`absolute -left-[27px] w-4 h-4 rounded-full border-2 border-white ${String(selected.status || '').toUpperCase() === 'ESCALATED' ? 'bg-red-600' : 'bg-green-600'}`}></div>
-                    <div className="text-xs">
-                      <p className="font-bold text-gray-900">{String(selected.status || '').toUpperCase() === 'ESCALATED' ? 'Case Escalated' : 'Case Settled'}</p>
+                    <div className="text-xs uppercase">
+                      <p className="font-bold text-gray-900">{String(selected.status || '').toUpperCase() === 'ESCALATED' ? 'CASE ESCALATED' : 'CASE SETTLED'}</p>
                       <p className="text-gray-600">{new Date(selected.updatedAt || selected.date).toLocaleDateString()}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Download size={20} className="text-blue-600" />
-                  <h3 className="text-lg font-bold text-[#0044CC]">Export Case Folder</h3>
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={handleDownloadPDFClick} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                    <Download size={18} />
-                    Download as PDF
-                  </button>
-                  <button onClick={handleOpenPrintModal} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                    <Printer size={18} />
-                    Print Case Report
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         ) : (
@@ -842,17 +993,13 @@ export default function Archived() {
             </div>
 
             <div className="flex-1 overflow-y-auto w-full z-10 relative bg-white">
-              <div className="px-6 md:px-8 pt-6 flex gap-3 mb-4 flex-row-reverse print-hide">
-               
-              </div>
-
-              <div className="px-6 md:px-8 pb-8">
+              <div className="px-6 md:px-8 py-6">
                 <table className="w-full border-collapse text-sm relative">
                   <thead className="sticky top-0 z-30 shadow-[0_2px_4px_rgba(0,0,0,0.05)]">
                     <tr className="border-b-2 border-blue-100 text-blue-900 bg-white">
                       <th className="px-4 py-4 text-left font-bold uppercase w-[12%] bg-white">{t('report_type')}</th>
                       <th className="px-4 py-4 text-left font-bold uppercase w-[18%] bg-white">{t('case_number')}</th>
-                      <th className="px-4 py-4 text-left font-bold uppercase w-[30%] bg-white">{t('complainant_name') || 'Complainant Name'}</th>
+                      <th className="px-4 py-4 text-left font-bold uppercase w-[30%] bg-white">{t('complainant_name') || 'Complainant / Resident'}</th>
                       <th className="px-4 py-4 text-left font-bold uppercase w-[40%] bg-white">{t('action')}</th>
                     </tr>
                   </thead>
@@ -869,10 +1016,12 @@ export default function Archived() {
                         <td className="px-4 py-5">
                           <div className="flex items-center gap-2">
                             <Folder size={18} className={`${isEscalated ? 'text-red-600' : 'text-blue-600'}`} strokeWidth={2} />
-                            <span className={`font-bold ${isEscalated ? 'text-red-700' : 'text-gray-700'}`}>{row.caseNo}</span>
+                            <span className={`font-bold uppercase ${isEscalated ? 'text-red-700' : 'text-gray-700'}`}>{row.caseNo}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-5 font-medium text-gray-600">{row.complainantName || row.resident}</td>
+                        <td className="px-4 py-5 font-medium text-gray-600 uppercase">
+                            {row.type === 'CURFEW' ? row.resident : (row.complainantName || row.resident)}
+                        </td>
                         <td className="px-4 py-5">
                           <div className="flex gap-2">
                             <ArchivedButton actionType="restore" onClick={() => handleRestore(row)}>
@@ -887,7 +1036,7 @@ export default function Archived() {
                     )})}
                     {filteredRows.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="py-12 text-center text-gray-400 font-bold bg-white">
+                        <td colSpan={4} className="py-12 text-center text-gray-400 font-bold bg-white uppercase">
                           {t('no_settled_cases') || 'No archived folders found.'}
                         </td>
                       </tr>

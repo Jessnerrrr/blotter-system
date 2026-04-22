@@ -259,13 +259,16 @@ export default function Dashboard() {
             const curfDate = cv.violationDate || cv.date;
             const curfTime = cv.violationTime || cv.time;
             const curfStatus = cv.status || 'ACTIVE';
+            
+            // Apply proper CV tracking code
+            const displayCode = cv.caseNo || `CV-166-${String(curfId).slice(-6).toUpperCase()}`;
 
             currentSeenCurfews[curfId] = curfStatus;
             
             if (!lastSeenCurfews[curfId]) {
                 history.push({
                     id: `curfew_new_${curfId}_${Date.now()}_${Math.random()}`,
-                    title: `CURFEW - NEW VIOLATION LOGGED`,
+                    title: `${displayCode} - NEW VIOLATION LOGGED`,
                     actionText: `Resident: ${curfResident.toUpperCase()}`,
                     editor: 'Patrol Officer',
                     timestamp: getSafeTimestamp(curfDate, curfTime)
@@ -274,7 +277,7 @@ export default function Dashboard() {
             } else if (lastSeenCurfews[curfId] !== curfStatus) {
                 history.push({
                     id: `curfew_update_${curfId}_${Date.now()}_${Math.random()}`,
-                    title: `CURFEW - CASE ${curfStatus.toUpperCase()}`,
+                    title: `${displayCode} - CASE ${curfStatus.toUpperCase()}`,
                     actionText: `Status updated to ${curfStatus}`,
                     editor: 'Admin',
                     timestamp: Date.now()
@@ -409,7 +412,7 @@ export default function Dashboard() {
         date: c.date || c.createdAt
     })),
     ...curfewsData.map(c => ({
-        caseNo: `CRF-${String(c._id || c.id).slice(-6).toUpperCase()}`,
+        caseNo: c.caseNo || `CV-166-${String(c._id || c.id).slice(-6).toUpperCase()}`,
         title: `BARANGAY PATROL VS ${c.residentName || c.resident || 'N/A'}`,
         date: c.violationDate || c.date || c.createdAt
     }))
@@ -442,7 +445,7 @@ export default function Dashboard() {
                   </div>
               </div>
               
-              <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
+              <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px', borderTop: '4px double black', borderBottom: '4px double black', padding: '8px 0' }}>
                   <h3 style={{ margin: '0', fontSize: '20px', fontWeight: '900', color: '#111827' }}>MONTHLY TRANSMITTAL OF FINAL REPORTS</h3>
               </div>
               
@@ -476,37 +479,33 @@ export default function Dashboard() {
         <tbody style={{ display: 'table-row-group' }}>
             {combinedPrintData.length > 0 ? combinedPrintData.map((item, index) => (
                 <tr key={index} style={{ pageBreakInside: 'avoid' }}>
-                    <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937' }}>{item.caseNo}</td>
+                    <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase' }}>{item.caseNo}</td>
                     <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase' }}>{item.title}</td>
                 </tr>
             )) : (
                 <tr style={{ pageBreakInside: 'avoid' }}><td colSpan="2" style={{ border: '1px solid black', padding: '30px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#6b7280' }}>No cases recorded for {monthYearStringForPrint}.</td></tr>
             )}
         </tbody>
-
-        {/* --- STICKY PRINT FOOTER --- */}
-        <tfoot style={{ display: 'table-footer-group' }}>
-          <tr>
-            <td colSpan="2" style={{ border: 'none', paddingTop: '50px', paddingBottom: '20px' }}>
-                <div style={{ textAlign: 'right', marginBottom: '30px', width: '100%' }}>
-                    <div style={{ display: 'inline-block', textAlign: 'center', width: '250px' }}>
-                        <div style={{ borderBottom: '1px solid black', marginBottom: '8px', width: '100%' }}></div>
-                        <p style={{ margin: '0', fontWeight: 'bold', fontSize: '14px' }}>Clerk of Court</p>
-                    </div>
-                </div>
-                <div style={{ width: '100%', textAlign: 'left', marginBottom: '20px' }}>
-                    <p style={{ margin: '0', fontSize: '10px', color: '#374151', fontWeight: 'bold' }}>
-                      IMPORTANT: <span style={{ fontWeight: 'normal' }}>The Lupon / Pangkat Secretary shall transmit, not later than the first day for preceding month.</span>
-                    </p>
-                </div>
-                <div style={{ width: '100%', textAlign: 'center', marginTop: '20px' }}>
-                    <img src="/icon-analytics/analytics footerprint.png" alt="Bagong Pilipinas" style={{ height: '70px', objectFit: 'contain', display: 'inline-block' }} />
-                </div>
-            </td>
-          </tr>
-        </tfoot>
-
       </table>
+
+      {/* --- MOVED FOOTER HERE SO IT ONLY PRINTS ON THE LAST PAGE --- */}
+      <div style={{ paddingTop: '50px', paddingBottom: '20px', pageBreakInside: 'avoid' }}>
+          <div style={{ textAlign: 'right', marginBottom: '30px', width: '100%' }}>
+              <div style={{ display: 'inline-block', textAlign: 'center', width: '250px' }}>
+                  <div style={{ borderBottom: '1px solid black', marginBottom: '8px', width: '100%' }}></div>
+                  <p style={{ margin: '0', fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase' }}>Clerk of Court</p>
+              </div>
+          </div>
+          <div style={{ width: '100%', textAlign: 'left', marginBottom: '20px' }}>
+              <p style={{ margin: '0', fontSize: '10px', color: '#374151', fontWeight: 'bold' }}>
+                IMPORTANT: <span style={{ fontWeight: 'normal' }}>The Lupon / Pangkat Secretary shall transmit, not later than the first day for preceding month.</span>
+              </p>
+          </div>
+          <div style={{ width: '100%', textAlign: 'center', marginTop: '20px' }}>
+              <img src="/icon-analytics/analytics footerprint.png" alt="Bagong Pilipinas" style={{ height: '70px', objectFit: 'contain', display: 'inline-block' }} />
+          </div>
+      </div>
+
     </div>
   );
 
@@ -514,11 +513,11 @@ export default function Dashboard() {
     if (!isPrintModalOpen) return null;
     return (
       <div className="fixed inset-0 z-[1050] bg-black/60 backdrop-blur-sm flex justify-center items-start overflow-y-auto py-10 print-hide">
-        <div className="bg-white relative flex flex-col shrink-0 w-[210mm] min-h-[297mm] p-[15mm_20mm] mx-auto">
+        <div className="bg-white relative flex flex-col shrink-0 w-[210mm] min-h-[297mm] p-[15mm_20mm] mx-auto shadow-2xl">
             
             {StandardPrintDocument}
             
-            <div className="mt-12 flex justify-end gap-4 z-[1060] print-hide w-full">
+            <div className="mt-12 flex justify-end gap-4 z-[1060] print-hide w-full border-t border-gray-200 pt-4">
                 <button 
                   onClick={handleCancelPrint} 
                   className="px-6 py-2.5 text-sm rounded-xl border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 shadow-md font-bold transition-colors"
@@ -731,14 +730,18 @@ export default function Dashboard() {
               <div className="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar bg-slate-50">
                 {selectedDateInfo.items.map((item, idx) => {
                   if (item.isCurfew) {
+                    const displayCode = item.data.caseNo || `CV-166-${String(item.data._id || item.data.id).slice(-6).toUpperCase()}`;
                     return (
                       <div key={idx} className="bg-white border-l-4 border-l-pink-500 p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition-shadow">
                         <div className="flex justify-between items-start mb-2">
                           <span className="bg-pink-100 text-pink-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Curfew Violation</span>
-                          <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><Clock size={12}/> {item.data.violationTime || item.data.time || 'N/A'}</span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase">#{displayCode}</span>
+                            <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><Clock size={12}/> {item.data.violationTime || item.data.time || 'N/A'}</span>
+                          </div>
                         </div>
-                        <span className="font-bold text-gray-800 text-sm mb-1">{item.data.residentName || item.data.resident}</span>
-                        <span className="text-xs text-gray-500 line-clamp-1">{item.data.location || item.data.address}</span>
+                        <span className="font-bold text-gray-800 text-sm mb-1 uppercase">{item.data.residentName || item.data.resident}</span>
+                        <span className="text-xs text-gray-500 line-clamp-1 uppercase">{item.data.location || item.data.address}</span>
                       </div>
                     );
                   } else {
@@ -754,10 +757,10 @@ export default function Dashboard() {
                       <div key={idx} className={`bg-white border-l-4 ${borderColor} p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition-shadow`}>
                         <div className="flex justify-between items-start mb-2">
                           <span className={`${badgeColor} text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider`}>{type || 'CASE'}</span>
-                          <span className="text-[10px] font-bold text-gray-400">#{item.data.caseNo}</span>
+                          <span className="text-[10px] font-bold text-gray-400 uppercase">#{item.data.caseNo}</span>
                         </div>
-                        <span className="font-bold text-gray-800 text-sm mb-1">{item.data.complainantName} <span className="text-gray-400 font-medium mx-1 text-xs">vs</span> {item.data.resident || item.data.respondentName}</span>
-                        <span className="text-xs text-gray-500 font-semibold">{item.data.status || 'PENDING'}</span>
+                        <span className="font-bold text-gray-800 text-sm mb-1 uppercase">{item.data.complainantName} <span className="text-gray-400 font-medium mx-1 text-xs lowercase">vs</span> {item.data.resident || item.data.respondentName}</span>
+                        <span className="text-xs text-gray-500 font-semibold uppercase">{item.data.status || 'PENDING'}</span>
                       </div>
                     );
                   }
@@ -1029,10 +1032,21 @@ export default function Dashboard() {
                <div className="relative flex-1 overflow-hidden">
                  <div className="absolute inset-0 overflow-y-auto custom-scrollbar pr-2 space-y-3">
                    {recentActivities.length > 0 ? (
-                     recentActivities.map((activity, i) => (
+                     recentActivities.map((activity, i) => {
+                       // Format the activity title if it's a curfew to ensure correct code display
+                       let displayTitle = activity.title;
+                       if (displayTitle.includes("CURFEW - NEW VIOLATION") || displayTitle.includes("CURFEW - CASE")) {
+                           const parts = displayTitle.split(" - ");
+                           if (parts.length > 1 && parts[0] === "CURFEW") {
+                               const curfId = activity.id.split("_")[2];
+                               displayTitle = `CV-166-${String(curfId).slice(-6).toUpperCase()} - ${parts[1]}`;
+                           }
+                       }
+
+                       return (
                        <div key={activity.id} className={`${activityColors[i % activityColors.length]} text-white p-3 rounded-xl shadow-md animate-in slide-in-from-top-4 fade-in duration-500 ease-out`}>
                          <div className="flex justify-between items-start">
-                           <p className="text-[12px] font-bold tracking-wide uppercase">{activity.title}</p>
+                           <p className="text-[12px] font-bold tracking-wide uppercase">{displayTitle}</p>
                            <span className="text-[8px] font-black tracking-widest opacity-80 uppercase ml-2 whitespace-nowrap bg-black/20 px-1.5 py-0.5 rounded">
                              {formatTimeAgo(activity.timestamp)}
                            </span>
@@ -1041,7 +1055,7 @@ export default function Dashboard() {
                            {activity.actionText} • Edited by {activity.editor}
                          </p>
                        </div>
-                     ))
+                     )})
                    ) : (
                      <div className="text-center text-gray-400 py-6 font-medium text-xs">
                        Waiting for recent activities...
@@ -1124,8 +1138,9 @@ export default function Dashboard() {
                              <div className="absolute inset-0 mt-6 flex flex-col gap-1 w-full flex-1 overflow-y-auto custom-scrollbar pr-0.5 p-1 pointer-events-none">
                                {displayItems.map((item, idx) => {
                                  if (item.isCurfew) {
+                                   const displayCode = item.data.caseNo || `CV-166-${String(item.data._id || item.data.id).slice(-6).toUpperCase()}`;
                                    return (
-                                     <div key={`curfew-${idx}`} className="bg-pink-500 text-white text-[8px] font-bold px-1 py-px rounded-sm truncate shadow-sm" title={`Curfew: ${item.data.residentName}`}>
+                                     <div key={`curfew-${idx}`} className="bg-pink-500 text-white text-[8px] font-bold px-1 py-px rounded-sm truncate shadow-sm uppercase" title={`Curfew: ${displayCode}`}>
                                        CURFEW
                                      </div>
                                    );
@@ -1138,7 +1153,7 @@ export default function Dashboard() {
                                    else if (type === 'COMPLAIN') bgColor = 'bg-blue-500';
 
                                    return (
-                                     <div key={`case-${idx}`} className={`${bgColor} text-white text-[8px] font-bold px-1 py-px rounded-sm truncate shadow-sm`} title={`Case No: ${item.data.caseNo}`}>
+                                     <div key={`case-${idx}`} className={`${bgColor} text-white text-[8px] font-bold px-1 py-px rounded-sm truncate shadow-sm uppercase`} title={`Case No: ${item.data.caseNo}`}>
                                        {type || 'CASE'}
                                      </div>
                                    );

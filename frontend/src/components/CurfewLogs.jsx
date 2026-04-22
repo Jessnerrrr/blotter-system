@@ -250,6 +250,30 @@ export default function CurfewLogs() {
 
   const triggerAlert = (msg) => { setAlertMessage(msg); setShowSuccessAlert(true); };
 
+  // 🔥 NEW GENERATOR FUNCTION FOR CURFEW CODE: CV-166-YYYY-MM-SEQ 🔥
+  const generateCurfewNumber = (existingCurfews) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    
+    let maxSequence = 0;
+    
+    existingCurfews.forEach(c => {
+        // Handle _id fallback since old records might not have caseNo
+        const codeToCheck = c.caseNo || '';
+        if (codeToCheck.startsWith(`CV-166-${year}-${month}`)) {
+            const parts = codeToCheck.split('-');
+            const seq = parseInt(parts[4], 10);
+            if (!isNaN(seq) && seq > maxSequence) {
+                maxSequence = seq;
+            }
+        }
+    });
+
+    const nextSequence = String(maxSequence + 1).padStart(2, '0');
+    return `CV-166-${year}-${month}-${nextSequence}`;
+  };
+
   const handleAddCurfew = async (e) => {
     e.preventDefault();
     const ageValue = curfewForm.age !== '' ? Number(curfewForm.age) : null;
@@ -261,15 +285,36 @@ export default function CurfewLogs() {
     Swal.fire({ title: t('Create a_Curfew?') || 'Confirm_Curfew',  icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('Save') || 'Yes, save it!', cancelButtonText: t('Cancel') }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const newRecord = { residentName: curfewForm.resident, location: curfewForm.address, age: ageValue, violationTime: currentDateTime.time, violationDate: currentDateTime.rawDate, status: 'ACTIVE' };
+          // Generate the specific Curfew tracking code here!
+          const generatedCaseNo = generateCurfewNumber(rows);
+
+          const newRecord = { 
+            caseNo: generatedCaseNo, // 🔥 Passed exactly to the DB as 'caseNo' 🔥
+            residentName: curfewForm.resident, 
+            location: curfewForm.address, 
+            age: ageValue, 
+            violationTime: currentDateTime.time, 
+            violationDate: currentDateTime.rawDate, 
+            status: 'ACTIVE' 
+          };
+
           const savedRecord = await curfewsAPI.create(newRecord);
           setRows(prevRows => [savedRecord || { ...newRecord, _id: Date.now() }, ...prevRows]); 
+          
           setFilterYear('All Years');
           setFilterMonth('All Months');
           setFilterDay('All Days');
-          setCurfewForm({ resident: '', address: '', age: '' }); setShowAddCurfewModal(false);
-          Swal.fire({title: 'Successfully Added!', icon: 'success'});
-        } catch (error) { Swal.fire({ title: 'Error', text: 'Failed to save curfew violation.', icon: 'error', confirmButtonColor: '#d33' }); }
+          setCurfewForm({ resident: '', address: '', age: '' }); 
+          setShowAddCurfewModal(false);
+          
+          Swal.fire({
+            title: 'Successfully Added!', 
+            text: `Curfew Violation recorded as ${generatedCaseNo}`,
+            icon: 'success'
+          });
+        } catch (error) { 
+          Swal.fire({ title: 'Error', text: 'Failed to save curfew violation.', icon: 'error', confirmButtonColor: '#d33' }); 
+        }
       }
     });
   };
@@ -366,7 +411,6 @@ export default function CurfewLogs() {
     setIsDateFilterOpen(false);
   };
 
-  // Update logic to display title dynamically when Day is 'All Days'
   let displayDate = `${monthNames[realToday.getMonth()]} ${realToday.getDate()}, ${realToday.getFullYear()}`;
   if (filterYear !== 'All Years' && filterMonth !== 'All Months') {
     if (filterDay === 'All Days') {
@@ -374,6 +418,8 @@ export default function CurfewLogs() {
     } else {
       displayDate = `${monthNames[parseInt(filterMonth) - 1]} ${parseInt(filterDay)}, ${filterYear}`;
     }
+  } else if (filterYear !== 'All Years' && filterMonth === 'All Months') {
+    displayDate = filterYear;
   }
 
   // FILTER LOGIC FOR CURFEW TABLE
@@ -404,7 +450,10 @@ export default function CurfewLogs() {
     const searchLower = searchQuery.toLowerCase();
     const resName = r.residentName || r.resident || '';
     const loc = r.location || r.address || '';
+    
+    // Check against generated caseNo OR residentName OR location
     const matchesSearch = searchQuery === '' || 
+                          (r.caseNo && r.caseNo.toLowerCase().includes(searchLower)) ||
                           resName.toLowerCase().includes(searchLower) ||
                           loc.toLowerCase().includes(searchLower);
 
@@ -555,7 +604,6 @@ export default function CurfewLogs() {
                           Clear
                         </button>
                         
-                        {/* 🔥 NEW WHOLE MONTH BUTTON 🔥 */}
                         <button 
                           onClick={() => {
                             setFilterYear(String(calYear));
@@ -597,6 +645,7 @@ export default function CurfewLogs() {
                   <thead className="sticky top-0 bg-gradient-to-br from-blue-800 to-blue-500 text-white z-10">
                     <tr>
                       <th className="px-6 py-5 text-center font-bold uppercase text-sm">{t('no')}</th>
+                      <th className="px-6 py-5 text-left font-bold uppercase text-sm">CODE</th>
                       <th className="px-6 py-5 text-left font-bold uppercase text-sm">{t('resident_name_caps').replace(' :', '')}</th>
                       <th className="px-6 py-5 text-left font-bold uppercase text-sm">{t('address')}</th>
                       <th className="px-6 py-5 text-center font-bold uppercase text-sm">{t('age')}</th>
@@ -606,26 +655,31 @@ export default function CurfewLogs() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {activeRows.length > 0 ? activeRows.map((row, index) => {
-                      const rowId = row._id || row.id; const resName = row.residentName || row.resident; const loc = row.location || row.address;
+                      const rowId = row._id || row.id; 
+                      const resName = row.residentName || row.resident; 
+                      const loc = row.location || row.address;
+                      const displayCode = row.caseNo || `CV-${String(rowId).slice(-6).toUpperCase()}`;
+
                       return (
                       <tr key={rowId} onClick={() => { setSelectedResident(row); setView('FOLDERS'); }} className="cursor-pointer hover:bg-blue-50/50 transition-colors group">
-                        <td className="px-6 py-5 text-center text-sm font-bold text-[#2563eb]">{String(index + 1).padStart(2, '0')}</td>
-                        <td className="px-6 py-5 font-bold text-gray-800">{resName}</td>
-                        <td className="px-6 py-5 text-sm text-gray-500">{loc}</td>
-                        <td className="px-6 py-5 text-center font-bold text-gray-700">{row.age}</td>
-                        <td className="px-6 py-5 text-center font-extrabold text-sm">
+                        <td className="px-6 py-5 text-center text-sm font-bold text-[#2563eb] uppercase">{String(index + 1).padStart(2, '0')}</td>
+                        <td className="px-6 py-5 text-sm font-bold text-pink-600 uppercase">{displayCode}</td>
+                        <td className="px-6 py-5 font-bold text-gray-800 uppercase">{resName}</td>
+                        <td className="px-6 py-5 text-sm text-gray-500 uppercase">{loc}</td>
+                        <td className="px-6 py-5 text-center font-bold text-gray-700 uppercase">{row.age}</td>
+                        <td className="px-6 py-5 text-center font-extrabold text-sm uppercase">
                           <span className={row.status === 'RESOLVED' || row.status === 'Settled' ? 'text-emerald-500' : 'text-[#ef4444]'}>{row.status === 'RESOLVED' || row.status === 'Settled' ? t('settled').toUpperCase() : t('unsettled').toUpperCase()}</span>
                         </td>
                         <td className="relative px-6 py-5 text-center" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => setStatusMenuOpen(statusMenuOpen === rowId ? null : rowId)} className="text-gray-400 hover:text-[#2563eb] p-2 rounded-full hover:bg-blue-50 transition-colors inline-flex items-center justify-center"><MoreVertical size={20} /></button>
                           {statusMenuOpen === rowId && (
                             <div className="absolute right-10 top-12 z-20 flex flex-col gap-1 rounded-xl border border-gray-200 bg-white p-2 shadow-2xl animate-in fade-in zoom-in-95 duration-100 w-40">
-                                <button onClick={() => handleStatusChange(rowId, 'RESOLVED')} className="px-4 py-2 text-left text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">{t('mark_settled')}</button>
+                                <button onClick={() => handleStatusChange(rowId, 'RESOLVED')} className="px-4 py-2 text-left text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors uppercase">{t('mark_settled')}</button>
                             </div>
                           )}
                         </td>
                       </tr>
-                    )}) : ( <tr><td colSpan="6" className="px-6 py-12 text-center text-gray-400 font-medium">{searchQuery ? `No records found matching "${searchQuery}"` : 'No active curfew records found.'}</td></tr> )}
+                    )}) : ( <tr><td colSpan="7" className="px-6 py-12 text-center text-gray-400 font-medium uppercase">{searchQuery ? `No records found matching "${searchQuery}"` : 'No active curfew records found.'}</td></tr> )}
                   </tbody>
                 </table>
               </div>
@@ -639,14 +693,14 @@ export default function CurfewLogs() {
             <div className="mb-6 flex items-center gap-2 text-gray-500 hover:text-[#2563eb] cursor-pointer w-fit transition-colors" onClick={() => setView('LIST')}><ChevronLeft size={20} /><span className="font-bold text-sm uppercase">{t('back')}</span></div>
             <div className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="mb-2 pl-1">
-              <span className="text-gray-400 font-bold text-sm">
-CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r.status !== 'RESOLVED' && r.status !== 'Settled').findIndex(r => (r._id || r.id) === (selectedResident._id || selectedResident.id)) + 1).padStart(2, '0')}</span>            </span>
-              <span className="text-gray-400 font-bold text-sm ml-6">
+              <span className="text-gray-400 font-bold text-sm uppercase">
+CODE: <span className="text-pink-600 text-base">{selectedResident.caseNo || `CV-${String(selectedResident._id || selectedResident.id).slice(-6).toUpperCase()}`}</span>            </span>
+              <span className="text-gray-400 font-bold text-sm ml-6 uppercase">
                 RESIDENT NAME: <span className="text-gray-900 text-base">{(selectedResident.residentName || selectedResident.resident).toUpperCase()}</span>
               </span>
             </div><button 
   onClick={(e) => { e.stopPropagation(); openAddNotesModal(); }} 
-  className="bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white text-sm font-bold px-5 py-3 rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-2"
+  className="bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white text-sm font-bold px-5 py-3 rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-2 uppercase"
 >
   <Folder size={18} />
   <span>{t('add_curfew_notes')}</span>
@@ -672,7 +726,7 @@ CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r
     e.target.src = "https://cdn-icons-png.flaticon.com/512/3767/3767084.png"
   }} 
 />
-                        <span className="font-medium text-slate-800 group-hover:text-blue-600 transition-colors">{folder.name}</span>
+                        <span className="font-medium text-slate-800 group-hover:text-blue-600 transition-colors uppercase">{folder.name}</span>
                       </div>
                       <div className="relative" onClick={(e) => e.stopPropagation()}>
                         <button type="button" className="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-700" onClick={(e) => { e.stopPropagation(); setFolderActionDropdown(folderActionDropdown === folder.id ? null : folder.id); }}>
@@ -680,18 +734,18 @@ CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r
                         </button>
                         {folderActionDropdown === folder.id && (
                           <div className="absolute right-0 top-full z-20 mt-1 flex flex-col gap-1 rounded-md border border-gray-200 bg-white py-1 shadow-xl animate-in fade-in zoom-in-95 duration-100 w-40">
-                            <button type="button" className="rounded-md px-4 py-2 text-left text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors mx-1 flex items-center" onClick={() => handleViewFolder(folder)}>
+                            <button type="button" className="rounded-md px-4 py-2 text-left text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors mx-1 flex items-center uppercase" onClick={() => handleViewFolder(folder)}>
                               <Eye size={16} className="mr-2" /> {t('view')}
                             </button>
                             <div className="h-px bg-gray-100 w-full my-0.5"></div>
-                            <button type="button" className="rounded-md px-4 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors mx-1 flex items-center" onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}>
+                            <button type="button" className="rounded-md px-4 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors mx-1 flex items-center uppercase" onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}>
                               <Trash2 size={16} className="mr-2" /> {t('delete')}
                             </button>
                           </div>
                         )}
                       </div>
                     </li>
-                  )) : ( <div className="flex items-center justify-center h-40 text-gray-400 font-medium">{t('no_folders')}</div> )}
+                  )) : ( <div className="flex items-center justify-center h-40 text-gray-400 font-medium uppercase">{t('no_folders')}</div> )}
                 </ul>
               </div>
             </section>
@@ -702,7 +756,7 @@ CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r
         {view === 'OVERVIEW' && selectedFolder && (
             <div className="flex-1 flex flex-col w-full h-full animate-in fade-in duration-300">
                 <section className="overflow-hidden rounded-2xl bg-white shadow-lg border border-gray-200 flex-1 flex flex-col">
-                    <div className="rounded-t-2xl bg-blue-700 px-8 py-6 text-white shadow-md shrink-0"><h1 className="text-2xl font-bold uppercase tracking-wide md:text-3xl">{t('curfew_overview_title').replace('{num}', selectedFolder.name.replace('CURFEW ', ''))}</h1><p className="mt-2 text-base text-white/95">{t('curfew_overview_subtitle')}</p></div>
+                    <div className="rounded-t-2xl bg-blue-700 px-8 py-6 text-white shadow-md shrink-0"><h1 className="text-2xl font-bold uppercase tracking-wide md:text-3xl">{t('curfew_overview_title').replace('{num}', selectedFolder.name.replace('CURFEW ', ''))}</h1><p className="mt-2 text-base text-white/95 uppercase">{t('curfew_overview_subtitle')}</p></div>
 
                     <div className="space-y-5 p-6 md:p-8 flex-1 overflow-y-auto">
                         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -710,19 +764,18 @@ CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r
                             <div className="flex items-center gap-3">
                                 {isEditingOverview ? (
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm font-semibold text-blue-700">{t('date')}</span>
+                                        <span className="text-sm font-semibold text-blue-700 uppercase">{t('date')}</span>
                                         
-                                        {/* 🔥 FIX 2: COMPLETELY DELETED DATE INPUT! CALENDAR IS IMPOSSIBLE NOW. 🔥 */}
-                                        <div className="border border-gray-300 bg-gray-100 rounded-md py-1.5 px-4 text-gray-500 font-bold cursor-not-allowed select-none text-sm inline-block min-w-[120px] text-center">
+                                        <div className="border border-gray-300 bg-gray-100 rounded-md py-1.5 px-4 text-gray-500 font-bold cursor-not-allowed select-none text-sm inline-block min-w-[120px] text-center uppercase">
                                             {overviewDate || currentDateTime.rawDate}
                                         </div>
 
                                     </div>
                                 ) : (
-                                    <span className="rounded-full border border-blue-700 bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">{t('date')}: {overviewDate}</span>
+                                    <span className="rounded-full border border-blue-700 bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 uppercase">{t('date')}: {overviewDate}</span>
                                 )}
 
-                                {!isEditingOverview && ( <CurfewButton variant="primary" onClick={handleEditOverviewClick} className="gap-2 rounded-md px-4 py-2.5 text-sm font-semibold"><Edit size={16} />{t('edit_case_overview')}</CurfewButton> )}
+                                {!isEditingOverview && ( <CurfewButton variant="primary" onClick={handleEditOverviewClick} className="gap-2 rounded-md px-4 py-2.5 text-sm font-semibold uppercase"><Edit size={16} />{t('edit_case_overview')}</CurfewButton> )}
                             </div>
                         </div>
 
@@ -731,7 +784,6 @@ CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r
                                 <h3 className="text-sm font-bold uppercase tracking-wide text-gray-700">{t('curfew_overview_label')}</h3>
                                 <div className="border border-gray-300 rounded-lg overflow-hidden focus-within:border-blue-600 transition-colors">
                                     
-                                    {/* 🔥 FIX 1: ADDED rich-text-content CLASS SO BOLD/ITALIC WORKS AS YOU TYPE 🔥 */}
                                     <div
                                         ref={editorRef}
                                         contentEditable
@@ -740,38 +792,36 @@ CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r
                                         onKeyUp={updateFormatState}
                                         onMouseUp={updateFormatState}
                                         data-placeholder={t('type_overview_here')}
-                                        className="rich-text-content min-h-[14rem] w-full p-4 text-sm outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
+                                        className="rich-text-content min-h-[14rem] w-full p-4 text-sm outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 uppercase"
                                     />
                                     
                                     <div className="bg-gray-50 border-t border-gray-200 px-4 py-2 flex items-center gap-1 text-gray-500">
                                         <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat('bold')} className={`rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors ${formatActive.bold ? 'bg-gray-200 text-blue-600' : ''}`} title="Bold"><span className="font-bold font-serif text-lg leading-none px-1">B</span></button>
                                         <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat('italic')} className={`rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors ${formatActive.italic ? 'bg-gray-200 text-blue-600' : ''}`} title="Italic"><span className="italic font-serif text-lg leading-none px-1.5">I</span></button>
                                         <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat('underline')} className={`rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors ${formatActive.underline ? 'bg-gray-200 text-blue-600' : ''}`} title="Underline"><span className="underline font-serif text-lg leading-none px-1">U</span></button>
-                                        
-
-                                        </div>
-                                        
+                                        <div className="w-px h-5 bg-gray-300 mx-2"></div>
+                                        <button type="button" onMouseDown={handleToolbarMouseDown} onClick={handleLinkClick} className="rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors" title="Attach Link"><LinkIcon size={18} /></button>
+                                        <button type="button" onMouseDown={handleToolbarMouseDown} onClick={handleImageClick} className="rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors" title="Insert Image"><ImageIcon size={18} /></button>
+                                    </div>
                                     <input ref={fileInputLinkRef} type="file" className="hidden" accept="*/*" onChange={handleLinkFileSelect} />
                                     <input ref={fileInputImageRef} type="file" className="hidden" accept="image/*" onChange={handleImageFileSelect} />
                                 </div>
-                                <div className="flex justify-end gap-3 pt-4"><CurfewButton variant="outlineLight" onClick={handleCancelOverview} className="rounded-md px-6 py-2 text-sm font-semibold">{t('cancel')}</CurfewButton><CurfewButton variant="primary" onClick={handleSaveOverview} className="rounded-md px-8 py-2 text-sm font-semibold shadow-sm">{t('save')}</CurfewButton></div>
+                                <div className="flex justify-end gap-3 pt-4"><CurfewButton variant="outlineLight" onClick={handleCancelOverview} className="rounded-md px-6 py-2 text-sm font-semibold uppercase">{t('cancel')}</CurfewButton><CurfewButton variant="primary" onClick={handleSaveOverview} className="rounded-md px-8 py-2 text-sm font-semibold shadow-sm uppercase">{t('save')}</CurfewButton></div>
                             </div>
                         ) : (
                             <>
                                 <div className="rounded-lg border-2 border-blue-600 bg-white p-6 shadow-sm">
-                                    
-                                    {/* 🔥 FIX 1: ADDED rich-text-content CLASS SO IT RENDERS AS BOLD/ITALIC AFTER SAVING 🔥 */}
                                     <div
-                                        className="rich-text-content text-sm leading-relaxed text-gray-700 [&_p]:my-2 [&_a]:text-blue-600 [&_a]:underline hover:[&_a]:text-blue-800 [&_img]:max-w-full [&_img]:rounded-md [&_img]:my-2"
+                                        className="rich-text-content text-sm leading-relaxed text-gray-700 uppercase [&_p]:my-2 [&_a]:text-blue-600 [&_a]:underline hover:[&_a]:text-blue-800 [&_img]:max-w-full [&_img]:rounded-md [&_img]:my-2"
                                         dangerouslySetInnerHTML={{ __html: ensureHtml(overviewHtml) }}
                                     />
 
                                 </div>
-                                <div className="flex flex-wrap justify-end gap-3 pt-6"><CurfewButton variant="secondary" onClick={() => setView('FOLDERS')} className="rounded-md px-6 py-2.5 text-sm font-semibold shadow-sm">{t('back_to_curfew_folders')}</CurfewButton><CurfewButton variant="primary" onClick={() => setView('LIST')} className="rounded-md px-8 py-2.5 text-sm font-semibold shadow-sm">{t('ok')}</CurfewButton></div>
+                                <div className="flex flex-wrap justify-end gap-3 pt-6"><CurfewButton variant="secondary" onClick={() => setView('FOLDERS')} className="rounded-md px-6 py-2.5 text-sm font-semibold shadow-sm uppercase">{t('back_to_curfew_folders')}</CurfewButton><CurfewButton variant="primary" onClick={() => setView('LIST')} className="rounded-md px-8 py-2.5 text-sm font-semibold shadow-sm uppercase">{t('ok')}</CurfewButton></div>
                             </>
                         )}
                     </div>
-                    <div className="border-t border-gray-200 px-6 py-5 md:px-8 flex justify-end bg-gray-50 shrink-0"><CurfewButton variant="secondary" onClick={() => setView('LIST')} className="rounded-md px-6 py-2.5 text-sm font-semibold shadow-sm">{t('back_to_curfew_logs')}</CurfewButton></div>
+                    <div className="border-t border-gray-200 px-6 py-5 md:px-8 flex justify-end bg-gray-50 shrink-0"><CurfewButton variant="secondary" onClick={() => setView('LIST')} className="rounded-md px-6 py-2.5 text-sm font-semibold shadow-sm uppercase">{t('back_to_curfew_logs')}</CurfewButton></div>
                 </section>
             </div>
         )}
@@ -786,11 +836,11 @@ CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r
                     </div>
                     <form onSubmit={handleAddNotes} className="p-8 space-y-6">
                         <div className="grid grid-cols-2 gap-6">
-                            <div><label className="mb-2 block text-sm font-extrabold text-[#1e293b]">{t('date')}</label><div className="relative"><input type="text" value={currentDateTime.date} readOnly className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-700 font-bold outline-none cursor-not-allowed bg-gray-50" /><Calendar className="absolute right-4 top-3.5 text-gray-400" size={18} /></div></div>
-                            <div><label className="mb-2 block text-sm font-extrabold text-[#1e293b]">{t('time')}</label><div className="relative"><input type="text" value={currentDateTime.time} readOnly className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-700 font-bold outline-none cursor-not-allowed bg-gray-50" /><Clock className="absolute right-4 top-3.5 text-gray-400" size={18} /></div></div>
+                            <div><label className="mb-2 block text-sm font-extrabold text-[#1e293b] uppercase">{t('date')}</label><div className="relative"><input type="text" value={currentDateTime.date} readOnly className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-700 font-bold outline-none cursor-not-allowed bg-gray-50 uppercase" /><Calendar className="absolute right-4 top-3.5 text-gray-400" size={18} /></div></div>
+                            <div><label className="mb-2 block text-sm font-extrabold text-[#1e293b] uppercase">{t('time')}</label><div className="relative"><input type="text" value={currentDateTime.time} readOnly className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-700 font-bold outline-none cursor-not-allowed bg-gray-50 uppercase" /><Clock className="absolute right-4 top-3.5 text-gray-400" size={18} /></div></div>
                         </div>
-                        <div><label className="mb-2 block text-sm font-extrabold text-[#1e293b]">{t('notes')}</label><textarea placeholder={t('enter_curfew_notes')} className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-700 font-medium placeholder-gray-400 focus:border-[#2563eb] outline-none transition-colors min-h-[140px] resize-y" value={notesForm.content} onChange={e => setNotesForm({...notesForm, content: e.target.value})} /></div>
-                        <div className="flex justify-end gap-3 pt-2"><CurfewButton variant="outline" onClick={handleCloseAddNotesModal} className="rounded-xl px-8 py-3 text-sm font-extrabold">{t('cancel')}</CurfewButton><CurfewButton variant="primary" type="submit" className="rounded-xl px-8 py-3 text-sm font-extrabold">{t('add_notes')}</CurfewButton></div>
+                        <div><label className="mb-2 block text-sm font-extrabold text-[#1e293b] uppercase">{t('notes')}</label><textarea placeholder={t('enter_curfew_notes')} className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-700 font-medium placeholder-gray-400 focus:border-[#2563eb] outline-none transition-colors min-h-[140px] resize-y uppercase" value={notesForm.content} onChange={e => setNotesForm({...notesForm, content: e.target.value})} /></div>
+                        <div className="flex justify-end gap-3 pt-2"><CurfewButton variant="outline" onClick={handleCloseAddNotesModal} className="rounded-xl px-8 py-3 text-sm font-extrabold uppercase">{t('cancel')}</CurfewButton><CurfewButton variant="primary" type="submit" className="rounded-xl px-8 py-3 text-sm font-extrabold uppercase">{t('add_notes')}</CurfewButton></div>
                     </form>
                 </div>
             </div>
@@ -807,15 +857,25 @@ CURFEW NO.: <span className="text-gray-900 text-base">{String(rows.filter(r => r
 </div>
                     <form onSubmit={handleAddCurfew} className="p-8 space-y-6">
                         <div className="grid grid-cols-12 gap-6">
-                            <div className="col-span-8"><label className="mb-2 block text-sm font-bold text-gray-700">{t('date')}</label><div className="relative"><input type="text" value={currentDateTime.date} readOnly className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900 font-bold focus:outline-none cursor-not-allowed" /><Calendar className="absolute right-4 top-3.5 text-gray-400" size={18} /></div></div>
-                            <div className="col-span-4"><label className="mb-2 block text-sm font-bold text-gray-700">{t('time')}</label><div className="relative"><input type="text" value={currentDateTime.time} readOnly className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900 font-bold focus:outline-none cursor-not-allowed text-center" /><Clock className="absolute right-4 top-3.5 text-gray-400" size={18} /></div></div>
+                            <div className="col-span-8"><label className="mb-2 block text-sm font-bold text-gray-700 uppercase">{t('date')}</label><div className="relative"><input type="text" value={currentDateTime.date} readOnly className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900 font-bold focus:outline-none cursor-not-allowed uppercase" /><Calendar className="absolute right-4 top-3.5 text-gray-400" size={18} /></div></div>
+                            <div className="col-span-4"><label className="mb-2 block text-sm font-bold text-gray-700 uppercase">{t('time')}</label><div className="relative"><input type="text" value={currentDateTime.time} readOnly className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900 font-bold focus:outline-none cursor-not-allowed text-center uppercase" /><Clock className="absolute right-4 top-3.5 text-gray-400" size={18} /></div></div>
                         </div>
                         <div className="grid grid-cols-12 gap-6">
                             <div className="col-span-8"><ResidentAutocomplete value={curfewForm.resident} onChange={handleResidentChange} onSelect={handleResidentSelect} onBlur={handleResidentBlur} placeholder={t('full_name') || "Full Name"} label={t('resident_name_caps').replace(' :', '')} required={false} /></div>
-                            <div className="col-span-4"><label className="mb-2 block text-sm font-bold text-gray-700">{t('age')}</label><input type="text" placeholder={ageLoading ? t('fetching_age') || 'Calculating age...' : t('age') || 'Age will be populated automatically'} className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-gray-700 placeholder-gray-400 focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 outline-none transition-all cursor-not-allowed" value={curfewForm.age} readOnly /></div>
+                            <div className="col-span-4">
+                                <label className="mb-2 block text-sm font-bold text-gray-700 uppercase">{t('age')}</label>
+                                <input 
+                                    type="text" 
+                                    placeholder={ageLoading ? t('fetching_age') || 'Calculating age...' : t('age') || 'Auto-calculated'} 
+                                    className="w-full rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-gray-700 placeholder-gray-400 focus:outline-none cursor-not-allowed transition-all uppercase" 
+                                    value={curfewForm.age} 
+                                    readOnly 
+                                    maxLength="3"
+                                />
+                            </div>
                         </div>
-                        <div><label className="mb-2 block text-sm font-bold text-gray-700">{t('address')}</label><input type="text" placeholder={t('input_full_address')} className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-700 placeholder-gray-400 focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 outline-none transition-all" value={curfewForm.address} onChange={e => setCurfewForm({...curfewForm, address: e.target.value})} /></div>
-                        <div className="flex justify-end gap-3 pt-4"><CurfewButton variant="outlineLight" onClick={handleCloseAddCurfewModal} className="rounded-xl px-6 py-2.5 text-sm font-bold">{t('cancel')}</CurfewButton><CurfewButton variant="primary" type="submit" className="rounded-xl px-8 py-2.5 text-sm font-bold">{t('create')}</CurfewButton></div>
+                        <div><label className="mb-2 block text-sm font-bold text-gray-700 uppercase">{t('address')}</label><input type="text" placeholder={t('input_full_address')} className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-700 placeholder-gray-400 focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 outline-none transition-all uppercase" value={curfewForm.address} onChange={e => setCurfewForm({...curfewForm, address: e.target.value})} /></div>
+                        <div className="flex justify-end gap-3 pt-4"><CurfewButton variant="outlineLight" onClick={handleCloseAddCurfewModal} className="rounded-xl px-6 py-2.5 text-sm font-bold uppercase">{t('cancel')}</CurfewButton><CurfewButton variant="primary" type="submit" className="rounded-xl px-8 py-2.5 text-sm font-bold uppercase">{t('create')}</CurfewButton></div>
                     </form>
                 </div>
             </div>

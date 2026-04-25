@@ -21,10 +21,13 @@ const PORT = process.env.PORT || 5000;
 // Connect to MongoDB
 connectDB();
 
-// --- FIXED CORS MIDDLEWARE ---
+// --- AGGRESSIVE CORS FIX FOR VERCEL ---
 app.use(cors({
-  origin: true, // This allows all origins for now to guarantee the fix, or you can use your exact URL
-  credentials: true
+  origin: '*', // Allows all origins to connect
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200 
 }));
 
 app.use(express.json());
@@ -61,8 +64,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// --- FIXED START SERVER WRAPPER ---
-// This prevents Vercel deployments from failing/hanging
+// --- VERCEL SERVERLESS WRAPPER ---
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);

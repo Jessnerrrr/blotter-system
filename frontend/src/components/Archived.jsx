@@ -301,12 +301,6 @@ export default function Archived() {
     }).then((result) => { if (result.isConfirmed) setTimeout(() => { window.print(); }, 300); });
   };
 
-  const executeBrowserPrint = () => {
-    setTimeout(() => {
-      window.print();
-    }, 300);
-  };
-
   const getPrintContent = () => {
     const printDate = new Date();
     const monthYearStringForPrint = printDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
@@ -421,8 +415,8 @@ export default function Archived() {
                     </div>
                 ))}
                 <div style={{ position: 'relative' }}>
-                    <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid white', backgroundColor: String(selected.status || '').toUpperCase() === 'ESCALATED' ? '#dc2626' : '#16a34a' }}></div>
-                    <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>{String(selected.status || '').toUpperCase() === 'ESCALATED' ? 'CASE ESCALATED' : 'CASE SETTLED'}</b>
+                    <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid white', backgroundColor: isEscalated ? '#dc2626' : '#16a34a' }}></div>
+                    <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>{isEscalated ? 'CASE ESCALATED' : 'CASE SETTLED'}</b>
                     <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{formatDate(selected.updatedAt || selected.date)}</span>
                 </div>
             </div>
@@ -435,7 +429,7 @@ export default function Archived() {
                   : "THIS IS TO CERTIFY THAT THE ABOVE-MENTIONED CASE HAS BEEN SUCCESSFULLY MEDIATED AND SETTLED THROUGH THE KATARUNGANG PAMBARANGAY PROCEEDINGS IN ACCORDANCE WITH THE PROVISIONS OF THE LOCAL GOVERNMENT CODE OF 1991. BOTH PARTIES HAVE AGREED TO THE TERMS OF SETTLEMENT AND HAVE COMMITTED TO ABIDE BY THE RESOLUTION REACHED DURING THE MEDIATION PROCESS."
                 }
             </div>
-            
+
             {/* Footer with Signatures */}
             <div style={{ marginTop: '24px', paddingTop: '16px', width: '100%', pageBreakInside: 'avoid', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', borderTop: '1px solid #d1d5db' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', textAlign: 'center', fontSize: '12px', marginBottom: '32px', marginTop: '8px' }}>
@@ -543,7 +537,7 @@ export default function Archived() {
           <tbody style={{ display: 'table-row-group' }}>
               {combinedPrintData.length > 0 ? combinedPrintData.map((item, index) => (
                   <tr key={index} style={{ pageBreakInside: 'avoid' }}>
-                      <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937' }}>{item.caseNo}</td>
+                      <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase' }}>{item.caseNo}</td>
                       <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase' }}>{item.title}</td>
                   </tr>
               )) : (
@@ -827,6 +821,24 @@ export default function Archived() {
                       <p className="text-gray-600">{new Date(selected.updatedAt || selected.date).toLocaleDateString()}</p>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* RESTORED EXPORT CASE FOLDER HERE */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <Download size={20} className="text-blue-600" />
+                  <h3 className="text-lg font-bold text-[#0044CC] uppercase">Export Case Folder</h3>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleDownloadPDFClick} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 uppercase">
+                    <Download size={18} />
+                    Download as PDF
+                  </button>
+                  <button onClick={handleOpenPrintModal} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 uppercase">
+                    <Printer size={18} />
+                    Print Case Report
+                  </button>
                 </div>
               </div>
 

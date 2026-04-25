@@ -15,6 +15,14 @@ const getSafeTimestamp = (dateStr, timeStr = '') => {
   try {
       let parsed = new Date(`${dateStr} ${timeStr}`).getTime();
       if (isNaN(parsed)) parsed = new Date(dateStr).getTime();
+      
+      // Fallback: If date contains hyphens and failed to parse, force it to parse
+      if (isNaN(parsed) && typeof dateStr === 'string' && dateStr.includes('-')) {
+          const parts = dateStr.split('-');
+          if (parts.length === 3 && parts[2].length === 4) {
+              parsed = new Date(`${parts[2]}-${parts[0]}-${parts[1]}`).getTime();
+          }
+      }
       return isNaN(parsed) ? Date.now() : parsed;
   } catch (e) {
       return Date.now();
@@ -22,7 +30,8 @@ const getSafeTimestamp = (dateStr, timeStr = '') => {
 };
 
 const formatTimeAgo = (timestamp) => {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  // Math.max(0, ...) prevents negative seconds if timezone sync is slightly off
+  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
   if (seconds < 60) return 'Just now';
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -221,7 +230,8 @@ export default function Dashboard() {
                     title: `${c.caseNo} - NEW CASE LOGGED`,
                     actionText: `Created by ${c.fullData?.selectedRole || 'System'}`,
                     editor: c.fullData?.selectedRole || 'System',
-                    timestamp: getSafeTimestamp(c.date)
+                    // 🔥 REALTIME FIX: Prioritize exact database creation time
+                    timestamp: c.createdAt ? new Date(c.createdAt).getTime() : getSafeTimestamp(c.date)
                 });
                 historyChanged = true;
             } else if (lastSeenCases[c.caseNo] !== c.status) {
@@ -232,7 +242,8 @@ export default function Dashboard() {
                   title: `${c.caseNo} - ${actionLabel}`,
                   actionText: `Status updated from ${lastSeenCases[c.caseNo]} to ${c.status}`,
                   editor: c.fullData?.selectedRole || 'System',
-                  timestamp: Date.now()
+                  // 🔥 REALTIME FIX: Prioritize exact database update time
+                  timestamp: c.updatedAt ? new Date(c.updatedAt).getTime() : Date.now()
               });
               historyChanged = true;
           }
@@ -247,7 +258,8 @@ export default function Dashboard() {
                     title: `${s.caseNo} - SUMMON NO. ${s.summonType} ISSUED`,
                     actionText: `Assigned to ${s.residentName}`,
                     editor: s.notedBy || 'System',
-                    timestamp: s.id || Date.now()
+                    // 🔥 REALTIME FIX
+                    timestamp: s.createdAt ? new Date(s.createdAt).getTime() : Date.now()
                 });
                 historyChanged = true;
             }
@@ -260,7 +272,6 @@ export default function Dashboard() {
             const curfTime = cv.violationTime || cv.time;
             const curfStatus = cv.status || 'ACTIVE';
             
-            // Apply proper CV tracking code
             const displayCode = cv.caseNo || `CV-166-${String(curfId).slice(-6).toUpperCase()}`;
 
             currentSeenCurfews[curfId] = curfStatus;
@@ -271,7 +282,8 @@ export default function Dashboard() {
                     title: `${displayCode} - NEW VIOLATION LOGGED`,
                     actionText: `Resident: ${curfResident.toUpperCase()}`,
                     editor: 'Patrol Officer',
-                    timestamp: getSafeTimestamp(curfDate, curfTime)
+                    // 🔥 REALTIME FIX
+                    timestamp: cv.createdAt ? new Date(cv.createdAt).getTime() : getSafeTimestamp(curfDate, curfTime)
                 });
                 historyChanged = true;
             } else if (lastSeenCurfews[curfId] !== curfStatus) {
@@ -280,7 +292,8 @@ export default function Dashboard() {
                     title: `${displayCode} - CASE ${curfStatus.toUpperCase()}`,
                     actionText: `Status updated to ${curfStatus}`,
                     editor: 'Admin',
-                    timestamp: Date.now()
+                    // 🔥 REALTIME FIX
+                    timestamp: cv.updatedAt ? new Date(cv.updatedAt).getTime() : Date.now()
                 });
                 historyChanged = true;
             }
@@ -295,7 +308,8 @@ export default function Dashboard() {
                     title: `CURFEW NOTE ADDED - ${note.name.toUpperCase()}`,
                     actionText: `For Resident ID ${note.residentId}`,
                     editor: 'Admin',
-                    timestamp: getSafeTimestamp(note.date, note.time)
+                    // 🔥 REALTIME FIX
+                    timestamp: note.createdAt ? new Date(note.createdAt).getTime() : getSafeTimestamp(note.date, note.time)
                 });
                 historyChanged = true;
             }
@@ -306,10 +320,17 @@ export default function Dashboard() {
         localStorage.setItem('analytics_seen_curfews', JSON.stringify(currentSeenCurfews));
         localStorage.setItem('analytics_seen_notes', JSON.stringify(currentSeenNotes));
 
-        if (historyChanged) localStorage.setItem('activity_history', JSON.stringify(history));
-
-        history.sort((a, b) => b.timestamp - a.timestamp);
-        setRecentActivities(history.slice(0, 10));
+        if (historyChanged) {
+            // Keep array size manageable so it doesn't freeze the browser over time
+            history.sort((a, b) => b.timestamp - a.timestamp);
+            const trimmedHistory = history.slice(0, 50);
+            localStorage.setItem('activity_history', JSON.stringify(trimmedHistory));
+            setRecentActivities(trimmedHistory.slice(0, 10));
+        } else {
+            history.sort((a, b) => b.timestamp - a.timestamp);
+            setRecentActivities(history.slice(0, 10));
+        }
+        
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       }
@@ -488,7 +509,7 @@ export default function Dashboard() {
         </tbody>
       </table>
 
-      {/* --- MOVED FOOTER HERE SO IT ONLY PRINTS ON THE LAST PAGE --- */}
+      {/* --- FOOTER HERE SO IT ONLY PRINTS ON THE LAST PAGE --- */}
       <div style={{ paddingTop: '50px', paddingBottom: '20px', pageBreakInside: 'avoid' }}>
           <div style={{ textAlign: 'right', marginBottom: '30px', width: '100%' }}>
               <div style={{ display: 'inline-block', textAlign: 'center', width: '250px' }}>

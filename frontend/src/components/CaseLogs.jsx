@@ -3,6 +3,7 @@ import { Plus, X, ChevronDown, Check, Upload, Calendar, MapPin, Filter, FileText
 import Swal from 'sweetalert2';
 
 import { useLanguage } from './LanguageContext'; 
+import { useLogo } from './LogoContext'; 
 import { CaseLogsButton } from "./buttons/Buttons"; 
 import { casesAPI, summonsAPI, residentsAPI } from "../services/api";
 import ResidentAutocomplete from './ResidentAutocomplete';
@@ -27,7 +28,6 @@ const getTypeStyle = (type) => {
   }
 };
 
-// Helper function to calculate age from birthdate
 const calculateAge = (birthdate) => {
   if (!birthdate) return '';
   const birth = new Date(birthdate);
@@ -58,6 +58,7 @@ const fetchResidentAge = async (name) => {
 
 export default function CaseLogs() {
   const { t } = useLanguage(); 
+  const { logoUrl } = useLogo();
   const [view, setView] = useState('TABLE'); 
   
   const [cases, setCases] = useState([]);
@@ -108,7 +109,6 @@ export default function CaseLogs() {
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false); 
   
-  // Custom Calendar Dropdown States
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
   
@@ -400,7 +400,6 @@ export default function CaseLogs() {
       return;
     }
 
-    // 🔥 NEW VALIDATION: Check for scheduling conflicts across all active summons 🔥
     const isTimeSlotTaken = allSummonsCache.some((s) => {
       return s.summonDate === finalData.summonDate && 
              s.summonTime === finalData.summonTime && 
@@ -415,7 +414,7 @@ export default function CaseLogs() {
         icon: 'error',
         confirmButtonColor: '#d33'
       });
-      return; // Stop submission
+      return; 
     }
 
     Swal.fire({ title: t('confirm_summon?'), text: t('confirm_save_text'), icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('yes_save'), cancelButtonText: t('cancel') }).then(async (result) => {
@@ -586,7 +585,6 @@ export default function CaseLogs() {
   const handleViewFile = (e, file) => { e.stopPropagation(); setPreviewFile(file); };
   const handleRemoveFile = (index, e) => { e.stopPropagation(); setAttachedFiles(prev => prev.filter((_, i) => i !== index)); };
 
-  // Calendar Calculation logic
   const calYear = calendarViewDate.getFullYear();
   const calMonth = calendarViewDate.getMonth();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -606,7 +604,6 @@ export default function CaseLogs() {
     setIsDateFilterOpen(false);
   };
 
-  // Determine String value to display in dropdown toggle
   let displayDate = `${monthNames[realToday.getMonth()]} ${realToday.getDate()}, ${realToday.getFullYear()}`;
   if (filterYear !== 'All Years' && filterMonth !== 'All Months') {
     if (filterDay === 'All Days') {
@@ -619,41 +616,244 @@ export default function CaseLogs() {
   }
 
   if (view === 'VIEW_CASE' && viewCaseData) {
-     return (
-        <div className="flex-1 overflow-y-auto bg-slate-50 p-8 relative">
-            <style>{`@media print { body * { visibility: hidden; } #printable-overview, #printable-overview * { visibility: visible; } #printable-overview { position: absolute; left: 0; top: 0; width: 100%; padding: 10mm; } }`}</style>
-            <div id="printable-overview" className="hidden print:block text-black font-sans">
-                <h1 className="text-2xl font-bold text-center mb-6 uppercase">{t('case_report_overview')}</h1>
-                <table className="w-full border-collapse border border-black text-sm">
-                    <tbody>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-100 w-1/4 uppercase">{t('report_type')}</td><td className="border border-black p-3 w-1/4 uppercase">{viewCaseData.selectedReportType}</td><td className="border border-black p-3 font-bold bg-gray-100 w-1/4 uppercase">{t('assign_moderator')}</td><td className="border border-black p-3 w-1/4 uppercase">{viewCaseData.selectedRole}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-100 uppercase">{t('case_no')}</td><td className="border border-black p-3 uppercase">{viewCaseData.caseNo}</td><td className="border border-black p-3 font-bold bg-gray-100 uppercase">{t('date_filed')}</td><td className="border border-black p-3 uppercase">{viewCaseData.dateFiled}</td></tr>
-                        <tr><td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('complainant')}</td><td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('respondent')}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('full_name')}</td><td className="border border-black p-3 uppercase">{viewCaseData.complainantName}</td><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('full_name')}</td><td className="border border-black p-3 uppercase">{viewCaseData.respondentName}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('age')}</td><td className="border border-black p-3 uppercase">{viewCaseData.complainantAge || 'N/A'}</td><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('age')}</td><td className="border border-black p-3 uppercase">{viewCaseData.respondentAge || 'N/A'}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('contact_no')}</td><td className="border border-black p-3 uppercase">{viewCaseData.complainantContact}</td><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('contact_no')}</td><td className="border border-black p-3 uppercase">{viewCaseData.respondentContact}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('address')}</td><td className="border border-black p-3 uppercase">{viewCaseData.complainantAddress}</td><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('address')}</td><td className="border border-black p-3 uppercase">{viewCaseData.respondentAddress}</td></tr>
-                        <tr><td colSpan="4" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-wide">{t('incident_details')}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('date_filed')}</td><td className="border border-black p-3 uppercase">{viewCaseData.incidentDate}</td><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('location')}</td><td className="border border-black p-3 uppercase">{viewCaseData.incidentLocation}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50 align-top uppercase">{t('description')}</td><td colSpan="3" className="border border-black p-3 whitespace-pre-wrap leading-relaxed uppercase">{viewCaseData.incidentDesc}</td></tr>
-                        <tr><td className="border border-black p-3 font-bold bg-gray-50 uppercase">{t('noted_by')}</td><td colSpan="3" className="border border-black p-3 uppercase">{viewCaseData.notedBy}</td></tr>
-                    </tbody>
-                  </table>
-                <div className="mt-16 text-right"><div className="inline-block border-t border-black w-64 text-center pt-2 font-bold text-sm uppercase">{t('auth_officer_name')}</div></div>
-            </div>
+    return (
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-8 relative">
+        <style>{`
+          @media print { 
+            /* 1. Nuke React layout locks to allow multi-page scrolling */
+            html, body, #root, .h-screen, .overflow-hidden, .overflow-y-auto, .flex-1 {
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              overflow: visible !important;
+              position: static !important;
+              display: block !important;
+            }
 
-            <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 print:hidden">
-                <div className="bg-blue-700 p-8 text-white text-center"><h2 className="text-3xl font-bold">{t('case_report_overview')}</h2></div>
-                <div className="p-10 space-y-8">
-                    <div className="grid grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-500 mb-2">{t('report_type')}</label><div className="bg-slate-100 p-4 rounded-lg font-bold text-gray-700 uppercase">{viewCaseData.selectedReportType}</div></div><div><label className="block text-sm font-bold text-gray-500 mb-2">{t('assign_moderator')}</label><div className="bg-slate-100 p-4 rounded-lg font-bold text-gray-700 uppercase">{viewCaseData.selectedRole}</div></div></div>
-                    <div className="grid grid-cols-2 gap-6"><div><label className="font-bold text-gray-700">{t('case_no')}</label><input type="text" value={viewCaseData.caseNo} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed font-mono font-bold uppercase" /></div><div><label className="font-bold text-gray-700">{t('date_filed')}</label><input type="text" value={viewCaseData.dateFiled} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed font-bold uppercase" /></div></div>
-                    <div className="grid grid-cols-2 gap-8"><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4><input type="text" value={viewCaseData.complainantName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /><input type="text" value={viewCaseData.complainantAge || 'N/A'} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /><input type="text" value={viewCaseData.complainantContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /><input type="text" value={viewCaseData.complainantAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /></div><div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('Respondent')}</h4><input type="text" value={viewCaseData.respondentName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /><input type="text" value={viewCaseData.respondentAge || 'N/A'} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /><input type="text" value={viewCaseData.respondentContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /><input type="text" value={viewCaseData.respondentAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /></div></div>
-                    <div className="space-y-4"><h4 className="text-blue-600 font-bold border-b pb-2">{t('incident_details')}</h4><div className="grid grid-cols-2 gap-6"><input type="text" value={viewCaseData.incidentDate} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /><input type="text" value={viewCaseData.incidentLocation} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /></div><textarea value={viewCaseData.incidentDesc} readOnly rows="4" className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed resize-none uppercase"></textarea><div><label className="block text-sm font-bold text-gray-700 mb-2">{t('noted_by')}</label><input type="text" value={viewCaseData.notedBy} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" /></div></div>
-                </div>
-                <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4"><button onClick={handlePrintOverview} className="flex items-center px-8 py-3 border-2 border-[#0066FF] text-[#0066FF] font-bold rounded-lg hover:bg-blue-50 transition-colors shadow-sm"><Printer size={18} className="mr-2" />{t('print_details')}</button><button onClick={handleBackToListFromOverview} className="px-8 py-3 border border-gray-300 font-bold text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">{t('back_to_list')}</button></div>
+            /* 2. Hide everything else on the page */
+            body * { visibility: hidden !important; } 
+            
+            /* 3. Make only the print section visible */
+            #printable-overview, #printable-overview * { 
+              visibility: visible !important; 
+              box-sizing: border-box !important;
+            } 
+
+            /* 4. Force the print section to overlay everything at 100% width */
+            #printable-overview { 
+              position: absolute !important; 
+              top: 0 !important; 
+              left: 0 !important; 
+              width: 100% !important; 
+              padding: 0 !important; 
+              margin: 0 !important; 
+              background-color: white !important;
+            } 
+
+            /* 5. Trigger browser paper size options */
+            @page { size: auto; margin: 12mm; }
+
+            /* 6. Table pagination logic */
+            table { 
+              width: 100% !important; 
+              border-collapse: collapse !important; 
+              table-layout: auto !important; 
+              page-break-inside: auto !important;
+            }
+            thead { display: table-header-group !important; }
+            tr { page-break-inside: avoid !important; page-break-after: auto !important; }
+            td, th { page-break-inside: avoid !important; }
+            
+            .align-left-print { text-align: left !important; }
+            .print-hide { display: none !important; }
+          }
+        `}</style>
+
+        {/* --- PRINTABLE CONTENT START --- */}
+        <div id="printable-overview" className="hidden print:block text-black font-sans">
+          <table>
+            {/* THEAD forces the header to print on every new page if the content gets too long */}
+            <thead>
+              <tr>
+                <th colSpan="4" style={{ border: 'none', paddingBottom: '20px', fontWeight: 'normal' }}>
+                  {/* DASHBOARD LETTERHEAD */}
+                  <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
+                      <img 
+                        src="/icon-analytics/analyticsprint logo.png" 
+                        alt="Republic Logo" 
+                        style={{ width: '80px', height: '80px', margin: '0 auto 10px auto', display: 'block', objectFit: 'contain' }} 
+                      />
+                      <p style={{ margin: '0 0 5px 0', fontSize: '14px', textTransform: 'uppercase', fontWeight: '500' }}>Republic of the Philippines</p>
+                      <h1 style={{ margin: '4px 0', fontSize: '26px', fontWeight: '900', color: '#1d4ed8', textTransform: 'uppercase' }}>Barangay 166, Caybiga</h1>
+                      <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase' }}>Zone 15 District I, Caloocan City</p>
+                      <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>#1 GEN LUIS ST., CAYBIGA, CALOOCAN CITY</p>
+                  </div>
+
+                  <div style={{ textAlign: 'center', width: '100%', marginBottom: '30px', borderTop: '4px double black', borderBottom: '4px double black', padding: '12px 0' }}>
+                      <h2 style={{ margin: '0', fontSize: '22px', fontWeight: '900', color: '#111827', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        {t('case_report_overview')}
+                      </h2>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+
+            {/* TBODY contains the actual data */}
+            <tbody style={{ display: 'table-row-group' }}>
+              <tr style={{ height: '50px' }}>
+                <td className="border border-black p-3 font-bold bg-gray-100 w-1/4 uppercase align-left-print">{t('report_type')}</td>
+                <td className="border border-black p-3 w-1/4 uppercase text-center">{viewCaseData.selectedReportType}</td>
+                <td className="border border-black p-3 font-bold bg-gray-100 w-1/4 uppercase align-left-print">{t('assign_moderator')}</td>
+                <td className="border border-black p-3 w-1/4 uppercase text-center">{viewCaseData.selectedRole}</td>
+              </tr>
+              <tr style={{ height: '50px' }}>
+                <td className="border border-black p-3 font-bold bg-gray-100 uppercase align-left-print">{t('case_no')}</td>
+                <td className="border border-black p-3 uppercase text-center font-mono font-bold">{viewCaseData.caseNo}</td>
+                <td className="border border-black p-3 font-bold bg-gray-100 uppercase align-left-print">{t('date_filed')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.dateFiled}</td>
+              </tr>
+              <tr>
+                <td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-widest">{t('complainant')}</td>
+                <td colSpan="2" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-widest">{t('respondent')}</td>
+              </tr>
+              <tr style={{ height: '50px' }}>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('full_name')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.complainantName}</td>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('full_name')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.respondentName}</td>
+              </tr>
+              <tr style={{ height: '50px' }}>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('age')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.complainantAge || 'N/A'}</td>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('age')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.respondentAge || 'N/A'}</td>
+              </tr>
+              <tr style={{ height: '50px' }}>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('contact_no')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.complainantContact}</td>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('contact_no')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.respondentContact}</td>
+              </tr>
+              <tr style={{ height: '50px' }}>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('address')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.complainantAddress}</td>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('address')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.respondentAddress}</td>
+              </tr>
+              <tr>
+                <td colSpan="4" className="border border-black p-3 font-bold text-center bg-gray-200 uppercase tracking-widest">{t('incident_details')}</td>
+              </tr>
+              <tr style={{ height: '50px' }}>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('date_filed')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.incidentDate}</td>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('location')}</td>
+                <td className="border border-black p-3 uppercase text-center">{viewCaseData.incidentLocation}</td>
+              </tr>
+              <tr>
+                <td className="border border-black p-3 font-bold bg-gray-50 align-top uppercase align-left-print">{t('description')}</td>
+                <td colSpan="3" className="border border-black p-4 whitespace-pre-wrap leading-relaxed uppercase text-center">
+                  {viewCaseData.incidentDesc}
+                </td>
+              </tr>
+              <tr style={{ height: '50px' }}>
+                <td className="border border-black p-3 font-bold bg-gray-50 uppercase align-left-print">{t('noted_by')}</td>
+                <td colSpan="3" className="border border-black p-3 uppercase font-bold text-center">
+                  {viewCaseData.notedBy}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* MOVED OUTSIDE THE TABLE SO IT ONLY PRINTS ONCE AT THE VERY END */}
+          <div style={{ paddingTop: '50px', pageBreakInside: 'avoid' }}>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+               <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: '40px' }}>
+                 <div style={{ textAlign: 'center', width: '300px' }}>
+                   <div style={{ borderBottom: '2px solid black', marginBottom: '8px' }}></div>
+                   <p style={{ margin: '0', fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase' }}>{t('auth_officer_name')}</p>
+                   <p style={{ margin: '0', fontSize: '10px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Lupon Secretary / Chairperson</p>
+                 </div>
+               </div>
+               
+               <div style={{ width: '100%', textAlign: 'center', marginTop: '20px' }}>
+                  <img 
+                    src="/icon-analytics/analytics footerprint.png" 
+                    alt="Bagong Pilipinas" 
+                    style={{ height: '70px', objectFit: 'contain', display: 'inline-block' }} 
+                  />
+               </div>
             </div>
+          </div>
+          
         </div>
-     );
+        {/* --- PRINTABLE CONTENT END --- */}
+
+        {/* ON-SCREEN UI (NOT PRINTED) */}
+        <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 print:hidden">
+          <div className="bg-blue-700 p-8 text-white text-center">
+            <h2 className="text-3xl font-bold">{t('case_report_overview')}</h2>
+          </div>
+          <div className="p-10 space-y-8">
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-500 mb-2">{t('report_type')}</label>
+                <div className="bg-slate-100 p-4 rounded-lg font-bold text-gray-700 uppercase">{viewCaseData.selectedReportType}</div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-500 mb-2">{t('assign_moderator')}</label>
+                <div className="bg-slate-100 p-4 rounded-lg font-bold text-gray-700 uppercase">{viewCaseData.selectedRole}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className="font-bold text-gray-700">{t('case_no')}</label>
+                <input type="text" value={viewCaseData.caseNo} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed font-mono font-bold uppercase" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-700">{t('date_filed')}</label>
+                <input type="text" value={viewCaseData.dateFiled} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed font-bold uppercase" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <h4 className="text-blue-600 font-bold border-b pb-2">{t('complainant')}</h4>
+                <input type="text" value={viewCaseData.complainantName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+                <input type="text" value={viewCaseData.complainantAge || 'N/A'} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+                <input type="text" value={viewCaseData.complainantContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+                <input type="text" value={viewCaseData.complainantAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+              </div>
+              <div className="space-y-4">
+                <h4 className="text-blue-600 font-bold border-b pb-2">{t('Respondent')}</h4>
+                <input type="text" value={viewCaseData.respondentName} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+                <input type="text" value={viewCaseData.respondentAge || 'N/A'} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+                <input type="text" value={viewCaseData.respondentContact} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+                <input type="text" value={viewCaseData.respondentAddress} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-blue-600 font-bold border-b pb-2">{t('incident_details')}</h4>
+              <div className="grid grid-cols-2 gap-6">
+                <input type="text" value={viewCaseData.incidentDate} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+                <input type="text" value={viewCaseData.incidentLocation} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+              </div>
+              <textarea value={viewCaseData.incidentDesc} readOnly rows="4" className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed resize-none uppercase"></textarea>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{t('noted_by')}</label>
+                <input type="text" value={viewCaseData.notedBy} readOnly className="w-full bg-slate-100 border border-gray-200 text-gray-600 p-3 rounded-lg cursor-not-allowed uppercase" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4">
+            <button onClick={handlePrintOverview} className="flex items-center px-8 py-3 border-2 border-[#0066FF] text-[#0066FF] font-bold rounded-lg hover:bg-blue-50 transition-colors shadow-sm">
+              <Printer size={18} className="mr-2" />{t('print_details')}
+            </button>
+            <button onClick={handleBackToListFromOverview} className="px-8 py-3 border border-gray-300 font-bold text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+              {t('back_to_list')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (view === 'SUMMON') {
@@ -1003,7 +1203,6 @@ export default function CaseLogs() {
               />
             </div>
 
-            {/* Beautiful Calendar Dropdown Filter */}
             <div className="relative" onClick={e => e.stopPropagation()}>
               <button type="button" onClick={() => { setIsDateFilterOpen(!isDateFilterOpen); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                 <Calendar size={16} className="mr-2 text-blue-500" />
@@ -1022,7 +1221,6 @@ export default function CaseLogs() {
                       <ChevronLeft size={18} strokeWidth={2.5} />
                     </button>
                     
-                    {/* Custom Enhanced Month and Year Select Dropdowns */}
                     <div className="flex items-center gap-2">
                       <div className="relative group">
                         <select
@@ -1082,7 +1280,7 @@ export default function CaseLogs() {
                       const day = i + 1;
                       const isSelected = filterYear === String(calYear) && filterMonth === String(calMonth + 1).padStart(2, '0') && filterDay === String(day).padStart(2, '0');
                       const isToday = currentYear === calYear && currentMonth === calMonth && currentDate === day;
-                      const isFuture = calYear === currentYear && calMonth === currentMonth && day > currentDate;
+                      const isFuture = calYear === currentYear && currentMonth === calMonth && day > currentDate;
 
                       return (
                         <button

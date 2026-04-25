@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import { useLanguage } from './LanguageContext';
-import { Plus, Folder, MoreVertical, X, Calendar, Clock, Eye, Trash2, ChevronLeft, Link as LinkIcon, Image as ImageIcon, Edit, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Folder, MoreVertical, X, Calendar, Clock, Eye, Trash2, ChevronLeft, Link as LinkIcon, Image as ImageIcon, Edit, Search, ChevronDown, ChevronRight, Bold, Italic, Underline } from 'lucide-react';
 import summonsFolderIcon from '/icon-summons/folder-summon.png';
 import { CurfewButton } from './buttons/Buttons';
 import { curfewsAPI, residentsAPI } from "../services/api";
@@ -96,7 +96,6 @@ export default function CurfewLogs() {
   const [statusMenuOpen, setStatusMenuOpen] = useState(null);
 
   const [curfewForm, setCurfewForm] = useState({ resident: '', address: '', age: '' });
-  const [notesForm, setNotesForm] = useState({ content: '' });
   const [ageLoading, setAgeLoading] = useState(false);
 
   const [isEditingOverview, setIsEditingOverview] = useState(false);
@@ -104,6 +103,11 @@ export default function CurfewLogs() {
   const [draftOverviewHtml, setDraftOverviewHtml] = useState(() => ensureHtml(DEFAULT_OVERVIEW));
   const [overviewDate, setOverviewDate] = useState('');
   const [formatActive, setFormatActive] = useState({ bold: false, italic: false, underline: false });
+
+  // Add Notes Modal States
+  const addNotesEditorRef = useRef(null);
+  const [addNotesHtml, setAddNotesHtml] = useState('');
+  const [addNotesFormat, setAddNotesFormat] = useState({ bold: false, italic: false, underline: false });
 
   const editorRef = useRef(null);
   const fileInputLinkRef = useRef(null);
@@ -188,6 +192,9 @@ export default function CurfewLogs() {
   const syncContent = useCallback(() => { if (editorRef.current) setDraftOverviewHtml(editorRef.current.innerHTML); }, []);
   const updateFormatState = useCallback(() => { try { setFormatActive({ bold: document.queryCommandState('bold'), italic: document.queryCommandState('italic'), underline: document.queryCommandState('underline') }); } catch {} }, []);
 
+  const syncAddNotesContent = useCallback(() => { if (addNotesEditorRef.current) setAddNotesHtml(addNotesEditorRef.current.innerHTML); }, []);
+  const updateAddNotesFormatState = useCallback(() => { try { setAddNotesFormat({ bold: document.queryCommandState('bold'), italic: document.queryCommandState('italic'), underline: document.queryCommandState('underline') }); } catch {} }, []);
+
   useEffect(() => { if (isEditingOverview && editorRef.current) { editorRef.current.innerHTML = ensureHtml(draftOverviewHtml); } }, [isEditingOverview]);
 
   const saveSelection = useCallback(() => { const sel = window.getSelection(); if (sel.rangeCount) savedSelectionRef.current = sel.getRangeAt(0).cloneRange(); }, []);
@@ -202,6 +209,17 @@ export default function CurfewLogs() {
     else if (type === 'underline') document.execCommand('underline', false, null);
     syncContent();
     setTimeout(updateFormatState, 0);
+  };
+
+  const applyAddNotesFormat = (type) => {
+    const editor = addNotesEditorRef.current;
+    if (!editor) return;
+    editor.focus();
+    if (type === 'bold') document.execCommand('bold', false, null);
+    else if (type === 'italic') document.execCommand('italic', false, null);
+    else if (type === 'underline') document.execCommand('underline', false, null);
+    syncAddNotesContent();
+    setTimeout(updateAddNotesFormatState, 0);
   };
 
   const handleToolbarMouseDown = (e) => { e.preventDefault(); saveSelection(); };
@@ -250,7 +268,6 @@ export default function CurfewLogs() {
 
   const triggerAlert = (msg) => { setAlertMessage(msg); setShowSuccessAlert(true); };
 
-  // 🔥 NEW GENERATOR FUNCTION FOR CURFEW CODE: CV-166-YYYY-MM-SEQ 🔥
   const generateCurfewNumber = (existingCurfews) => {
     const now = new Date();
     const year = now.getFullYear();
@@ -259,7 +276,6 @@ export default function CurfewLogs() {
     let maxSequence = 0;
     
     existingCurfews.forEach(c => {
-        // Handle _id fallback since old records might not have caseNo
         const codeToCheck = c.caseNo || '';
         if (codeToCheck.startsWith(`CV-166-${year}-${month}`)) {
             const parts = codeToCheck.split('-');
@@ -282,14 +298,22 @@ export default function CurfewLogs() {
       return;
     }
 
-    Swal.fire({ title: t('Create a_Curfew?') || 'Confirm_Curfew',  icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('Save') || 'Yes, save it!', cancelButtonText: t('Cancel') }).then(async (result) => {
+    // 🔥 FIX: Icon restored, word 'Confirm' removed, exact text applied 🔥
+    Swal.fire({ 
+      title: 'Are you sure you want to save this curfew violator record?', 
+      icon: 'question',
+      showCancelButton: true, 
+      confirmButtonColor: '#2563eb', 
+      cancelButtonColor: '#d33', 
+      confirmButtonText: 'Save', 
+      cancelButtonText: 'Cancel' 
+    }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          // Generate the specific Curfew tracking code here!
           const generatedCaseNo = generateCurfewNumber(rows);
 
           const newRecord = { 
-            caseNo: generatedCaseNo, // 🔥 Passed exactly to the DB as 'caseNo' 🔥
+            caseNo: generatedCaseNo, 
             residentName: curfewForm.resident, 
             location: curfewForm.address, 
             age: ageValue, 
@@ -349,25 +373,39 @@ export default function CurfewLogs() {
     }
   };
 
-  const openAddNotesModal = () => { setNotesForm({ content: '' }); setShowAddNotesModal(true); };
+  const openAddNotesModal = () => { setAddNotesHtml(''); setShowAddNotesModal(true); setIsEditingOverview(true); };
 
-  const handleAddNotes = (e) => {
+  const handleAddNotesSubmit = (e) => {
       e.preventDefault();
-      if (!notesForm.content) { Swal.fire({ title: t('incomplete_fields'), text: t('fill_all_required'), icon: 'error', confirmButtonColor: '#d33' }); return; }
-      Swal.fire({ title: t('Save_Note?') || 'confirm_save_title', text: t('Are you sure you want to save this Note?') || 'confirm_save_text', icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('Save') || 'Yes, save it!', cancelButtonText: t('Cancel') }).then((result) => {
+      if (!addNotesHtml || addNotesHtml.trim() === '') { 
+          Swal.fire({ title: t('incomplete_fields'), text: t('fill_all_required'), icon: 'error', confirmButtonColor: '#d33' }); 
+          return; 
+      }
+      
+      Swal.fire({ 
+        title: 'Are you sure you want to save this curfew violator record?', 
+        icon: 'question',
+        showCancelButton: true, 
+        confirmButtonColor: '#2563eb', 
+        cancelButtonColor: '#d33', 
+        confirmButtonText: 'Save', 
+        cancelButtonText: 'Cancel' 
+      }).then((result) => {
         if (result.isConfirmed) {
           const resId = selectedResident._id || selectedResident.id;
           const newFolderCount = folders.filter(f => f.residentId === resId).length + 1;
-          const newFolder = { id: Date.now().toString(), residentId: resId, name: `CURFEW ${newFolderCount}`, date: currentDateTime.date, time: currentDateTime.time, notes: notesForm.content };
-          setFolders([...folders, newFolder]); setShowAddNotesModal(false); triggerAlert(t('curfew_notes_added'));
+          const newFolder = { id: Date.now().toString(), residentId: resId, name: `CURFEW ${newFolderCount}`, date: currentDateTime.date, time: currentDateTime.time, notes: addNotesHtml };
+          setFolders([...folders, newFolder]); 
+          setShowAddNotesModal(false); 
+          triggerAlert(t('curfew_notes_added'));
         }
       });
   };
 
   const handleCloseAddNotesModal = () => {
-    if (notesForm.content) {
+    if (addNotesHtml && addNotesHtml.trim() !== '') {
         Swal.fire({ title: t('discard_changes?'), text: t('This will not be saved'), icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6', confirmButtonText: t('Discard'), cancelButtonText: t('cancel') }).then((result) => {
-            if (result.isConfirmed) { setNotesForm({ content: '' }); setShowAddNotesModal(false); }
+            if (result.isConfirmed) { setAddNotesHtml(''); setShowAddNotesModal(false); }
         });
     } else { setShowAddNotesModal(false); }
   };
@@ -382,7 +420,9 @@ export default function CurfewLogs() {
   const handleViewFolder = (folder) => {
       setFolderActionDropdown(null); setSelectedFolder(folder);
       setOverviewHtml(folder.notes ? ensureHtml(folder.notes) : ensureHtml(DEFAULT_OVERVIEW));
-      setOverviewDate(folder.date || currentDateTime.rawDate); setIsEditingOverview(false); setView('OVERVIEW');
+      setOverviewDate(folder.date || currentDateTime.rawDate); 
+      setIsEditingOverview(false); 
+      setView('OVERVIEW');
   };
 
   const handlePageClick = () => { 
@@ -451,7 +491,6 @@ export default function CurfewLogs() {
     const resName = r.residentName || r.resident || '';
     const loc = r.location || r.address || '';
     
-    // Check against generated caseNo OR residentName OR location
     const matchesSearch = searchQuery === '' || 
                           (r.caseNo && r.caseNo.toLowerCase().includes(searchLower)) ||
                           resName.toLowerCase().includes(searchLower) ||
@@ -466,7 +505,6 @@ export default function CurfewLogs() {
   return (
     <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={handlePageClick}>
       
-      {/* 🔥 FIX 1: AGGRESSIVE CSS RULE TO ENSURE HTML DISPLAYS IN EDITORS 🔥 */}
       <style>{`
         .rich-text-content b, .rich-text-content strong { font-weight: 900 !important; }
         .rich-text-content i, .rich-text-content em { font-style: italic !important; }
@@ -501,7 +539,6 @@ export default function CurfewLogs() {
                   />
                 </div>
 
-                {/* Beautiful Calendar Dropdown Filter */}
                 <div className="relative" onClick={e => e.stopPropagation()}>
                   <button type="button" onClick={() => { setIsDateFilterOpen(!isDateFilterOpen); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                     <Calendar size={16} className="mr-2 text-blue-500" />
@@ -520,7 +557,6 @@ export default function CurfewLogs() {
                           <ChevronLeft size={18} strokeWidth={2.5} />
                         </button>
                         
-                        {/* Custom Enhanced Month and Year Select Dropdowns */}
                         <div className="flex items-center gap-2">
                           <div className="relative group">
                             <select
@@ -752,96 +788,136 @@ CODE: <span className="text-pink-600 text-base">{selectedResident.caseNo || `CV-
           </div>
         )}
 
-        {/* --- VIEW: OVERVIEW EDITOR --- */}
+        {/* --- VIEW: BEAUTIFUL CASE OVERVIEW EDITOR (MATCHING IMAGE) 🔥 */}
         {view === 'OVERVIEW' && selectedFolder && (
-            <div className="flex-1 flex flex-col w-full h-full animate-in fade-in duration-300">
-                <section className="overflow-hidden rounded-2xl bg-white shadow-lg border border-gray-200 flex-1 flex flex-col">
-                    <div className="rounded-t-2xl bg-blue-700 px-8 py-6 text-white shadow-md shrink-0"><h1 className="text-2xl font-bold uppercase tracking-wide md:text-3xl">{t('curfew_overview_title').replace('{num}', selectedFolder.name.replace('CURFEW ', ''))}</h1><p className="mt-2 text-base text-white/95 uppercase">{t('curfew_overview_subtitle')}</p></div>
+          <div className="flex-1 flex flex-col w-full h-full animate-in fade-in duration-300">
+            <section className="overflow-hidden rounded-2xl bg-white shadow-xl border border-gray-200 flex-1 flex flex-col">
+              
+              {/* Header Banner */}
+              <div className="bg-[#2563eb] px-8 py-6 text-white shrink-0">
+                 <h1 className="text-2xl font-bold tracking-wide uppercase">CASE OVERVIEW</h1>
+                 <p className="text-sm font-medium text-white/90 mt-1 uppercase">Official summary of the conducted summon session</p>
+              </div>
 
-                    <div className="space-y-5 p-6 md:p-8 flex-1 overflow-y-auto">
-                        <div className="flex flex-wrap items-center justify-between gap-4">
-                            <span className="rounded-full border border-blue-700 bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 uppercase">{selectedFolder.name}</span>
-                            <div className="flex items-center gap-3">
-                                {isEditingOverview ? (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-semibold text-blue-700 uppercase">{t('date')}</span>
-                                        
-                                        <div className="border border-gray-300 bg-gray-100 rounded-md py-1.5 px-4 text-gray-500 font-bold cursor-not-allowed select-none text-sm inline-block min-w-[120px] text-center uppercase">
-                                            {overviewDate || currentDateTime.rawDate}
-                                        </div>
-
-                                    </div>
-                                ) : (
-                                    <span className="rounded-full border border-blue-700 bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 uppercase">{t('date')}: {overviewDate}</span>
-                                )}
-
-                                {!isEditingOverview && ( <CurfewButton variant="primary" onClick={handleEditOverviewClick} className="gap-2 rounded-md px-4 py-2.5 text-sm font-semibold uppercase"><Edit size={16} />{t('edit_case_overview')}</CurfewButton> )}
-                            </div>
-                        </div>
-
-                        {isEditingOverview ? (
-                            <div className="space-y-3">
-                                <h3 className="text-sm font-bold uppercase tracking-wide text-gray-700">{t('curfew_overview_label')}</h3>
-                                <div className="border border-gray-300 rounded-lg overflow-hidden focus-within:border-blue-600 transition-colors">
-                                    
-                                    <div
-                                        ref={editorRef}
-                                        contentEditable
-                                        suppressContentEditableWarning
-                                        onInput={syncContent}
-                                        onKeyUp={updateFormatState}
-                                        onMouseUp={updateFormatState}
-                                        data-placeholder={t('type_overview_here')}
-                                        className="rich-text-content min-h-[14rem] w-full p-4 text-sm outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 uppercase"
-                                    />
-                                    
-                                    <div className="bg-gray-50 border-t border-gray-200 px-4 py-2 flex items-center gap-1 text-gray-500">
-                                        <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat('bold')} className={`rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors ${formatActive.bold ? 'bg-gray-200 text-blue-600' : ''}`} title="Bold"><span className="font-bold font-serif text-lg leading-none px-1">B</span></button>
-                                        <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat('italic')} className={`rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors ${formatActive.italic ? 'bg-gray-200 text-blue-600' : ''}`} title="Italic"><span className="italic font-serif text-lg leading-none px-1.5">I</span></button>
-                                        <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat('underline')} className={`rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors ${formatActive.underline ? 'bg-gray-200 text-blue-600' : ''}`} title="Underline"><span className="underline font-serif text-lg leading-none px-1">U</span></button>
-                                        <div className="w-px h-5 bg-gray-300 mx-2"></div>
-                                        <button type="button" onMouseDown={handleToolbarMouseDown} onClick={handleLinkClick} className="rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors" title="Attach Link"><LinkIcon size={18} /></button>
-                                        <button type="button" onMouseDown={handleToolbarMouseDown} onClick={handleImageClick} className="rounded p-1.5 hover:bg-gray-200 hover:text-gray-700 transition-colors" title="Insert Image"><ImageIcon size={18} /></button>
-                                    </div>
-                                    <input ref={fileInputLinkRef} type="file" className="hidden" accept="*/*" onChange={handleLinkFileSelect} />
-                                    <input ref={fileInputImageRef} type="file" className="hidden" accept="image/*" onChange={handleImageFileSelect} />
-                                </div>
-                                <div className="flex justify-end gap-3 pt-4"><CurfewButton variant="outlineLight" onClick={handleCancelOverview} className="rounded-md px-6 py-2 text-sm font-semibold uppercase">{t('cancel')}</CurfewButton><CurfewButton variant="primary" onClick={handleSaveOverview} className="rounded-md px-8 py-2 text-sm font-semibold shadow-sm uppercase">{t('save')}</CurfewButton></div>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="rounded-lg border-2 border-blue-600 bg-white p-6 shadow-sm">
-                                    <div
-                                        className="rich-text-content text-sm leading-relaxed text-gray-700 uppercase [&_p]:my-2 [&_a]:text-blue-600 [&_a]:underline hover:[&_a]:text-blue-800 [&_img]:max-w-full [&_img]:rounded-md [&_img]:my-2"
-                                        dangerouslySetInnerHTML={{ __html: ensureHtml(overviewHtml) }}
-                                    />
-
-                                </div>
-                                <div className="flex flex-wrap justify-end gap-3 pt-6"><CurfewButton variant="secondary" onClick={() => setView('FOLDERS')} className="rounded-md px-6 py-2.5 text-sm font-semibold shadow-sm uppercase">{t('back_to_curfew_folders')}</CurfewButton><CurfewButton variant="primary" onClick={() => setView('LIST')} className="rounded-md px-8 py-2.5 text-sm font-semibold shadow-sm uppercase">{t('ok')}</CurfewButton></div>
-                            </>
-                        )}
+              <div className="p-8 flex-1 overflow-y-auto flex flex-col bg-white">
+                 
+                 {/* Case No & Date */}
+                 <div className="flex justify-between items-center mb-8">
+                    <div className="flex items-center gap-2">
+                       <span className="text-sm font-bold text-gray-500 uppercase">CASE NO.:</span>
+                       <span className="text-sm font-bold text-blue-600 uppercase">{selectedFolder.name.replace('CURFEW ', '')}</span>
                     </div>
-                    <div className="border-t border-gray-200 px-6 py-5 md:px-8 flex justify-end bg-gray-50 shrink-0"><CurfewButton variant="secondary" onClick={() => setView('LIST')} className="rounded-md px-6 py-2.5 text-sm font-semibold shadow-sm uppercase">{t('back_to_curfew_logs')}</CurfewButton></div>
-                </section>
-            </div>
+                    <div className="flex items-center gap-3">
+                       <span className="text-sm font-bold text-gray-500 uppercase">DATE:</span>
+                       <div className="border border-gray-200 bg-gray-50 rounded-md py-1.5 px-4 text-gray-700 font-bold select-none text-sm uppercase min-w-[120px] text-center">
+                           {overviewDate || currentDateTime.rawDate}
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* Editor Box */}
+                 <div className="flex flex-col flex-1 min-h-[300px]">
+                    <h3 className="text-sm font-bold text-blue-600 uppercase mb-2">CASE OVERVIEW</h3>
+                    <div className={`flex-1 flex flex-col border rounded-lg overflow-hidden transition-colors ${isEditingOverview ? 'border-blue-500 ring-1 ring-blue-500 focus-within:border-blue-600' : 'border-gray-300'}`}>
+                       
+                       {isEditingOverview ? (
+                         <>
+                           <div
+                              ref={editorRef}
+                              contentEditable
+                              suppressContentEditableWarning
+                              onInput={syncContent}
+                              onKeyUp={updateFormatState}
+                              onMouseUp={updateFormatState}
+                              data-placeholder={t('type_overview_here')}
+                              className="rich-text-content flex-1 w-full p-4 text-sm outline-none uppercase text-gray-700 bg-white overflow-y-auto"
+                           />
+                           {/* Toolbar exactly matching image */}
+                           <div className="bg-white border-t border-gray-200 px-4 py-3 flex items-center gap-2 text-gray-500 shrink-0">
+                              <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat('bold')} className={`rounded p-1 hover:bg-gray-100 hover:text-gray-800 transition-colors ${formatActive.bold ? 'bg-gray-200 text-blue-600' : ''}`}><Bold size={16} /></button>
+                              <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat('italic')} className={`rounded p-1 hover:bg-gray-100 hover:text-gray-800 transition-colors ${formatActive.italic ? 'bg-gray-200 text-blue-600' : ''}`}><Italic size={16} /></button>
+                              <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat('underline')} className={`rounded p-1 hover:bg-gray-100 hover:text-gray-800 transition-colors ${formatActive.underline ? 'bg-gray-200 text-blue-600' : ''}`}><Underline size={16} /></button>
+                              <div className="w-px h-5 bg-gray-300 mx-2"></div>
+                           </div>
+                         </>
+                       ) : (
+                         <div
+                            className="rich-text-content flex-1 w-full p-4 text-sm text-gray-700 uppercase bg-gray-50 overflow-y-auto"
+                            dangerouslySetInnerHTML={{ __html: ensureHtml(overviewHtml) }}
+                         />
+                       )}
+                    </div>
+                 </div>
+
+                 {/* Footer Buttons strictly matching image layout */}
+                 <div className="flex justify-end gap-3 pt-8 shrink-0">
+                    {isEditingOverview ? (
+                      <>
+                         <button onClick={handleCancelOverview} className="rounded-lg px-8 py-2.5 text-sm font-bold border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors uppercase">Cancel</button>
+                         <button onClick={handleSaveOverview} className="rounded-lg px-10 py-2.5 text-sm font-bold bg-[#2563eb] text-white hover:bg-blue-700 transition-colors shadow-sm uppercase">OK</button>
+                      </>
+                    ) : (
+                      <>
+                         <button onClick={() => setIsEditingOverview(true)} className="rounded-lg px-8 py-2.5 text-sm font-bold border border-blue-600 text-blue-600 hover:bg-blue-50 transition-colors uppercase flex items-center gap-2"><Edit size={16}/> Edit</button>
+                         <button onClick={() => setView('FOLDERS')} className="rounded-lg px-10 py-2.5 text-sm font-bold bg-[#2563eb] text-white hover:bg-blue-700 transition-colors shadow-sm uppercase">Back</button>
+                      </>
+                    )}
+                 </div>
+
+              </div>
+            </section>
+          </div>
         )}
 
-        {/* --- MODAL: ADD CURFEW NOTES --- */}
+        {/* --- MODAL: ADD CURFEW NOTES 🔥 UPDATED TO MATCH OVERVIEW FORMAT 🔥 --- */}
         {showAddNotesModal && (
-            <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
-                <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-[#2563eb] px-6 py-5 flex items-center justify-between">
-                        <div className="flex items-center gap-3"><Folder className="text-white opacity-80" size={24} /><h2 className="text-lg font-black text-white tracking-wider uppercase">{t('add_curfew_notes_title')}</h2></div>
-                        <button onClick={handleCloseAddNotesModal} className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20} strokeWidth={3} /></button>
+            <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={handleCloseAddNotesModal}>
+                <div className="w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col h-[85vh]" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-[#2563eb] px-8 py-6 shrink-0">
+                        <h2 className="text-2xl font-bold text-white tracking-wide uppercase">CASE OVERVIEW</h2>
+                        <p className="text-sm font-medium text-white/90 mt-1 uppercase">Official summary of the conducted summon session</p>
                     </div>
-                    <form onSubmit={handleAddNotes} className="p-8 space-y-6">
-                        <div className="grid grid-cols-2 gap-6">
-                            <div><label className="mb-2 block text-sm font-extrabold text-[#1e293b] uppercase">{t('date')}</label><div className="relative"><input type="text" value={currentDateTime.date} readOnly className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-700 font-bold outline-none cursor-not-allowed bg-gray-50 uppercase" /><Calendar className="absolute right-4 top-3.5 text-gray-400" size={18} /></div></div>
-                            <div><label className="mb-2 block text-sm font-extrabold text-[#1e293b] uppercase">{t('time')}</label><div className="relative"><input type="text" value={currentDateTime.time} readOnly className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-700 font-bold outline-none cursor-not-allowed bg-gray-50 uppercase" /><Clock className="absolute right-4 top-3.5 text-gray-400" size={18} /></div></div>
+                    
+                    <div className="p-8 flex-1 overflow-y-auto flex flex-col bg-white">
+                        <div className="flex justify-between items-center mb-8">
+                            <div className="flex items-center gap-2">
+                               <span className="text-sm font-bold text-gray-500 uppercase">CASE NO.:</span>
+                               <span className="text-sm font-bold text-blue-600 uppercase">{folders.filter(f => f.residentId === (selectedResident._id || selectedResident.id)).length + 1}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                               <span className="text-sm font-bold text-gray-500 uppercase">DATE:</span>
+                               <div className="border border-gray-200 bg-gray-50 rounded-md py-1.5 px-4 text-gray-700 font-bold select-none text-sm uppercase min-w-[120px] text-center">
+                                   {currentDateTime.date}
+                               </div>
+                            </div>
                         </div>
-                        <div><label className="mb-2 block text-sm font-extrabold text-[#1e293b] uppercase">{t('notes')}</label><textarea placeholder={t('enter_curfew_notes')} className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-gray-700 font-medium placeholder-gray-400 focus:border-[#2563eb] outline-none transition-colors min-h-[140px] resize-y uppercase" value={notesForm.content} onChange={e => setNotesForm({...notesForm, content: e.target.value})} /></div>
-                        <div className="flex justify-end gap-3 pt-2"><CurfewButton variant="outline" onClick={handleCloseAddNotesModal} className="rounded-xl px-8 py-3 text-sm font-extrabold uppercase">{t('cancel')}</CurfewButton><CurfewButton variant="primary" type="submit" className="rounded-xl px-8 py-3 text-sm font-extrabold uppercase">{t('add_notes')}</CurfewButton></div>
-                    </form>
+
+                        <div className="flex flex-col flex-1 min-h-[300px]">
+                            <h3 className="text-sm font-bold text-blue-600 uppercase mb-2">CASE OVERVIEW</h3>
+                            <div className="flex-1 flex flex-col border border-blue-500 ring-1 ring-blue-500 rounded-lg overflow-hidden transition-colors">
+                                <div
+                                    ref={addNotesEditorRef}
+                                    contentEditable
+                                    onInput={syncAddNotesContent}
+                                    onKeyUp={updateAddNotesFormatState}
+                                    onMouseUp={updateAddNotesFormatState}
+                                    data-placeholder={t('type_overview_here') || "Type notes here..."}
+                                    className="rich-text-content flex-1 w-full p-4 text-sm outline-none uppercase text-gray-700 bg-white overflow-y-auto empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
+                                />
+                                <div className="bg-white border-t border-gray-200 px-4 py-3 flex items-center gap-2 text-gray-500 shrink-0">
+                                    <button type="button" onMouseDown={(e) => { e.preventDefault(); }} onClick={() => applyAddNotesFormat('bold')} className={`rounded p-1 hover:bg-gray-100 hover:text-gray-800 transition-colors ${addNotesFormat.bold ? 'bg-gray-200 text-blue-600' : ''}`}><Bold size={16} /></button>
+                                    <button type="button" onMouseDown={(e) => { e.preventDefault(); }} onClick={() => applyAddNotesFormat('italic')} className={`rounded p-1 hover:bg-gray-100 hover:text-gray-800 transition-colors ${addNotesFormat.italic ? 'bg-gray-200 text-blue-600' : ''}`}><Italic size={16} /></button>
+                                    <button type="button" onMouseDown={(e) => { e.preventDefault(); }} onClick={() => applyAddNotesFormat('underline')} className={`rounded p-1 hover:bg-gray-100 hover:text-gray-800 transition-colors ${addNotesFormat.underline ? 'bg-gray-200 text-blue-600' : ''}`}><Underline size={16} /></button>
+                                    <div className="w-px h-5 bg-gray-300 mx-2"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-8 shrink-0">
+                            <button onClick={handleCloseAddNotesModal} className="rounded-lg px-8 py-2.5 text-sm font-bold border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors uppercase">Cancel</button>
+                            <button onClick={handleAddNotesSubmit} className="rounded-lg px-10 py-2.5 text-sm font-bold bg-[#2563eb] text-white hover:bg-blue-700 transition-colors shadow-sm uppercase">OK</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         )}

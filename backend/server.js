@@ -93,14 +93,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server ONLY if not running on Vercel
-if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL}`);
-    console.log(`🌐 API: http://localhost:${PORT}`);
-  });
-}
+// Start server (Removed the buggy if-statement wrapper)
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL}`);
+  console.log(`🌐 API: http://localhost:${PORT}`);
+});
 
-// Export for Vercel Serverless Functions
 export default app;

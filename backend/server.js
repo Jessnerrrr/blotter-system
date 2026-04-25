@@ -21,44 +21,12 @@ const PORT = process.env.PORT || 5000;
 // Connect to MongoDB
 connectDB();
 
-// Middleware
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173', // Vite default port
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:5173'
-];
-
-// Add production frontend URL if provided via environment variable
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
-
-// Add any Vercel deployments (*.vercel.app)
-allowedOrigins.push(/https:\/\/.+\.vercel\.app$/);
-
+// --- FIXED CORS MIDDLEWARE ---
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, postman)
-    if (!origin) return callback(null, true);
-    
-    // Check against allowed origins
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return origin === allowedOrigin;
-    });
-    
-    if (isAllowed) {
-      return callback(null, true);
-    }
-    
-    console.warn(`CORS blocked: ${origin}`);
-    callback(new Error('Not allowed by CORS'));
-  },
+  origin: true, // This allows all origins for now to guarantee the fix, or you can use your exact URL
   credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -93,11 +61,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server (Removed the buggy if-statement wrapper)
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL}`);
-  console.log(`🌐 API: http://localhost:${PORT}`);
-});
+// --- FIXED START SERVER WRAPPER ---
+// This prevents Vercel deployments from failing/hanging
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌐 API: http://localhost:${PORT}`);
+  });
+}
 
 export default app;

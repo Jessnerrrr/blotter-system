@@ -87,7 +87,7 @@ function MainLayout() {
                     localStorage.removeItem('saved_active_page');
                     
                     // Redirect to login page
-                    window.location.href = '/login'; 
+                    window.location.href = '/'; 
                   }
                 });
               }}

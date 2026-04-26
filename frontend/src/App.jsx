@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, LogOut } from 'lucide-react';
+import Swal from 'sweetalert2'; 
 import { LanguageProvider, useLanguage } from './components/LanguageContext'; 
 import { MainButton } from './components/buttons/Buttons';
 
@@ -13,7 +14,7 @@ import Settings from './components/Settings';
 import { LogoProvider, useLogo } from './components/LogoContext';
 
 function MainLayout() {
-  // 🔥 FIX: Read from local storage first, default to Dashboard if empty
+  // Read from local storage first, default to Dashboard if empty
   const [activePage, setActivePage] = useState(() => {
     return localStorage.getItem('saved_active_page') || 'Dashboard';
   });
@@ -22,7 +23,7 @@ function MainLayout() {
   const { t } = useLanguage();
   const { logoUrl } = useLogo();
 
-  // 🔥 FIX: Save to local storage every time the page changes
+  // Save to local storage every time the page changes
   useEffect(() => {
     localStorage.setItem('saved_active_page', activePage);
   }, [activePage]);
@@ -65,8 +66,43 @@ function MainLayout() {
             <MainButton imageSrc="/archived.png" label={t('archived')} active={activePage === 'Archived'} onClick={() => setActivePage('Archived')} isExpanded={isSidebarHovered} />
           </div>
 
-          {/* Settings Button pushed to the very bottom */}
+          {/* Bottom actions (Logout & Settings) */}
           <div className="mt-auto border-t border-gray-100 pt-2 mb-2">
+            
+            {/* --- LOGOUT BUTTON --- */}
+            <button 
+              onClick={() => {
+                Swal.fire({
+                  title: 'Are you sure you want to logout?',
+                  text: 'You will be returned to the login screen.',
+                  icon: 'warning',
+                  showCancelButton: true,
+                  confirmButtonColor: '#d33',
+                  cancelButtonColor: '#3085d6',
+                  confirmButtonText: 'Yes, log out',
+                  cancelButtonText: 'Cancel'
+                }).then((result) => {
+                  if (result.isConfirmed) {
+                    // Clear the saved page
+                    localStorage.removeItem('saved_active_page');
+                    
+                    // Redirect to login page
+                    window.location.href = '/login'; 
+                  }
+                });
+              }}
+              title={!isSidebarHovered ? "Logout" : ""}
+              className="w-full flex items-center px-3 py-3 mb-1 rounded-lg cursor-pointer transition-all duration-300 overflow-hidden text-red-600 hover:bg-red-50"
+            >
+              <div className="flex-shrink-0 flex items-center justify-center w-8">
+                <LogOut className="w-6 h-6 transition-transform duration-300 hover:scale-110" strokeWidth={2.5} />
+              </div>
+              <span className={`text-sm font-bold transition-all duration-300 ease-in-out whitespace-nowrap ${isSidebarHovered ? 'opacity-100 ml-3 w-auto translate-x-0' : 'opacity-0 w-0 ml-0 -translate-x-4'}`}>
+                Logout
+              </span>
+            </button>
+
+            {/* --- EXISTING SETTINGS BUTTON --- */}
             <button 
               onClick={() => setActivePage('Settings')}
               title={!isSidebarHovered ? "Settings" : ""}
@@ -111,5 +147,4 @@ export default function App() {
       </LogoProvider>
     </LanguageProvider>
   );
-} // force redeploy
- 
+}

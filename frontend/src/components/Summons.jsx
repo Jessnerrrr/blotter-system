@@ -227,69 +227,84 @@ export default function Summons() {
   const handleSaveNote = async () => {
     const noteContent = editorRef.current ? editorRef.current.innerHTML : savedSummaryHtml;
     
-    try {
-      // Find the current summon
-      const currentSummon = selectedSummon;
-      
-      // Prepare notes array (existing notes + new/updated note)
-      const existingNotes = currentSummon.caseNotes || [];
-      const noteIndex = existingNotes.findIndex(n => n.id === selectedNote);
-      
-      let updatedNotes;
-      if (noteIndex >= 0) {
-        // Update existing note
-        updatedNotes = [...existingNotes];
-        updatedNotes[noteIndex] = {
-          ...updatedNotes[noteIndex],
-          content: noteContent,
-          date: editDate,
-          updatedAt: new Date().toISOString()
-        };
-      } else {
-        // Add new note
-        updatedNotes = [...existingNotes, {
-          id: selectedNote,
-          content: noteContent,
-          date: editDate,
-          createdAt: new Date().toISOString()
-        }];
+    // Updated confirmation modal title
+    Swal.fire({
+      title: t('confirm_add_case_notes') || 'Confirm Add Case Notes?',
+      text: t('save_note_confirm') || 'Are you sure you want to save these case notes?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#0066FF',
+      cancelButtonColor: '#d33',
+      confirmButtonText: t('yes_save') || 'Yes, save it!',
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          // Find the current summon
+          const currentSummon = selectedSummon;
+          
+          // Prepare notes array (existing notes + new/updated note)
+          const existingNotes = currentSummon.caseNotes || [];
+          const noteIndex = existingNotes.findIndex(n => n.id === selectedNote);
+          
+          let updatedNotes;
+          if (noteIndex >= 0) {
+            // Update existing note
+            updatedNotes = [...existingNotes];
+            updatedNotes[noteIndex] = {
+              ...updatedNotes[noteIndex],
+              content: noteContent,
+              date: editDate,
+              updatedAt: new Date().toISOString()
+            };
+          } else {
+            // Add new note
+            updatedNotes = [...existingNotes, {
+              id: selectedNote,
+              content: noteContent,
+              date: editDate,
+              createdAt: new Date().toISOString()
+            }];
+          }
+          
+          // Save to database
+          await summonsAPI.update(currentSummon._id, {
+            ...currentSummon,
+            caseNotes: updatedNotes
+          });
+          
+          // Update local state
+          setSavedSummaryHtml(noteContent);
+          if (!caseNotes.includes(selectedNote)) {
+            setCaseNotes(prev => [...prev, selectedNote].sort((a,b) => a - b));
+          }
+          
+          // Update the selectedSummon with new notes
+          setSelectedSummon({
+            ...currentSummon,
+            caseNotes: updatedNotes
+          });
+          
+          Swal.fire({ 
+            title: t('Saved!') || 'Save Successful', 
+            text: t('Changes has been saved.') || 'Case notes saved to database.', 
+            icon: 'success', 
+            confirmButtonColor: '#0066FF' 
+          });
+          setView('OVERVIEW');
+        } catch (error) {
+          console.error('Error saving notes:', error);
+          Swal.fire({ 
+            title: 'Error', 
+            text: 'Failed to save notes to database.', 
+            icon: 'error', 
+            confirmButtonColor: '#d33' 
+          });
+        }
       }
-      
-      // Save to database
-      await summonsAPI.update(currentSummon._id, {
-        ...currentSummon,
-        caseNotes: updatedNotes
-      });
-      
-      // Update local state
-      setSavedSummaryHtml(noteContent);
-      if (!caseNotes.includes(selectedNote)) {
-        setCaseNotes(prev => [...prev, selectedNote].sort((a,b) => a - b));
-      }
-      
-      // Update the selectedSummon with new notes
-      setSelectedSummon({
-        ...currentSummon,
-        caseNotes: updatedNotes
-      });
-      
-      Swal.fire({ 
-        title: t('Saved!') || 'Save Successful', 
-        text: t('Changes has been saved.') || 'Case notes saved to database.', 
-        icon: 'success', 
-        confirmButtonColor: '#0066FF' 
-      });
-      setView('OVERVIEW');
-    } catch (error) {
-      console.error('Error saving notes:', error);
-      Swal.fire({ 
-        title: 'Error', 
-        text: 'Failed to save notes to database.', 
-        icon: 'error', 
-        confirmButtonColor: '#d33' 
-      });
-    }
+    });
   };
+ 
 
   const handleDeleteNote = (noteId, event) => {
     if (event) event.stopPropagation();

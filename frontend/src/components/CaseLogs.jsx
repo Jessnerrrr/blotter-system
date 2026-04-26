@@ -171,6 +171,11 @@ export default function CaseLogs() {
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [previewFile, setPreviewFile] = useState(null); 
   const fileInputRef = useRef(null);
+
+  // Formatting Indicators State
+  const [isBold, setIsBold] = useState(false);
+  const [isItalic, setIsItalic] = useState(false);
+  const [isUnderline, setIsUnderline] = useState(false);
   
   const [formErrors, setFormErrors] = useState({});
   const [summonErrors, setSummonErrors] = useState({});
@@ -313,6 +318,9 @@ export default function CaseLogs() {
         summonDate: '', summonTime: '', selectedHour: '00', selectedMinute: '00', selectedPeriod: '--', summonType: '', summonReason: '', notedBy: ''
       });
       setSummonErrors({});
+      setIsBold(false);
+      setIsItalic(false);
+      setIsUnderline(false);
       if(editorRef.current) editorRef.current.innerHTML = "";
       setView('SUMMON');
     } catch (error) {
@@ -335,35 +343,43 @@ export default function CaseLogs() {
   };
 
   const handleSummonInputChange = (e) => {
-  const { name, value } = e.target;
-  
-  if (name === 'summonType' && value === '2' && !takenSummons.includes('1')) {
-    Swal.fire({
-      title: 'Cannot Select Second Summon',
-      text: 'You must issue the First Summon before issuing the Second Summon.',
-      icon: 'warning',
-      confirmButtonColor: '#d33'
-    });
-    return;
-  }
-  
-  if (name === 'summonType' && value === '3' && !takenSummons.includes('2')) {
-    Swal.fire({
-      title: 'Cannot Select Third Summon',
-      text: 'You must issue the Second Summon before issuing the Third Summon.',
-      icon: 'warning',
-      confirmButtonColor: '#d33'
-    });
-    return;
-  }
-  
-  setSummonData(prev => ({ ...prev, [name]: value }));
-  if (summonErrors[name]) setSummonErrors(prev => ({ ...prev, [name]: '' }));
-};
+    const { name, value } = e.target;
+    
+    if (name === 'summonType' && value === '2' && !takenSummons.includes('1')) {
+      Swal.fire({
+        title: 'Cannot Select Second Summon',
+        text: 'You must issue the First Summon before issuing the Second Summon.',
+        icon: 'warning',
+        confirmButtonColor: '#d33'
+      });
+      return;
+    }
+    
+    if (name === 'summonType' && value === '3' && !takenSummons.includes('2')) {
+      Swal.fire({
+        title: 'Cannot Select Third Summon',
+        text: 'You must issue the Second Summon before issuing the Third Summon.',
+        icon: 'warning',
+        confirmButtonColor: '#d33'
+      });
+      return;
+    }
+    
+    setSummonData(prev => ({ ...prev, [name]: value }));
+    if (summonErrors[name]) setSummonErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const updateFormattingState = () => {
+    setIsBold(document.queryCommandState('bold'));
+    setIsItalic(document.queryCommandState('italic'));
+    setIsUnderline(document.queryCommandState('underline'));
+  };
 
   const applyCommand = (e, command, value = null) => {
-    e.preventDefault(); document.execCommand(command, false, value);
+    e.preventDefault(); 
+    document.execCommand(command, false, value);
     if (editorRef.current) editorRef.current.focus();
+    updateFormattingState();
   };
 
   const handleCancelModerator = () => { setIsModeratorModalOpen(false); };
@@ -421,7 +437,7 @@ export default function CaseLogs() {
       if (result.isConfirmed) {
         try {
           const newSummonRecord = { ...finalData, status: 'Active' };
-          const saved = await summonsAPI.create(newSummonRecord);
+          await summonsAPI.create(newSummonRecord);
           window.dispatchEvent(new Event('caseDataUpdated'));
           setView('TABLE');
           Swal.fire({ title: 'Summon Assigned!', text: `Summon scheduled for ${finalData.residentName}.`, icon: 'success', confirmButtonColor: '#1d4ed8' });
@@ -958,12 +974,21 @@ export default function CaseLogs() {
               <label className="block text-xs font-bold text-gray-700 mb-1">{t('summon_reason')}</label>
               <div className={`border-2 rounded-xl overflow-hidden shadow-sm flex flex-col h-40 transition-colors ${summonErrors.summonReason ? 'border-red-500 focus-within:border-red-600 ring-2 ring-red-100' : 'border-gray-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'}`}>
                 <div className="relative flex-1 bg-white cursor-text" onClick={() => editorRef.current?.focus()}>
-                  <div ref={editorRef} contentEditable suppressContentEditableWarning={true} className="w-full h-full p-4 text-sm text-gray-600 focus:outline-none overflow-y-auto" style={{ minHeight: '100%' }} placeholder={t('detailed_description')} />
+                  <div 
+                    ref={editorRef} 
+                    contentEditable 
+                    suppressContentEditableWarning={true} 
+                    onMouseUp={updateFormattingState}
+                    onKeyUp={updateFormattingState}
+                    className="w-full h-full p-4 text-sm text-gray-600 focus:outline-none overflow-y-auto" 
+                    style={{ minHeight: '100%' }} 
+                    placeholder={t('detailed_description')} 
+                  ></div>
                 </div>
                 <div className="bg-gray-50 border-t border-gray-100 px-4 py-2 flex items-center space-x-3 text-gray-500">
-                  <button onMouseDown={(e) => applyCommand(e, 'bold')} className="hover:text-[#0066FF] p-1 rounded" title="Bold"><Bold size={14} /></button>
-                  <button onMouseDown={(e) => applyCommand(e, 'italic')} className="hover:text-[#0066FF] p-1 rounded" title="Italic"><Italic size={14} /></button>
-                  <button onMouseDown={(e) => applyCommand(e, 'underline')} className="hover:text-[#0066FF] p-1 rounded" title="Underline"><Underline size={14} /></button>
+                  <button onMouseDown={(e) => applyCommand(e, 'bold')} className={`p-1.5 rounded transition-all ${isBold ? 'bg-blue-200 text-[#0066FF]' : 'hover:text-[#0066FF]'}`} title="Bold"><Bold size={14} strokeWidth={2.5} /></button>
+                  <button onMouseDown={(e) => applyCommand(e, 'italic')} className={`p-1.5 rounded transition-all ${isItalic ? 'bg-blue-200 text-[#0066FF]' : 'hover:text-[#0066FF]'}`} title="Italic"><Italic size={14} strokeWidth={2.5} /></button>
+                  <button onMouseDown={(e) => applyCommand(e, 'underline')} className={`p-1.5 rounded transition-all ${isUnderline ? 'bg-blue-200 text-[#0066FF]' : 'hover:text-[#0066FF]'}`} title="Underline"><Underline size={14} strokeWidth={2.5} /></button>
                   <div className="h-4 w-px bg-gray-300 mx-2"></div>
                 </div>
               </div>

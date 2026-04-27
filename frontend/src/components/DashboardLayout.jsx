@@ -25,10 +25,9 @@ export default function DashboardLayout({ children }) {
         <div className="mt-auto pt-4 border-t border-gray-200">
           <button 
             onClick={() => {
-              // Put your logout logic here
-              console.log("Logging out");
-              // localStorage.removeItem('saved_active_page');
-              // window.location.href = '/login'; 
+              // Logout logic
+              localStorage.removeItem('saved_active_page');
+              window.location.replace('https://barangay-profiling-private.vercel.app/portal.html');
             }}
             title={!isExpanded ? "Logout" : ""}
             className="w-full flex items-center px-3 py-3 rounded-lg cursor-pointer transition-all duration-300 overflow-hidden text-red-600 hover:bg-red-50 font-medium"

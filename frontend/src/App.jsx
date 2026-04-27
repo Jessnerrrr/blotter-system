@@ -86,8 +86,8 @@ function MainLayout() {
                     // Clear the saved page
                     localStorage.removeItem('saved_active_page');
                     
-                    // Redirect to login page
-                    window.location.href = '/'; 
+                    // Redirect to the deployed system (replace current history entry)
+                    window.location.replace('https://barangay-profiling-private.vercel.app/portal.html'); 
                   }
                 });
               }}

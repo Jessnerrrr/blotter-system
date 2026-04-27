@@ -53,13 +53,10 @@ export default function Summons() {
   const [filterYear, setFilterYear] = useState('All Years');
   const [filterMonth, setFilterMonth] = useState('All Months');
   const [filterDay, setFilterDay] = useState('All Days');
-  const [filterType, setFilterType] = useState('All Types');
   
   // Custom Calendar Dropdown States
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
-
-  const [isTypeSortOpen, setIsTypeSortOpen] = useState(false);
 
   const realToday = new Date();
   const currentYear = realToday.getFullYear();
@@ -67,15 +64,6 @@ export default function Summons() {
   const currentDate = realToday.getDate();
 
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  
-  const typeOptions = [
-      'All Types', 
-      'LUPON', 
-      'VAWC', 
-      'BLOTTER', 
-      'COMPLAIN', 
-      'ESCALATED'
-  ];
 
   useEffect(() => {
     const loadData = async () => {
@@ -160,18 +148,13 @@ export default function Summons() {
     const matchesMonth = filterMonth === 'All Months' || itemMonth === filterMonth.padStart(2, '0');
     const matchesDay = filterDay === 'All Days' || itemDay === filterDay; 
     
-    // Check both standard type AND Escalted Status
-    const matchesType = filterType === 'All Types' || 
-                        item.type === filterType || 
-                        (filterType === 'ESCALATED' && item.status === 'ESCALATED');
-    
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch = searchQuery === '' || 
                           (item.caseNo && item.caseNo.toLowerCase().includes(searchLower)) ||
                           (item.complainantName && item.complainantName.toLowerCase().includes(searchLower)) ||
                           (item.residentName && item.residentName.toLowerCase().includes(searchLower));
 
-    return matchesYear && matchesMonth && matchesDay && matchesType && matchesSearch; 
+    return matchesYear && matchesMonth && matchesDay && matchesSearch; 
   });
 
   const handleOpenFolder = (caseItem) => { setSelectedCase(caseItem); setView('FOLDER'); };
@@ -304,7 +287,6 @@ export default function Summons() {
       }
     });
   };
- 
 
   const handleDeleteNote = (noteId, event) => {
     if (event) event.stopPropagation();
@@ -772,7 +754,6 @@ export default function Summons() {
                       <div className="w-10 h-10 flex-shrink-0"><img src="/icon-summons/folder-summon.png" alt="Folder" className="w-full h-full object-contain drop-shadow-sm" onError={(e) => {e.target.onerror = null; e.target.src = "https://cdn-icons-png.flaticon.com/512/3767/3767084.png"}} /></div>
                       <div className="flex flex-col"><span className="text-base font-extrabold text-gray-800 tracking-wide uppercase group-hover:text-[#0066FF] transition-colors">{t('nav_summons')} {summon.summonType}</span><span className="text-[11px] text-gray-500 font-bold mt-0.5">{summon.summonDate} • {summon.summonTime}</span></div>
                     </div>
-                    <button className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"><MoreVertical size={20} /></button>
                   </div>
                 ))
               ) : ( <div className="p-16 text-center text-gray-400 text-base font-medium">{t('no_summons_in_folder')}</div> )}
@@ -787,7 +768,6 @@ export default function Summons() {
     <div className="flex-1 overflow-y-auto bg-slate-50 p-8" onClick={() => {
         setActiveActionDropdown(null);
         setIsDateFilterOpen(false);
-        setIsTypeSortOpen(false);
         setNoteDropdownOpen(null);
     }}>
       {renderConfirmationModal()}
@@ -795,7 +775,7 @@ export default function Summons() {
       <div className="max-w-[1600px] mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-3xl font-bold text-blue-600 tracking-wide uppercase">{t('nav_summons')}</h2>
+            <h2 className="text-3xl font-bold text-blue-600 tracking-wide uppercase">SUMMON LOGS</h2>
             <p className="text-sm font-bold text-gray-700 whitespace-nowrap mt-1">{t('total_cases') || 'Total Records'}: {filteredData.length}</p>
           </div>
 
@@ -813,7 +793,7 @@ export default function Summons() {
 
             {/* Beautiful Calendar Dropdown Filter */}
             <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsDateFilterOpen(!isDateFilterOpen); setIsTypeSortOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+              <button type="button" onClick={() => setIsDateFilterOpen(!isDateFilterOpen)} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
                 <Calendar size={16} className="mr-2 text-blue-500" />
                 <span className="text-xs font-bold text-gray-700 whitespace-nowrap">{displayDate}</span>
                 <ChevronDown size={14} className={`ml-2 text-gray-400 transition-transform ${isDateFilterOpen ? 'rotate-180' : ''}`} />
@@ -932,24 +912,6 @@ export default function Summons() {
                       Today
                     </button>
                   </div>
-                </div>
-              )}
-            </div>
-
-            <div className="relative" onClick={e => e.stopPropagation()}>
-              <button type="button" onClick={() => { setIsTypeSortOpen(!isTypeSortOpen); setIsDateFilterOpen(false); }} className="flex items-center bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
-                <Filter size={16} className="mr-2 text-gray-500" /> 
-                <span className="text-xs font-bold text-gray-700 w-24 text-left">{filterType}</span> 
-                <ChevronDown size={14} className="ml-1 text-gray-400" />
-              </button>
-              {isTypeSortOpen && (
-                <div className="absolute top-full right-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
-                  {typeOptions.map(tOption => (
-                    <div key={tOption} onClick={() => { setFilterType(tOption); setIsTypeSortOpen(false); }} className={`px-4 py-2 text-xs cursor-pointer flex items-center ${filterType === tOption ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}>
-                      <span className={`w-2 h-2 rounded-full mr-2 ${tOption === 'LUPON' ? 'bg-green-500' : tOption === 'VAWC' ? 'bg-purple-500' : tOption === 'BLOTTER' ? 'bg-red-500' : tOption === 'COMPLAIN' ? 'bg-blue-500' : tOption === 'ESCALATED' ? 'bg-red-600' : 'bg-gray-400'}`} />
-                      {tOption}
-                    </div>
-                  ))}
                 </div>
               )}
             </div>

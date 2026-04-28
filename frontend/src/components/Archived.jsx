@@ -873,7 +873,18 @@ export default function Archived() {
                 </div>
               </div>
 
-              {/* RESTORED EXPORT CASE FOLDER HERE */}
+              {/* RESTORE BUTTON */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <Folder size={20} className="text-green-600" />
+                  <h3 className="text-lg font-bold text-[#0044CC] uppercase">Restore Case</h3>
+                </div>
+                <button onClick={() => handleRestore(selected)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg uppercase">
+                  Restore to Active
+                </button>
+              </div>
+
+              {/* EXPORT CASE FOLDER HERE */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2 mb-4">
                   <Download size={20} className="text-blue-600" />

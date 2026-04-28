@@ -81,6 +81,14 @@ function scanStorage(storage) {
 export function getLoggedInUserName() {
   if (typeof window === 'undefined') return null;
 
+  // Debug: Log all storage contents
+  console.log('[UserAuth] Debugging storage contents:');
+  console.log('[UserAuth] localStorage keys:', Object.keys(localStorage));
+  console.log('[UserAuth] sessionStorage keys:', Object.keys(sessionStorage));
+  console.log('[UserAuth] Cookies:', document.cookie);
+  console.log('[UserAuth] URL params:', window.location.search);
+  console.log('[UserAuth] Hash:', window.location.hash);
+
   const storageKeys = [
     'loggedInUser',
     'loggedInUsername',
@@ -177,6 +185,22 @@ export function getLoggedInUserName() {
     if (candidate) {
       console.log('[UserAuth] Found via window.name:', candidate);
       return candidate;
+    }
+  }
+
+  // Check cookies
+  if (document.cookie) {
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [key, value] = cookie.trim().split('=');
+      const lowerKey = key?.toLowerCase() || '';
+      if (lowerKey.includes('user') || lowerKey.includes('name') || lowerKey.includes('auth') || lowerKey.includes('profile')) {
+        const candidate = normalizeStringCandidate(decodeURIComponent(value));
+        if (candidate) {
+          console.log('[UserAuth] Found via cookie:', key, '=', candidate);
+          return candidate;
+        }
+      }
     }
   }
 

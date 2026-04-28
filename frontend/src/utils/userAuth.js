@@ -84,7 +84,15 @@ export function getLoggedInUserName() {
   // Debug: Log all storage contents
   console.log('[UserAuth] Debugging storage contents:');
   console.log('[UserAuth] localStorage keys:', Object.keys(localStorage));
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    console.log(`[UserAuth] localStorage[${key}]:`, localStorage.getItem(key));
+  }
   console.log('[UserAuth] sessionStorage keys:', Object.keys(sessionStorage));
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    console.log(`[UserAuth] sessionStorage[${key}]:`, sessionStorage.getItem(key));
+  }
   console.log('[UserAuth] Cookies:', document.cookie);
   console.log('[UserAuth] URL params:', window.location.search);
   console.log('[UserAuth] Hash:', window.location.hash);

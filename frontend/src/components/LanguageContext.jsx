@@ -257,7 +257,7 @@ const translations = {
     "swal_restore_text": "Case {caseNo} will be moved back to Active Logs (Pending).",
     "swal_yes_restore": "Restore",
     "swal_restored": "Restored!",
-    "swal_restored_text": "The case has been moved to Curfew Logs.",
+    "swal_restored_text": "The case has been restored.",
     "swal_delete_title": "Delete Permanently?",
     "swal_delete_text": "This record will be gone forever.",
     "swal_yes_delete": "Yes",

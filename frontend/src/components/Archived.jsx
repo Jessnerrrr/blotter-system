@@ -35,6 +35,24 @@ const formatDate = (dateStr) => {
   } catch(e) { return dateStr; }
 };
 
+const formatBlacklistedDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return 'N/A';
+  try {
+    const d = new Date(dateTimeStr);
+    if (isNaN(d)) return dateTimeStr;
+    return d.toLocaleString('en-US', { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true 
+    });
+  } catch(e) { 
+    return dateTimeStr; 
+  }
+};
+
 export default function Archived() {
   const { t } = useLanguage(); 
   const [view, setView] = useState('TABLE');
@@ -85,9 +103,9 @@ export default function Archived() {
         try { allCurfews = await curfewsAPI.getAll(); } catch (e) { console.error("Curfews API error:", e); }
         
         const archivedCases = allCases.filter(c => {
-            const s = String(c.status || '').toUpperCase();
-            return s === 'SETTLED' || s === 'ESCALATED';
-        });
+    const s = String(c.status || '').toUpperCase();
+    return s === 'SETTLED' || s === 'ESCALATED' || s === 'BLACKLISTED';
+});
         
         const archivedCurfews = allCurfews.filter(c => {
             const s = String(c.status || '').toUpperCase();
@@ -365,8 +383,7 @@ export default function Archived() {
                 </div>
                 <div>
                     <span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>DESCRIPTION OF INCIDENT</span>
-                    <div style={{ border: '1px solid #9ca3af', padding: '12px', backgroundColor: '#f9fafb', minHeight: '60px', borderRadius: '4px', fontWeight: '500', textTransform: 'uppercase' }}>
-                        {selected.fullData?.incidentDesc || 'CASE HAS BEEN RESOLVED AND ARCHIVED.'}
+<div style={{ border: '1px solid #9ca3af', padding: '12px', backgroundColor: '#f9fafb', minHeight: '60px', borderRadius: '4px', fontWeight: '500', textTransform: 'uppercase', wordBreak: 'break-all', whiteSpace: 'normal' }}>                        {selected.fullData?.incidentDesc || 'CASE HAS BEEN RESOLVED AND ARCHIVED.'}
                     </div>
                 </div>
             </div>
@@ -390,8 +407,7 @@ export default function Archived() {
                                 {summon.summonReason && (
                                     <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #d1d5db', fontSize: '12px' }}>
                                         <span style={{ fontWeight: 'bold', display: 'block', marginBottom: '4px', color: '#6b7280', fontSize: '10px' }}>REASON:</span>
-                                        <div style={{ textTransform: 'uppercase' }} dangerouslySetInnerHTML={{ __html: decodeHTML(summon.summonReason) }} />
-                                    </div>
+<div style={{ textTransform: 'uppercase', wordBreak: 'break-all', whiteSpace: 'normal' }} dangerouslySetInnerHTML={{ __html: decodeHTML(summon.summonReason) }} />                                    </div>
                                 )}
                             </div>
                         )) : <p style={{ fontSize: '13px', fontStyle: 'italic', color: '#6b7280', padding: '12px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>NO SUMMONS WERE ISSUED FOR THIS CASE.</p>}
@@ -414,6 +430,13 @@ export default function Archived() {
                         <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{formatDate(summon.summonDate)} AT {summon.summonTime}</span>
                     </div>
                 ))}
+                {selected.blacklistedAt && (
+    <div style={{ marginBottom: '16px', position: 'relative' }}>
+        <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid white', backgroundColor: '#000000' }}></div>
+        <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>CASE BLACKLISTED</b>
+        <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{formatBlacklistedDateTime(selected.blacklistedAt)}</span>
+    </div>
+)}
                 <div style={{ position: 'relative' }}>
                     <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid white', backgroundColor: isEscalated ? '#dc2626' : '#16a34a' }}></div>
                     <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>{isEscalated ? 'CASE ESCALATED' : 'CASE SETTLED'}</b>
@@ -673,6 +696,16 @@ export default function Archived() {
               margin: 0 !important;
               padding: 0 !important;
             }
+               #real-print-doc div, 
+    #real-print-doc p, 
+    #real-print-doc span,
+    #real-print-doc td,
+    #real-print-doc th {
+      word-break: break-all !important;
+      word-wrap: break-word !important;
+      white-space: normal !important;
+      overflow-wrap: break-word !important;
+    }
             table { 
               width: 100% !important; 
               max-width: 100% !important; 
@@ -682,10 +715,11 @@ export default function Archived() {
             }
             tr { page-break-inside: avoid !important; page-break-after: auto !important; }
             td, th { 
-              page-break-inside: avoid !important; 
-              word-wrap: break-word !important; 
-              overflow-wrap: break-word !important;
-            }
+  page-break-inside: avoid !important; 
+  word-wrap: break-word !important; 
+  overflow-wrap: break-word !important;
+  word-break: break-all !important;
+}
             thead { display: table-header-group !important; }
             tfoot { display: table-footer-group !important; }
             .print-hide { display: none !important; }
@@ -728,21 +762,27 @@ export default function Archived() {
                   <FileText size={20} className="text-blue-600" />
                   <h3 className="text-lg font-bold text-[#0044CC] uppercase">{t('case_summary')}</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-y-6">
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('case_number')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.caseNo}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('complainant')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.complainantName || 'N/A'}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('resident_name')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800 uppercase">{formatDate(selected.date)}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800 uppercase">{formatDate(selected.fullData?.incidentDate || selected.date)}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('location')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.incidentLocation || 'Barangay 166, Caloocan City'}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('moderator')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.selectedRole || 'Lupon Tagapamayapa'}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Status</p>
-                      {String(selected.status || '').toUpperCase() === 'ESCALATED' 
-                        ? <p className="text-sm font-bold text-red-600 uppercase">ESCALATED & ARCHIVED</p>
-                        : <p className="text-sm font-bold text-green-600 uppercase">SETTLED & ARCHIVED</p>
-                      }
-                    </div>
-                </div>
+               <div className="grid grid-cols-2 gap-y-6">
+    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('case_number')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.caseNo}</p></div>
+    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('complainant')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.complainantName || 'N/A'}</p></div>
+    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('resident_name')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
+    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800 uppercase">{formatDate(selected.date)}</p></div>
+    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800 uppercase">{formatDate(selected.fullData?.incidentDate || selected.date)}</p></div>
+    {selected.blacklistedAt && (
+      <div>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Blacklisted Date & Time</p>
+        <p className="text-sm font-bold text-black uppercase">{formatBlacklistedDateTime(selected.blacklistedAt)}</p>
+      </div>
+    )}
+    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('location')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.incidentLocation || 'Barangay 166, Caloocan City'}</p></div>
+    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('moderator')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.selectedRole || 'Lupon Tagapamayapa'}</p></div>
+    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Status</p>
+      {String(selected.status || '').toUpperCase() === 'ESCALATED' 
+        ? <p className="text-sm font-bold text-red-600 uppercase">ESCALATED & ARCHIVED</p>
+        : <p className="text-sm font-bold text-green-600 uppercase">SETTLED & ARCHIVED</p>
+      }
+    </div>
+</div>
                 <div className="mt-6">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">{t('detailed_description')}</p>
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-xs text-gray-700 leading-relaxed font-medium uppercase">
@@ -814,6 +854,15 @@ export default function Archived() {
                       </div>
                     </div>
                   ))}
+                  {selected.blacklistedAt && (
+    <div className="relative">
+      <div className="absolute -left-[27px] w-4 h-4 rounded-full bg-black border-2 border-white"></div>
+      <div className="text-xs uppercase">
+        <p className="font-bold text-gray-900">CASE BLACKLISTED</p>
+        <p className="text-gray-600">{formatBlacklistedDateTime(selected.blacklistedAt)}</p>
+      </div>
+    </div>
+  )}
                   <div className="relative">
                     <div className={`absolute -left-[27px] w-4 h-4 rounded-full border-2 border-white ${String(selected.status || '').toUpperCase() === 'ESCALATED' ? 'bg-red-600' : 'bg-green-600'}`}></div>
                     <div className="text-xs uppercase">

@@ -23,6 +23,10 @@ const caseSchema = new mongoose.Schema({
   resident: String,
   contact: String,
   date: String,
+  blacklistedAt: { 
+    type: Date,
+    default: null
+  },
   fullData: {
     selectedReportType: String,
     selectedRole: String,

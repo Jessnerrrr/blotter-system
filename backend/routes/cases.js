@@ -38,12 +38,22 @@ router.post('/', async (req, res) => {
   }
 });
 
-// UPDATE case
+// UPDATE case - MODIFIED to handle blacklistedAt
 router.put('/:id', async (req, res) => {
   try {
+    const updateData = { ...req.body };
+    
+    if (updateData.status === 'BLACKLISTED') {
+      updateData.blacklistedAt = new Date();
+    }
+    
+    if (updateData.status && updateData.status !== 'BLACKLISTED' && updateData.blacklistedAt === undefined) {
+      updateData.blacklistedAt = null;
+    }
+    
     const updatedCase = await Case.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
     
@@ -69,6 +79,27 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Case deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/:id/blacklist', async (req, res) => {
+  try {
+    const updatedCase = await Case.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'BLACKLISTED',
+        blacklistedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedCase) {
+      return res.status(404).json({ message: 'Case not found' });
+    }
+    
+    res.json(updatedCase);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 });
 

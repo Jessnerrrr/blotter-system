@@ -17,6 +17,24 @@ const getTypeStyle = (type) => {
   }
 };
 
+const formatBlacklistedDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return 'N/A';
+  try {
+    const d = new Date(dateTimeStr);
+    if (isNaN(d)) return dateTimeStr;
+    return d.toLocaleString('en-US', { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true 
+    });
+  } catch(e) { 
+    return dateTimeStr; 
+  }
+};
+
 export default function Blacklisted() {
   const { t } = useLanguage(); 
   const [view, setView] = useState('TABLE');
@@ -240,6 +258,13 @@ export default function Blacklisted() {
     displayDate = filterYear;
   }
 
+  // Function to truncate reason text
+  const truncateReason = (text, maxLength = 50) => {
+    if (!text) return 'N/A';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
   return (
     <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={() => { setIsDateFilterOpen(false); setIsTypeSortOpen(false); }}>
       <div className="flex-1 flex flex-col h-full min-h-0 w-full max-w-[1600px] mx-auto">
@@ -263,14 +288,19 @@ export default function Blacklisted() {
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.date}</p></div>
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('moderator')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.selectedRole || 'Admin'}</p></div>
                 </div>
-              </div>
-
+</div>
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="border-l-4 border-[#0044CC] pl-3 mb-6"><h3 className="text-lg font-bold text-[#0044CC] uppercase">{t('case_details_title')}</h3></div>
                 <div className="grid grid-cols-2 gap-y-6 mb-6">
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('complainant')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.complainantName || 'N/A'}</p></div>
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('respondents')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.incidentDate || selected.date}</p></div>
+                    {selected.blacklistedAt && (
+      <div>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Blacklisted Date & Time</p>
+        <p className="text-sm font-bold text-gray uppercase">{formatBlacklistedDateTime(selected.blacklistedAt)}</p>
+      </div>
+    )}
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('location')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.incidentLocation || '166, Caloocan City'}</p></div>
                 </div>
                 <div>
@@ -439,14 +469,16 @@ export default function Blacklisted() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 pb-8 pt-6 md:px-8 w-full z-10 relative">
+            {/* FIXED SCROLLING - Changed this div */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-8 md:px-8">
               <table className="w-full border-collapse text-sm">
                 <thead className="sticky top-0 bg-white z-10 shadow-sm">
                   <tr className="border-b-2 border-blue-100 text-blue-900">
-                    <th className="px-4 py-4 text-left font-bold uppercase w-[15%]">{t('report_type')}</th>
-                    <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('case_number')}</th>
-                    <th className="px-4 py-4 text-left font-bold uppercase w-[35%]">{t('resident_name')}</th>
-                    <th className="px-4 py-4 text-left font-bold uppercase w-[30%]">{t('action')}</th>
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[12%]">{t('report_type')}</th>
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[15%]">{t('case_number')}</th>
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('resident_name')}</th>
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('Reason')}</th>
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('action')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -455,6 +487,14 @@ export default function Blacklisted() {
                       <td className="px-4 py-5"><span className={`inline-block rounded px-3 py-1 text-[10px] font-bold shadow-sm uppercase tracking-wide ${getTypeStyle(row.type)}`}>{row.type}</span></td>
                       <td className="px-4 py-5 font-bold text-gray-700 uppercase">{row.caseNo}</td>
                       <td className="px-4 py-5 font-medium text-gray-600 uppercase">{row.complainantName || row.resident}</td>
+                      {/* Limited reason text with truncation */}
+                      <td className="px-4 py-5">
+                        <div className="max-w-xs break-words">
+                          <span className="text-gray-600 uppercase text-sm" title={row.reason || row.fullData?.incidentDesc || 'N/A'}>
+                            {truncateReason(row.reason || row.fullData?.incidentDesc, 5)}
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-4 py-5">
                         <div className="flex gap-2">
                           <BlacklistedButton actionType="restore" onClick={() => handleRestore(row)}>{t('restore')}</BlacklistedButton>
@@ -470,7 +510,9 @@ export default function Blacklisted() {
                     </tr>
                   ))}
                   {filteredRows.length === 0 && (
-                      <tr><td colSpan={4} className="py-12 text-center text-gray-400 font-bold uppercase">{t('no_blacklisted_found') || 'No blacklisted records found.'}</td></tr>
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-gray-400 font-bold uppercase">{t('no_blacklisted_found') || 'No blacklisted records found.'}</td>
+                    </tr>
                   )}
                 </tbody>
               </table>

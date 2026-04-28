@@ -5,6 +5,9 @@ function normalizeStringCandidate(value) {
   const trimmed = value.trim();
   if (!trimmed) return null;
 
+  // Skip "active" as it's likely a default status, not a username
+  if (trimmed.toLowerCase() === 'active') return null;
+
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     try {
       const parsed = JSON.parse(trimmed);

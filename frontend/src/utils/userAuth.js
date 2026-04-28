@@ -1,4 +1,4 @@
-const likelyNamePattern = /^[A-Za-zÑñ.'\-\s]{3,}$/;
+const likelyNamePattern = /^[A-Za-zÑñ.'\-_\s]{3,}$/;
 
 function normalizeStringCandidate(value) {
   if (typeof value !== 'string') return null;
@@ -85,31 +85,51 @@ export function getLoggedInUserName() {
     'authUser',
     'portalUser',
     'current_user',
-    'loginUser'
+    'loginUser',
+    'bis_user',
+    'bisUser',
+    'portal_user',
+    'authenticated_user',
+    'auth_user'
   ];
 
   for (const key of storageKeys) {
     const localValue = localStorage.getItem(key);
     const parsedLocal = normalizeStringCandidate(localValue) || getNameFromObject(localValue && localValue.startsWith('{') ? JSON.parse(localValue) : localValue);
-    if (parsedLocal) return parsedLocal;
+    if (parsedLocal) {
+      console.log('[UserAuth] Found via localStorage key:', key, '=', parsedLocal);
+      return parsedLocal;
+    }
 
     const sessionValue = sessionStorage.getItem(key);
     const parsedSession = normalizeStringCandidate(sessionValue) || getNameFromObject(sessionValue && sessionValue.startsWith('{') ? JSON.parse(sessionValue) : sessionValue);
-    if (parsedSession) return parsedSession;
+    if (parsedSession) {
+      console.log('[UserAuth] Found via sessionStorage key:', key, '=', parsedSession);
+      return parsedSession;
+    }
   }
 
   const searchedSession = scanStorage(sessionStorage);
-  if (searchedSession) return searchedSession;
+  if (searchedSession) {
+    console.log('[UserAuth] Found via sessionStorage scan:', searchedSession);
+    return searchedSession;
+  }
 
   const searchedLocal = scanStorage(localStorage);
-  if (searchedLocal) return searchedLocal;
+  if (searchedLocal) {
+    console.log('[UserAuth] Found via localStorage scan:', searchedLocal);
+    return searchedLocal;
+  }
 
   const params = new URLSearchParams(window.location.search);
   const queryKeys = ['user', 'username', 'name', 'fullname', 'full_name', 'loggedInUser', 'currentUser'];
   for (const key of queryKeys) {
     const value = params.get(key);
     const candidate = normalizeStringCandidate(value);
-    if (candidate) return candidate;
+    if (candidate) {
+      console.log('[UserAuth] Found via query param:', key, '=', candidate);
+      return candidate;
+    }
   }
 
   const hash = window.location.hash;
@@ -118,7 +138,10 @@ export function getLoggedInUserName() {
     for (const key of queryKeys) {
       const value = hashParams.get(key);
       const candidate = normalizeStringCandidate(value);
-      if (candidate) return candidate;
+      if (candidate) {
+        console.log('[UserAuth] Found via hash param:', key, '=', candidate);
+        return candidate;
+      }
     }
   }
 
@@ -127,18 +150,28 @@ export function getLoggedInUserName() {
     const value = window[key];
     if (typeof value === 'string') {
       const candidate = normalizeStringCandidate(value);
-      if (candidate) return candidate;
+      if (candidate) {
+        console.log('[UserAuth] Found via global window object:', key, '=', candidate);
+        return candidate;
+      }
     }
     if (typeof value === 'object') {
       const candidate = getNameFromObject(value);
-      if (candidate) return candidate;
+      if (candidate) {
+        console.log('[UserAuth] Found via global window object (nested):', key, '=', candidate);
+        return candidate;
+      }
     }
   }
 
   if (typeof window.name === 'string') {
     const candidate = normalizeStringCandidate(window.name);
-    if (candidate) return candidate;
+    if (candidate) {
+      console.log('[UserAuth] Found via window.name:', candidate);
+      return candidate;
+    }
   }
 
+  console.log('[UserAuth] No user detected. Check browser console for storage contents.');
   return null;
 }

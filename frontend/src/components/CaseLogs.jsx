@@ -7,6 +7,7 @@ import { useLogo } from './LogoContext';
 import { CaseLogsButton } from "./buttons/Buttons"; 
 import { casesAPI, summonsAPI, residentsAPI } from "../services/api";
 import ResidentAutocomplete from './ResidentAutocomplete';
+import { getLoggedInUserName } from '../utils/userAuth';
 
 const getStatusStyle = (status) => {
   switch (status) {
@@ -59,6 +60,7 @@ const fetchResidentAge = async (name) => {
 export default function CaseLogs() {
   const { t } = useLanguage(); 
   const { logoUrl } = useLogo();
+  const currentUser = getLoggedInUserName() || '';
   const [view, setView] = useState('TABLE'); 
   
   const [cases, setCases] = useState([]);
@@ -124,7 +126,7 @@ export default function CaseLogs() {
     caseNo: '', dateFiled: '', 
     complainantName: '', complainantAge: '', complainantContact: '', complainantAddress: '',
     respondentName: '', respondentAge: '', respondentContact: '', respondentAddress: '', 
-    incidentDate: '', incidentLocation: '', incidentDesc: ''
+    incidentDate: '', incidentLocation: '', incidentDesc: '', notedBy: currentUser
   });
   
   const [ageLoading, setAgeLoading] = useState({ complainant: false, respondent: false });
@@ -166,7 +168,7 @@ export default function CaseLogs() {
     fetchMissingAges();
   }, [view, viewCaseData?.caseNo]);
 
-  const [summonData, setSummonData] = useState({ caseNo: '', residentName: '', summonDate: '', summonTime: '',  selectedHour: '00', selectedMinute: '00',  selectedPeriod: '--', summonType: '', summonReason: '', notedBy: '' });
+  const [summonData, setSummonData] = useState({ caseNo: '', residentName: '', summonDate: '', summonTime: '',  selectedHour: '00', selectedMinute: '00',  selectedPeriod: '--', summonType: '', summonReason: '', notedBy: currentUser });
   const editorRef = useRef(null);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [previewFile, setPreviewFile] = useState(null); 
@@ -248,7 +250,7 @@ export default function CaseLogs() {
       caseNo: newCaseNo, dateFiled: todayStr,
       complainantName: '', complainantAge: '', complainantContact: '', complainantAddress: '',
       respondentName: '', respondentAge: '', respondentContact: '', respondentAddress: '',
-      incidentDate: '', incidentLocation: '', incidentDesc: ''
+      incidentDate: '', incidentLocation: '', incidentDesc: '', notedBy: currentUser || ''
     });
     setAttachedFiles([]);
     setPreviewFile(null);
@@ -315,7 +317,7 @@ export default function CaseLogs() {
 
       setSummonData({
         caseNo: caseItem.caseNo, residentName: caseItem.resident || caseItem.respondentName || 'Unknown',
-        summonDate: '', summonTime: '', selectedHour: '00', selectedMinute: '00', selectedPeriod: '--', summonType: '', summonReason: '', notedBy: ''
+        summonDate: '', summonTime: '', selectedHour: '00', selectedMinute: '00', selectedPeriod: '--', summonType: '', summonReason: '', notedBy: currentUser || ''
       });
       setSummonErrors({});
       setIsBold(false);
@@ -331,12 +333,14 @@ export default function CaseLogs() {
 
   const handleViewCase = (caseItem) => {
     if (caseItem.fullData) {
-        setViewCaseData(caseItem.fullData);
+        const fullData = { ...caseItem.fullData };
+        if (!fullData.notedBy && currentUser) fullData.notedBy = currentUser;
+        setViewCaseData(fullData);
     } else {
         setViewCaseData({
             selectedReportType: caseItem.type, selectedRole: '', caseNo: caseItem.caseNo, dateFiled: caseItem.date,
             complainantName: caseItem.complainantName || caseItem.resident || '', complainantContact: caseItem.contact || '', complainantAddress: '', complainantAge: '',
-            respondentName: caseItem.resident || '', respondentContact: '', respondentAddress: '', respondentAge: '', incidentDate: caseItem.date, incidentLocation: '', incidentDesc: ''
+            respondentName: caseItem.resident || '', respondentContact: '', respondentAddress: '', respondentAge: '', incidentDate: caseItem.date, incidentLocation: '', incidentDesc: '', notedBy: currentUser || ''
         });
     }
     setView('VIEW_CASE');
@@ -395,7 +399,7 @@ export default function CaseLogs() {
 
   const handleSubmitSummon = () => {
     const currentReason = editorRef.current ? editorRef.current.innerHTML : '';
-    const finalData = { ...summonData, summonReason: currentReason };
+    const finalData = { ...summonData, summonReason: currentReason, notedBy: currentUser || summonData.notedBy };
     
     const errors = {};
     const required = ['summonDate', 'summonType', 'notedBy'];
@@ -996,7 +1000,7 @@ export default function CaseLogs() {
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">{t('noted_by')}</label>
-              <input type="text" name="notedBy" value={summonData.notedBy} onChange={handleSummonInputChange} placeholder={t('auth_officer_name')} className={`${getInputClass('notedBy', summonErrors)} py-2 text-sm`} />
+              <input type="text" name="notedBy" value={summonData.notedBy} onChange={handleSummonInputChange} placeholder={t('auth_officer_name')} readOnly={Boolean(currentUser)} className={`${getInputClass('notedBy', summonErrors)} py-2 text-sm ${currentUser ? 'bg-slate-100 cursor-not-allowed' : ''}`} />
               {summonErrors.notedBy && <p className="text-red-500 text-[10px] mt-1 font-bold">{summonErrors.notedBy}</p>}
             </div>
           </div>
@@ -1192,7 +1196,7 @@ export default function CaseLogs() {
               </div>
               
               <div className="mt-6">
-                <input type="text" name="notedBy" value={formData.notedBy} onChange={handleInputChange} onBlur={handleBlur} placeholder={t('auth_officer_name')} className={getInputClass('notedBy')} />
+                <input type="text" name="notedBy" value={formData.notedBy} onChange={handleInputChange} onBlur={handleBlur} placeholder={t('auth_officer_name')} readOnly={Boolean(currentUser)} className={`${getInputClass('notedBy')} ${currentUser ? 'bg-slate-100 cursor-not-allowed' : ''}`} />
                 {formErrors.notedBy && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.notedBy}</p>}
               </div>
             </div>

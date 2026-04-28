@@ -3,6 +3,7 @@ import { Settings as SettingsIcon, LogOut } from 'lucide-react';
 import Swal from 'sweetalert2'; 
 import { LanguageProvider, useLanguage } from './components/LanguageContext'; 
 import { MainButton } from './components/buttons/Buttons';
+import { getLoggedInUserName } from './utils/userAuth';
 
 import Dashboard from './components/Dashboard'; 
 import CaseLogs from './components/CaseLogs';
@@ -22,6 +23,8 @@ function MainLayout() {
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const { t } = useLanguage();
   const { logoUrl } = useLogo();
+  const currentUser = getLoggedInUserName() || 'Guest';
+  const userInitial = currentUser.trim().charAt(0).toUpperCase() || 'G';
 
   // Save to local storage every time the page changes
   useEffect(() => {
@@ -128,8 +131,12 @@ function MainLayout() {
             </h1>
           </div>
 
-          <div className="flex items-center space-x-6 flex-1 justify-end">
-            <div className="w-9 h-9 bg-slate-900 rounded-full flex items-center justify-center text-white font-bold text-sm cursor-pointer hover:bg-slate-700 transition shrink-0">A</div>
+          <div className="flex items-center space-x-4 flex-1 justify-end">
+            <div className="w-9 h-9 bg-slate-900 rounded-full flex items-center justify-center text-white font-bold text-sm cursor-pointer hover:bg-slate-700 transition shrink-0">{userInitial}</div>
+            <div className="hidden sm:flex flex-col items-start">
+              <span className="text-sm font-semibold text-slate-800">{currentUser}</span>
+              <span className="text-xs text-slate-500 uppercase tracking-wide">Current User</span>
+            </div>
           </div>
         </header>
 

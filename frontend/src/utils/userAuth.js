@@ -14,6 +14,14 @@ function normalizeStringCandidate(value) {
     }
   }
 
+  // Handle bis_ prefix format
+  if (trimmed.startsWith('bis_')) {
+    const namePart = trimmed.substring(4); // Remove 'bis_' prefix
+    if (namePart && likelyNamePattern.test(namePart)) {
+      return namePart;
+    }
+  }
+
   if (likelyNamePattern.test(trimmed) && trimmed.split(' ').length <= 5) {
     return trimmed;
   }

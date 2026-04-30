@@ -196,7 +196,7 @@ export default function CaseLogs() {
 
   const filteredData = cases.filter((item) => {
     if (item.type === 'CURFEW') return false; 
-    if (item.status === 'SETTLED' || item.status === 'BLACKLISTED') return false;
+    if (item.status === 'SETTLED' || item.status === 'BLACKLISTED' || item.status === 'ESCALATED') return false;
 
     const itemDateParts = item.date ? item.date.split('-') : []; 
     let itemYear = '';

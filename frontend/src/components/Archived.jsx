@@ -418,7 +418,7 @@ export default function Archived() {
                 </div>
                 <div>
                     <span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>DESCRIPTION OF INCIDENT</span>
-<div style={{ border: '1px solid #9ca3af', padding: '12px', backgroundColor: '#f9fafb', minHeight: '60px', borderRadius: '4px', fontWeight: '500', textTransform: 'uppercase', wordBreak: 'break-all', whiteSpace: 'normal' }}>                        {selected.fullData?.incidentDesc || 'CASE HAS BEEN RESOLVED AND ARCHIVED.'}
+<div style={{ border: '1px solid #9ca3af', padding: '12px', backgroundColor: '#f9fafb', minHeight: '60px', borderRadius: '4px', fontWeight: '500', textTransform: 'uppercase', wordBreak: 'break-word', whiteSpace: 'normal' }}>                        {selected.fullData?.incidentDesc || 'CASE HAS BEEN RESOLVED AND ARCHIVED.'}
                     </div>
                 </div>
             </div>
@@ -442,7 +442,7 @@ export default function Archived() {
                                 {summon.summonReason && (
                                     <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #d1d5db', fontSize: '12px' }}>
                                         <span style={{ fontWeight: 'bold', display: 'block', marginBottom: '4px', color: '#6b7280', fontSize: '10px' }}>REASON:</span>
-<div style={{ textTransform: 'uppercase', wordBreak: 'break-all', whiteSpace: 'normal' }} dangerouslySetInnerHTML={{ __html: decodeHTML(summon.summonReason) }} />                                    </div>
+<div style={{ textTransform: 'uppercase', wordBreak: 'break-word', whiteSpace: 'normal' }} dangerouslySetInnerHTML={{ __html: decodeHTML(summon.summonReason) }} />                                    </div>
                                 )}
                             </div>
                         )) : <p style={{ fontSize: '13px', fontStyle: 'italic', color: '#6b7280', padding: '12px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>NO SUMMONS WERE ISSUED FOR THIS CASE.</p>}
@@ -701,7 +701,7 @@ export default function Archived() {
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={() => { setIsDateFilterOpen(false); setIsTypeSortOpen(false); }}>
+    <div className="flex flex-col h-full w-full bg-slate-50 p-8" onClick={() => { setIsDateFilterOpen(false); setIsTypeSortOpen(false); }}>
       
       {/* 🔥 THE ACTUAL PRINT DOCUMENT: ONLY VISIBLE DURING PRINTING 🔥 */}
       <div id="real-print-doc" className="hidden print:block w-full m-0 p-0 absolute top-0 left-0 bg-white z-[99999]">
@@ -710,9 +710,9 @@ export default function Archived() {
 
       {renderPrintModal()}
 
-      {/* 🔥 THE CRITICAL CSS FIX FOR RESPONSIVE, MULTI-PAGE PRINTING WITH DEFAULT 100% SCALE 🔥 */}
       <style>{`
           @media print {
+            /* 1. Nuke React layout locks */
             html, body, #root {
               display: block !important;
               height: auto !important;
@@ -726,16 +726,20 @@ export default function Archived() {
               margin: 0 !important;
               padding: 0 !important;
               background-color: white !important;
-              left: 0 !important;
-              top: 0 !important;
             }
+
+            /* 2. Hide everything by default */
             body * {
               visibility: hidden !important;
             }
+
+            /* 3. Show only the print doc and all its children */
             #real-print-doc, #real-print-doc * {
               visibility: visible !important;
               box-sizing: border-box !important;
             }
+
+            /* 4. Position print doc at top-left, full width — browser @page margin handles centering */
             #real-print-doc {
               display: block !important;
               position: absolute !important;
@@ -746,43 +750,44 @@ export default function Archived() {
               height: auto !important;
               margin: 0 !important;
               padding: 0 !important;
-              overflow: visible !important;
             }
-            #real-print-doc div, 
-            #real-print-doc p, 
+
+            /* 5. Allow natural word wrapping — break-all causes squishing */
+            #real-print-doc div,
+            #real-print-doc p,
             #real-print-doc span,
             #real-print-doc td,
             #real-print-doc th {
-              word-break: break-all !important;
               word-wrap: break-word !important;
               white-space: normal !important;
               overflow-wrap: break-word !important;
-              overflow: visible !important;
             }
-            table { 
-              width: 100% !important; 
-              max-width: 100% !important; 
-              border-collapse: collapse !important; 
-              page-break-inside: auto !important; 
-              table-layout: auto !important;
+
+            /* 6. Table multi-page support */
+            table {
+              width: 100% !important;
+              max-width: 100% !important;
+              border-collapse: collapse !important;
+              page-break-inside: auto !important;
+              table-layout: fixed !important;
               margin: 0 !important;
               padding: 0 !important;
             }
             tr { page-break-inside: avoid !important; page-break-after: auto !important; }
-            td, th { 
-              page-break-inside: avoid !important; 
-              word-wrap: break-word !important; 
+            td, th {
+              page-break-inside: avoid !important;
+              word-wrap: break-word !important;
               overflow-wrap: break-word !important;
-              word-break: break-all !important;
-              overflow: visible !important;
             }
             thead { display: table-header-group !important; }
             tfoot { display: table-footer-group !important; }
             .print-hide { display: none !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+            /* 7. size:auto restores browser Paper Size dropdown and prevents forced shrink-to-fit */
             @page {
-              size: A4;
-              margin: 10mm; 
+              size: auto;
+              margin: 15mm 20mm;
             }
           }
       `}</style>

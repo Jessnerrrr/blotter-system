@@ -212,8 +212,8 @@ export default function Summons() {
     
     // Updated confirmation modal title
     Swal.fire({
-      title: t('confirm_add_case_notes') || 'Confirm Add Case Notes?',
-      text: t('save_note_confirm') || 'Are you sure you want to save these case notes?',
+      title: t('Add_Case_Notes?') || 'confirm_add_case_notes',
+      text: t('Are you sure you want to save this case note?') || 'save_note_confirm',
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#0066FF',

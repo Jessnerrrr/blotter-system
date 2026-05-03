@@ -726,6 +726,8 @@ export default function Archived() {
               margin: 0 !important;
               padding: 0 !important;
               background-color: white !important;
+              left: 0 !important;
+              top: 0 !important;
             }
             body * {
               visibility: hidden !important;
@@ -744,38 +746,43 @@ export default function Archived() {
               height: auto !important;
               margin: 0 !important;
               padding: 0 !important;
+              overflow: visible !important;
             }
-               #real-print-doc div, 
-    #real-print-doc p, 
-    #real-print-doc span,
-    #real-print-doc td,
-    #real-print-doc th {
-      word-break: break-all !important;
-      word-wrap: break-word !important;
-      white-space: normal !important;
-      overflow-wrap: break-word !important;
-    }
+            #real-print-doc div, 
+            #real-print-doc p, 
+            #real-print-doc span,
+            #real-print-doc td,
+            #real-print-doc th {
+              word-break: break-all !important;
+              word-wrap: break-word !important;
+              white-space: normal !important;
+              overflow-wrap: break-word !important;
+              overflow: visible !important;
+            }
             table { 
               width: 100% !important; 
               max-width: 100% !important; 
               border-collapse: collapse !important; 
               page-break-inside: auto !important; 
-              table-layout: fixed !important; 
+              table-layout: auto !important;
+              margin: 0 !important;
+              padding: 0 !important;
             }
             tr { page-break-inside: avoid !important; page-break-after: auto !important; }
             td, th { 
-  page-break-inside: avoid !important; 
-  word-wrap: break-word !important; 
-  overflow-wrap: break-word !important;
-  word-break: break-all !important;
-}
+              page-break-inside: avoid !important; 
+              word-wrap: break-word !important; 
+              overflow-wrap: break-word !important;
+              word-break: break-all !important;
+              overflow: visible !important;
+            }
             thead { display: table-header-group !important; }
             tfoot { display: table-footer-group !important; }
             .print-hide { display: none !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             @page {
-              size: auto;
-              margin: 8mm; 
+              size: A4;
+              margin: 10mm; 
             }
           }
       `}</style>
@@ -940,17 +947,6 @@ export default function Archived() {
                     </div>
                   </div>
                 </div>
-              </div>
-
-              {/* RESTORE BUTTON */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Folder size={20} className="text-green-600" />
-                  <h3 className="text-lg font-bold text-[#0044CC] uppercase">Restore Case</h3>
-                </div>
-                <button onClick={() => handleRestore(selected)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg uppercase">
-                  Restore to Active
-                </button>
               </div>
 
               {/* EXPORT CASE FOLDER HERE */}

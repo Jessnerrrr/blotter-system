@@ -102,6 +102,13 @@ const calculateAnalytics = (cases, summons, curfews) => {
     CURFEW: curfews.length // Add curfews to pie chart!
   };
 
+  // 🔥 FIX: Count any cases that don't fit the main categories
+  const categorizedCasesCount = categoryTotals.LUPON + categoryTotals.VAWC + categoryTotals.BLOTTER + categoryTotals.COMPLAIN;
+  const uncategorizedCases = cases.length - categorizedCasesCount;
+  if (uncategorizedCases > 0) {
+    categoryTotals.OTHER = uncategorizedCases;
+  }
+
   const totalCases = cases.length + curfews.length; // Combine both databases for Total!
   const categoryData = [];
   let currentAngle = 0;
@@ -117,7 +124,8 @@ const calculateAnalytics = (cases, summons, curfews) => {
         VAWC: { bg: 'bg-purple-500', hex: '#a855f7' },
         BLOTTER: { bg: 'bg-red-500', hex: '#ef4444' },
         COMPLAIN: { bg: 'bg-blue-500', hex: '#3b82f6' },
-        CURFEW: { bg: 'bg-pink-500', hex: '#e03b96' }
+        CURFEW: { bg: 'bg-pink-500', hex: '#e03b96' },
+        OTHER: { bg: 'bg-gray-500', hex: '#6b7280' }
       };
 
       categoryData.push({
@@ -576,6 +584,9 @@ export default function Dashboard() {
     );
   };
 
+  const rawTotalCases = casesData.length + curfewsData.length;
+  const displayTotalCases = rawTotalCases || analytics.totalCases;
+
   const peakMonthData = [...(analytics.monthlyData || [])].sort((a,b) => b.total - a.total)[0] || { month: 'JAN', total: 0 };
   
   const passedMonths = [...(analytics.monthlyData || [])].slice(0, new Date().getMonth() + 1);
@@ -801,7 +812,7 @@ export default function Dashboard() {
             <div className="bg-blue-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between h-28 border border-blue-800">
               <div className="flex items-start justify-between">
                 <div className="z-10">
-                  <h3 className="text-3xl font-bold tracking-tight">{analytics.totalCases}</h3>
+                  <h3 className="text-3xl font-bold tracking-tight">{displayTotalCases}</h3>
                   <p className="text-blue-100 text-[10px] font-bold uppercase tracking-wider mt-1">{t('total_cases')}</p>
                 </div>
                 <FileText size={24} className="text-blue-300 opacity-80" />
@@ -1018,7 +1029,7 @@ export default function Dashboard() {
                    const pendingCount = casesData.filter(c => c.status === 'PENDING' || c.status === 'ONGOING').length + curfewsData.filter(c => c.status === 'ACTIVE' || c.status === 'PENDING').length;
                    const escalatedCount = casesData.filter(c => c.status === 'ESCALATED').length;
                    const blacklistedCount = analytics.blacklistedCases;
-                   const total = analytics.totalCases || 1;
+                   const total = displayTotalCases || 1;
                    
                    const settledPct = Math.round((settledCount / total) * 100);
                    const pendingPct = Math.round((pendingCount / total) * 100);

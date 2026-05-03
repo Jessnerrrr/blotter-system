@@ -30,9 +30,40 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   console.log('📥 Received summon creation request:', req.body);
   
-  const summons = new Summons(req.body);
-  
   try {
+    // 🔥 DATE VALIDATION: Ensure summons follow chronological order 🔥
+    const { caseNo, summonDate } = req.body;
+    
+    if (caseNo && summonDate) {
+      // Get all active summons for this case
+      const existingSummons = await Summons.find({
+        caseNo: caseNo,
+        status: { $in: ['Active', 'Pending'] }
+      });
+
+      if (existingSummons.length > 0) {
+        // Get the latest summon date
+        const latestSummon = existingSummons.reduce((latest, current) => {
+          const latestDate = new Date(latest.summonDate);
+          const currentDate = new Date(current.summonDate);
+          return currentDate > latestDate ? current : latest;
+        });
+
+        const latestDate = new Date(latestSummon.summonDate);
+        const newDate = new Date(summonDate);
+
+        // Check if new summon is on or before the latest summon date
+        if (newDate <= latestDate) {
+          return res.status(400).json({
+            message: 'Invalid summon date',
+            error: `The next summon must be scheduled after ${latestDate.toLocaleDateString()}.`,
+            latestSummonDate: latestDate.toISOString().split('T')[0]
+          });
+        }
+      }
+    }
+
+    const summons = new Summons(req.body);
     const newSummons = await summons.save();
     console.log('✅ Summon created successfully:', newSummons._id);
     res.status(201).json(newSummons);
@@ -50,6 +81,39 @@ router.post('/', async (req, res) => {
 // UPDATE summons
 router.put('/:id', async (req, res) => {
   try {
+    // 🔥 DATE VALIDATION: Ensure summons follow chronological order on update 🔥
+    const { caseNo, summonDate } = req.body;
+    
+    if (caseNo && summonDate) {
+      // Get all other active summons for this case (excluding current one)
+      const existingSummons = await Summons.find({
+        caseNo: caseNo,
+        _id: { $ne: req.params.id },
+        status: { $in: ['Active', 'Pending'] }
+      });
+
+      if (existingSummons.length > 0) {
+        // Get the latest summon date
+        const latestSummon = existingSummons.reduce((latest, current) => {
+          const latestDate = new Date(latest.summonDate);
+          const currentDate = new Date(current.summonDate);
+          return currentDate > latestDate ? current : latest;
+        });
+
+        const latestDate = new Date(latestSummon.summonDate);
+        const newDate = new Date(summonDate);
+
+        // Check if updated summon violates chronological order
+        if (newDate <= latestDate) {
+          return res.status(400).json({
+            message: 'Invalid summon date',
+            error: `The summon must be scheduled after ${latestDate.toLocaleDateString()}.`,
+            latestSummonDate: latestDate.toISOString().split('T')[0]
+          });
+        }
+      }
+    }
+
     const updatedSummons = await Summons.findByIdAndUpdate(
       req.params.id,
       req.body,

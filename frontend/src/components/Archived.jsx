@@ -35,45 +35,6 @@ const formatDate = (dateStr) => {
   } catch(e) { return dateStr; }
 };
 
-const formatBlacklistedDateTime = (dateTimeStr) => {
-  if (!dateTimeStr) return 'N/A';
-  try {
-    const d = new Date(dateTimeStr);
-    if (isNaN(d)) return dateTimeStr;
-    return d.toLocaleString('en-US', { 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true 
-    });
-  } catch(e) { 
-    return dateTimeStr; 
-  }
-};
-
-const LOCAL_STORAGE_NOTES_KEY = 'blacklisted_additional_notes';
-
-const loadSavedNotes = () => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const savedNotes = localStorage.getItem(LOCAL_STORAGE_NOTES_KEY);
-    const parsedNotes = savedNotes ? JSON.parse(savedNotes) : [];
-    return Array.isArray(parsedNotes) ? parsedNotes : [];
-  } catch (error) {
-    console.error('Failed to load saved notes:', error);
-    return [];
-  }
-};
-
-const formatSavedNoteHtml = (content) => {
-  if (!content) return '<p></p>';
-  const trimmed = String(content).trim();
-  if (trimmed.startsWith('<')) return trimmed;
-  return `<p>${trimmed.replace(/\n/g, '</p><p>')}</p>`;
-};
-
 export default function Archived() {
   const { t } = useLanguage(); 
   const [view, setView] = useState('TABLE');
@@ -81,7 +42,6 @@ export default function Archived() {
   const [selected, setSelected] = useState(null);
   const [selectedSummons, setSelectedSummons] = useState([]); 
   const [search, setSearch] = useState('');
-  const [additionalNotes, setAdditionalNotes] = useState(() => loadSavedNotes());
   
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
@@ -125,9 +85,10 @@ export default function Archived() {
         try { allCurfews = await curfewsAPI.getAll(); } catch (e) { console.error("Curfews API error:", e); }
         
         const archivedCases = allCases.filter(c => {
-    const s = String(c.status || '').toUpperCase();
-    return s === 'SETTLED' || s === 'ESCALATED' || s === 'BLACKLISTED';
-});
+            const s = String(c.status || '').toUpperCase();
+            // Strictly fetch SETTLED and ESCALATED cases only
+            return s === 'SETTLED' || s === 'ESCALATED';
+        });
         
         const archivedCurfews = allCurfews.filter(c => {
             const s = String(c.status || '').toUpperCase();
@@ -174,17 +135,6 @@ export default function Archived() {
       clearInterval(interval);
       window.removeEventListener('caseDataUpdated', handleCaseUpdate);
     };
-  }, []);
-
-  useEffect(() => {
-    const handleStorageChange = (event) => {
-      if (event.key === LOCAL_STORAGE_NOTES_KEY) {
-        setAdditionalNotes(loadSavedNotes());
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const filteredRows = rows.filter((row) => {
@@ -262,8 +212,6 @@ export default function Archived() {
     setSelectedSummons([]);
     setView('TABLE'); 
   };
-
-  const getNotesForCurrentCase = () => additionalNotes.filter(note => note.caseNo === selected?.caseNo);
 
   const handleRestore = (row) => {
     Swal.fire({
@@ -450,20 +398,6 @@ export default function Archived() {
                 </>
             )}
 
-            {getNotesForCurrentCase().length > 0 && (
-              <div style={{ marginBottom: '24px', padding: '16px', border: '2px solid #9ca3af', backgroundColor: '#f8fafc', borderRadius: '6px', pageBreakInside: 'avoid' }}>
-                <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase' }}>Additional Notes</h4>
-                {getNotesForCurrentCase().map((note) => (
-                  <div key={note.id} style={{ marginBottom: '16px', fontSize: '13px', lineHeight: '1.5' }}>
-                    <div style={{ marginBottom: '8px', color: '#475569', fontSize: '11px', textTransform: 'uppercase' }}>
-                      Added on {note.date} at {note.time}{note.lastEdited ? ` (Edited on ${note.lastEdited} at ${note.lastEditedTime})` : ''}
-                    </div>
-                    <div style={{ whiteSpace: 'normal', wordBreak: 'break-word', textTransform: 'uppercase' }} dangerouslySetInnerHTML={{ __html: formatSavedNoteHtml(note.content) }} />
-                  </div>
-                ))}
-              </div>
-            )}
-
             {/* Timeline */}
             <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px', pageBreakInside: 'avoid' }}>{selected.type !== 'CURFEW' ? 'IV.' : 'III.'} Case Timeline</h4>
             <div style={{ marginBottom: '24px', paddingLeft: '16px', borderLeft: '2px solid #d1d5db', marginLeft: '8px', fontSize: '12px', pageBreakInside: 'avoid' }}>
@@ -479,13 +413,6 @@ export default function Archived() {
                         <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{formatDate(summon.summonDate)} AT {summon.summonTime}</span>
                     </div>
                 ))}
-                {selected.blacklistedAt && (
-    <div style={{ marginBottom: '16px', position: 'relative' }}>
-        <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid white', backgroundColor: '#000000' }}></div>
-        <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>CASE BLACKLISTED</b>
-        <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{formatBlacklistedDateTime(selected.blacklistedAt)}</span>
-    </div>
-)}
                 <div style={{ position: 'relative' }}>
                     <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid white', backgroundColor: isEscalated ? '#dc2626' : '#16a34a' }}></div>
                     <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>{isEscalated ? 'CASE ESCALATED' : 'CASE SETTLED'}</b>
@@ -829,12 +756,6 @@ export default function Archived() {
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('resident_name')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800 uppercase">{formatDate(selected.date)}</p></div>
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800 uppercase">{formatDate(selected.fullData?.incidentDate || selected.date)}</p></div>
-    {selected.blacklistedAt && (
-      <div>
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Blacklisted Date & Time</p>
-        <p className="text-sm font-bold text-black uppercase">{formatBlacklistedDateTime(selected.blacklistedAt)}</p>
-      </div>
-    )}
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('location')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.incidentLocation || 'Barangay 166, Caloocan City'}</p></div>
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('moderator')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.selectedRole || 'Lupon Tagapamayapa'}</p></div>
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Status</p>
@@ -893,26 +814,6 @@ export default function Archived() {
                 </div>
               )}
 
-              {getNotesForCurrentCase().length > 0 && (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Folder size={20} className="text-blue-600" />
-                    <h3 className="text-lg font-bold text-[#0044CC] uppercase">Additional Notes</h3>
-                  </div>
-                  <div className="space-y-4">
-                    {getNotesForCurrentCase().map((note) => (
-                      <div key={note.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <div className="flex items-center justify-between mb-3 text-xs uppercase tracking-wide text-gray-500">
-                          <span>Added on {note.date} at {note.time}</span>
-                          {note.lastEdited && <span>(Edited on {note.lastEdited} at {note.lastEditedTime})</span>}
-                        </div>
-                        <div className="text-sm text-gray-700 uppercase" dangerouslySetInnerHTML={{ __html: formatSavedNoteHtml(note.content) }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2 mb-4">
                   <Clock size={20} className="text-blue-600" />
@@ -935,15 +836,6 @@ export default function Archived() {
                       </div>
                     </div>
                   ))}
-                  {selected.blacklistedAt && (
-    <div className="relative">
-      <div className="absolute -left-[27px] w-4 h-4 rounded-full bg-black border-2 border-white"></div>
-      <div className="text-xs uppercase">
-        <p className="font-bold text-gray-900">CASE BLACKLISTED</p>
-        <p className="text-gray-600">{formatBlacklistedDateTime(selected.blacklistedAt)}</p>
-      </div>
-    </div>
-  )}
                   <div className="relative">
                     <div className={`absolute -left-[27px] w-4 h-4 rounded-full border-2 border-white ${String(selected.status || '').toUpperCase() === 'ESCALATED' ? 'bg-red-600' : 'bg-green-600'}`}></div>
                     <div className="text-xs uppercase">

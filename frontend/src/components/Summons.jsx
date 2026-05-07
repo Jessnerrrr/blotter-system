@@ -363,9 +363,23 @@ export default function Summons() {
     setConfirmModal({ isOpen: true, action: action, caseNo: caseItem.caseNo }); 
   };
 
-  const handleViewStatus = (caseItem) => {
-    setActiveActionDropdown(null); setPreviewEditing(false); setTempStatus(caseItem.status || 'Pending'); setPreviewModal({ isOpen: true, data: caseItem });
-  };
+  const handleViewStatus = async (caseItem) => {
+  setActiveActionDropdown(null);
+  setPreviewEditing(false);
+  
+  // Get the latest status from the database
+  try {
+    const allCases = await casesAPI.getAll();
+    const latestCase = allCases.find(c => c.caseNo === caseItem.caseNo);
+    const currentStatus = latestCase ? latestCase.status : (caseItem.status || 'Pending');
+    setTempStatus(currentStatus);
+    setPreviewModal({ isOpen: true, data: { ...caseItem, status: currentStatus } });
+  } catch (error) {
+    console.error('Error fetching latest status:', error);
+    setTempStatus(caseItem.status || 'Pending');
+    setPreviewModal({ isOpen: true, data: caseItem });
+  }
+};
 
   const executeStatusUpdate = async () => {
     const { action, caseNo } = confirmModal;
@@ -518,8 +532,7 @@ export default function Summons() {
                             {previewEditing ? (
                                 <div className="relative">
                                     <select value={tempStatus} onChange={(e) => setTempStatus(e.target.value)} className="appearance-none bg-white border-2 border-[#0066FF] text-gray-900 font-bold text-lg py-2 pl-6 pr-12 rounded-lg cursor-pointer outline-none shadow-sm hover:bg-blue-50 transition-colors">
-                                        {tempStatus === 'Pending' && <option value="Pending" disabled>{t('select_option') || 'Select...'}</option>}
-                                        <option value="Settled">{t('settle')}</option><option value="Escalated">{t('escalate')}</option><option value="Blacklisted">{t('blacklist')}</option>
+<option value="Pending" style={{ display: 'none' }}>Pending</option>                                        <option value="Settled">{t('settle')}</option><option value="Escalated">{t('escalate')}</option><option value="Blacklisted">{t('blacklist')}</option>
                                     </select>
                                     <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#0066FF] pointer-events-none" size={20} strokeWidth={3} />
                                 </div>

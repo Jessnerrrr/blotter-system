@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Swal from 'sweetalert2';
-import { ChevronLeft, Calendar, Filter, ChevronDown, Search, ChevronRight, Gavel, Plus, Folder, X, Edit, Bold, Italic, Underline } from 'lucide-react';
+import { ChevronLeft, Calendar, Filter, ChevronDown, Search, ChevronRight, Gavel, Plus, Folder, X, Edit, Bold, Italic, Underline, Printer, Download } from 'lucide-react';
 import { useLanguage } from './LanguageContext'; 
 import { blacklistAPI, casesAPI, summonsAPI } from "../services/api"; 
 import { BlacklistedButton } from './buttons/Buttons';
@@ -97,6 +97,7 @@ export default function Blacklisted() {
   const [additionalNotes, setAdditionalNotes] = useState(() => loadSavedNotes());
   const [showAddNotesModal, setShowAddNotesModal] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // Editor states for notes modal
   const addNotesEditorRef = useRef(null);
@@ -190,15 +191,16 @@ export default function Blacklisted() {
     syncAddNotesContent();
     setTimeout(updateAddNotesFormatState, 0);
   };
+  
   useEffect(() => {
-  if (showAddNotesModal && addNotesEditorRef.current) {
-    if (editingNote) {
-      addNotesEditorRef.current.innerHTML = editingNote.content;
-    } else {
-      addNotesEditorRef.current.innerHTML = '';
+    if (showAddNotesModal && addNotesEditorRef.current) {
+      if (editingNote) {
+        addNotesEditorRef.current.innerHTML = editingNote.content;
+      } else {
+        addNotesEditorRef.current.innerHTML = '';
+      }
     }
-  }
-}, [showAddNotesModal, editingNote]);
+  }, [showAddNotesModal, editingNote]);
 
   const filteredRows = rows.filter((row) => {
     const searchLower = search.toLowerCase();
@@ -299,47 +301,355 @@ export default function Blacklisted() {
     });
   };
 
-  const handleArchive = (row) => {
+  // Print functionality
+  const handleOpenPrintModal = () => {
+    setIsPrintModalOpen(true);
+  };
+
+  const handleDownloadPDFClick = () => {
     Swal.fire({
-      title: 'Move to Archives?',
-      text: `Are you sure you want to archive ${row.caseNo}? It will be marked as Settled.`,
+      title: 'Download as PDF',
+      html: `
+        <p style="margin: 15px 0;">To save this document as PDF:</p>
+        <ol style="text-align: left; margin-left: 30px;">
+          <li>Click <b>"Open Print Preview"</b> below</li>
+          <li>Click the blue <b>PRINT</b> button on the paper</li>
+          <li>In the print dialog, select <b>"Save as PDF"</b> as the destination</li>
+        </ol>
+      `,
       icon: 'info',
       showCancelButton: true,
-      confirmButtonColor: '#f59e0b', 
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes',
-      cancelButtonText: t('cancel') || 'Cancel'
-    }).then(async (result) => {
+      confirmButtonColor: '#0044CC',
+      cancelButtonColor: '#999',
+      confirmButtonText: 'Open Print Preview',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
       if (result.isConfirmed) {
-        try {
-          if (row.type === 'CURFEW') {
-              await blacklistAPI.delete(row._id);
-          } else {
-              await casesAPI.update(row._id, { ...row, status: 'SETTLED' });
-              
-              const allSummons = await summonsAPI.getAll();
-              const summonsToArchive = allSummons.filter(s => s.caseNo === row.caseNo);
-              await Promise.all(summonsToArchive.map(s => summonsAPI.update(s._id, { ...s, status: 'Settled' })));
-          }
-
-          const [storedCases, manualBlacklists] = await Promise.all([
-            casesAPI.getAll(),
-            blacklistAPI.getAll()
-          ]);
-          const blacklistedCases = storedCases.filter(c => c.status === 'BLACKLISTED');
-          const combined = [...blacklistedCases, ...manualBlacklists].sort((a, b) => new Date(b.date) - new Date(a.date));
-          setRows(combined);
-
-          window.dispatchEvent(new Event('caseDataUpdated'));
-
-          if(view === 'DETAILS') setView('TABLE');
-          Swal.fire('Archived!', 'The record has been safely moved to Archives.', 'success');
-        } catch (error) {
-          console.error('Error archiving record:', error);
-          Swal.fire({ title: 'Error', text: 'Failed to archive record.', icon: 'error', confirmButtonColor: '#d33' });
-        }
+        setIsPrintModalOpen(true);
       }
     });
+  };
+
+  const handleCancelPrint = () => {
+    Swal.fire({
+      title: t('discard_changes') || 'Discard Changes?', 
+      text: t('unsaved_lost') || 'Any unsaved changes will be lost.', 
+      icon: 'warning', 
+      showCancelButton: true,
+      confirmButtonColor: '#d33', 
+      cancelButtonColor: '#3085d6', 
+      confirmButtonText: t('yes_discard') || 'Yes, discard', 
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => { if (result.isConfirmed) setIsPrintModalOpen(false); });
+  };
+
+  const handlePrintSubmit = () => {
+    Swal.fire({
+      title: t('confirm_print_title') || 'Print Report?', 
+      text: t('confirm_print_text') || 'Are you sure you want to print this report?', 
+      icon: 'question', 
+      showCancelButton: true,
+      confirmButtonColor: '#0066FF', 
+      cancelButtonColor: '#d33', 
+      confirmButtonText: t('yes_print') || 'Yes, print', 
+      cancelButtonText: t('cancel') || 'Cancel'
+    }).then((result) => { if (result.isConfirmed) setTimeout(() => { window.print(); }, 300); });
+  };
+
+  const getPrintContent = () => {
+    const printDate = new Date();
+    const monthYearStringForPrint = printDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+
+    // Single case detailed print view
+    if (view === 'DETAILS' && selected) {
+      const sortedSummons = [...selectedSummons].sort((a, b) => parseInt(a.summonType) - parseInt(b.summonType));
+
+      return (
+        <div style={{ width: '100%', maxWidth: '100%', fontFamily: 'Arial, sans-serif', color: 'black', backgroundColor: 'white' }}>
+            <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
+                <img src="/icon-analytics/analyticsprint logo.png" alt="Republic Logo" style={{ width: '80px', height: '80px', margin: '0 auto 10px auto', display: 'block', objectFit: 'contain' }} />
+                <p style={{ margin: '0 0 5px 0', fontSize: '14px' }}>Republic of the Philippines</p>
+                <h1 style={{ margin: '4px 0', fontSize: '24px', fontWeight: '900', color: '#1d4ed8' }}>BARANGAY 166, CAYBIGA</h1>
+                <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>ZONE 15 DISTRICT I, CALOOCAN CITY</p>
+                <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>#1 GEN LUIS. ST, CAYBIGA CALOOCAN CITY</p>
+            </div>
+            
+            <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
+                <h2 style={{ margin: '0', fontSize: '18px', fontWeight: 'bold', color: '#1f2937', letterSpacing: '0.05em' }}>TANGGAPAN NG LUPON TAGAMAPAYAMAPA</h2>
+                <div style={{ textAlign: 'right', marginTop: '15px' }}>
+                  <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#1f2937' }}>{monthYearStringForPrint}</p>
+                </div>
+            </div>
+            
+            <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px', borderTop: '4px double black', borderBottom: '4px double black', padding: '8px 0' }}>
+                <h3 style={{ margin: '0', fontSize: '20px', fontWeight: '900', color: '#111827' }}>BLACKLISTED CASE REPORT</h3>
+            </div>
+
+            {/* Case Info Grid */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '12px', border: '1px solid black', backgroundColor: '#f9fafb', marginBottom: '24px', fontSize: '13px' }}>
+                <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>CASE NUMBER:</span> <b style={{ color: '#111827' }}>{selected.caseNo}</b></div>
+                <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>CASE TYPE:</span> <b style={{ color: '#1d4ed8' }}>{selected.type}</b></div>
+                <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>DATE FILED:</span> <b style={{ color: '#111827' }}>{formatDate(selected.date)}</b></div>
+                <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>STATUS:</span> <b style={{ color: '#dc2626' }}>BLACKLISTED</b></div>
+                {selected.blacklistedAt && (
+                  <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>BLACKLISTED DATE:</span> <b style={{ color: '#111827' }}>{formatBlacklistedDateTime(selected.blacklistedAt)}</b></div>
+                )}
+            </div>
+
+            {/* I. Parties Involved */}
+            <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>I. Parties Involved</h4>
+            <div style={{ display: 'flex', marginBottom: '24px', fontSize: '13px' }}>
+                <div style={{ width: '50%', paddingRight: '12px' }}>
+                    <div style={{ marginBottom: '8px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>COMPLAINANT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.complainantName || 'N/A'}</div></div>
+                    <div style={{ marginBottom: '8px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>ADDRESS</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.fullData?.complainantAddress || 'N/A'}</div></div>
+                    <div><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>CONTACT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.contact || selected.fullData?.complainantContact || 'N/A'}</div></div>
+                </div>
+                <div style={{ width: '50%', paddingLeft: '12px' }}>
+                    <div style={{ marginBottom: '8px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>RESPONDENT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.resident || selected.fullData?.respondentName || 'N/A'}</div></div>
+                    <div style={{ marginBottom: '8px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>ADDRESS</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.fullData?.respondentAddress || 'N/A'}</div></div>
+                    <div><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>CONTACT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.fullData?.respondentContact || 'N/A'}</div></div>
+                </div>
+            </div>
+
+            {/* II. Incident Details */}
+            <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>II. Incident Details</h4>
+            <div style={{ fontSize: '13px', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', marginBottom: '12px' }}>
+                    <div style={{ width: '50%', paddingRight: '12px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>DATE OF INCIDENT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px' }}>{formatDate(selected.fullData?.incidentDate || selected.date)}</div></div>
+                    <div style={{ width: '50%', paddingLeft: '12px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>LOCATION</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.fullData?.incidentLocation || '166, Caloocan City'}</div></div>
+                </div>
+                <div>
+                    <span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>DESCRIPTION OF INCIDENT</span>
+                    <div style={{ border: '1px solid #9ca3af', padding: '12px', backgroundColor: '#f9fafb', minHeight: '60px', borderRadius: '4px', fontWeight: '500', textTransform: 'uppercase', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                        {selected.fullData?.incidentDesc || t('default_reason_desc') || 'Resident was permanently blacklisted.'}
+                    </div>
+                </div>
+            </div>
+
+            {/* III. Blacklisting Reason */}
+            <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>III. Blacklisting Action</h4>
+            <div style={{ border: '2px solid #dc2626', padding: '16px', fontSize: '13px', textAlign: 'justify', lineHeight: '1.6', marginBottom: '24px', backgroundColor: '#fef2f2', fontWeight: '500', pageBreakInside: 'avoid', textTransform: 'uppercase' }}>
+                THIS RESIDENT HAS BEEN PERMANENTLY BLACKLISTED FROM BARANGAY 166 DUE TO THE ABOVE-MENTIONED INCIDENT. ALL PRIVILEGES AND SERVICES ARE HEREBY REVOKED. THIS RECORD SHALL REMAIN IN THE BARANGAY BLACKLIST DATABASE INDEFINITELY.
+            </div>
+
+            {/* Summons Section */}
+            {selected.type !== 'CURFEW' && selectedSummons.length > 0 && (
+                <>
+                    <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>IV. Summons Issued</h4>
+                    <div style={{ marginBottom: '24px' }}>
+                        {sortedSummons.map((summon, idx) => (
+                            <div key={idx} style={{ border: '1px solid #9ca3af', padding: '12px', marginBottom: '8px', backgroundColor: '#fff7ed', borderLeft: '4px solid #f97316', borderRadius: '4px', pageBreakInside: 'avoid' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #d1d5db', paddingBottom: '6px', marginBottom: '6px' }}>
+                                    <span style={{ fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase' }}>{summon.summonType === '1' ? 'First' : summon.summonType === '2' ? 'Second' : 'Third'} Summon</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', color: '#15803d' }}>{summon.status}</span>
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', fontSize: '12px', color: '#1f2937' }}>
+                                    <div style={{ width: '50%', marginBottom: '4px' }}><span style={{ fontWeight: 'bold', color: '#6b7280', marginRight: '4px' }}>TO:</span> <b style={{ textTransform: 'uppercase' }}>{summon.residentName}</b></div>
+                                    <div style={{ width: '50%', marginBottom: '4px' }}><span style={{ fontWeight: 'bold', color: '#6b7280', marginRight: '4px' }}>DATE:</span> {formatDate(summon.summonDate)} at {summon.summonTime}</div>
+                                    <div style={{ width: '100%' }}><span style={{ fontWeight: 'bold', color: '#6b7280', marginRight: '4px' }}>NOTED BY:</span> <span style={{ textTransform: 'uppercase' }}>{summon.notedBy}</span></div>
+                                </div>
+                                {summon.summonReason && (
+                                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #d1d5db', fontSize: '12px' }}>
+                                        <span style={{ fontWeight: 'bold', display: 'block', marginBottom: '4px', color: '#6b7280', fontSize: '10px' }}>REASON:</span>
+                                        <div style={{ textTransform: 'uppercase', wordBreak: 'break-word', whiteSpace: 'normal' }} dangerouslySetInnerHTML={{ __html: decodeHTML(summon.summonReason) }} />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+
+            {/* Additional Notes Section */}
+            {getNotesForCurrentCase().length > 0 && (
+                <>
+                    <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>V. Additional Notes</h4>
+                    <div style={{ marginBottom: '24px' }}>
+                        {getNotesForCurrentCase().map((note) => (
+                            <div key={note.id} style={{ border: '1px solid #9ca3af', padding: '12px', marginBottom: '8px', backgroundColor: '#f9fafb', borderRadius: '4px', pageBreakInside: 'avoid' }}>
+                                <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#6b7280', marginBottom: '8px', textTransform: 'uppercase' }}>
+                                    Added on {note.date} at {note.time}
+                                    {note.lastEdited && (
+                                        <span style={{ marginLeft: '8px', color: '#9ca3af' }}>
+                                            (Edited on {note.lastEdited} at {note.lastEditedTime})
+                                        </span>
+                                    )}
+                                </div>
+                                <div style={{ fontSize: '12px', textTransform: 'uppercase', wordBreak: 'break-word', whiteSpace: 'normal' }} dangerouslySetInnerHTML={{ __html: ensureHtml(note.content) }} />
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+
+            {/* Footer with Signatures */}
+            <div style={{ marginTop: '24px', paddingTop: '16px', width: '100%', pageBreakInside: 'avoid', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', borderTop: '1px solid #d1d5db' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', textAlign: 'center', fontSize: '12px', marginBottom: '32px', marginTop: '8px' }}>
+                    <div style={{ width: '40%' }}>
+                        <div style={{ borderBottom: '1px solid black', fontWeight: 'bold', paddingBottom: '4px', height: '20px', textTransform: 'uppercase' }}>{selected.complainantName || ''}</div>
+                        <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '4px', color: '#4b5563' }}>Complainant's Signature</div>
+                    </div>
+                    <div style={{ width: '40%' }}>
+                        <div style={{ borderBottom: '1px solid black', fontWeight: 'bold', paddingBottom: '4px', height: '20px', textTransform: 'uppercase' }}>{selected.resident || selected.fullData?.respondentName || ''}</div>
+                        <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '4px', color: '#4b5563' }}>Respondent's Signature</div>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', textAlign: 'center', fontSize: '12px', marginBottom: '32px' }}>
+                    <div style={{ width: '40%' }}>
+                        <div style={{ borderBottom: '1px solid black', fontWeight: 'bold', paddingBottom: '4px', height: '20px', textTransform: 'uppercase' }}>{selected.fullData?.selectedRole || 'LUPON TAGAPAMAYAPA'}</div>
+                        <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '4px', color: '#4b5563' }}>Barangay Official</div>
+                    </div>
+                    <div style={{ width: '40%' }}>
+                        <div style={{ borderBottom: '1px solid black', fontWeight: 'bold', paddingBottom: '4px', height: '20px' }}></div>
+                        <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '4px', color: '#4b5563' }}>Punong Barangay</div>
+                    </div>
+                </div>
+
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                    <div style={{ textAlign: 'center', width: '200px' }}>
+                        <div style={{ borderBottom: '1px solid black', marginBottom: '6px' }}></div>
+                        <p style={{ fontWeight: 'bold', fontSize: '10px', margin: 0, textTransform: 'uppercase' }}>CLERK OF COURT</p>
+                    </div>
+                </div>
+
+                <div style={{ fontSize: '9px', color: '#6b7280', width: '100%', marginBottom: '8px', textAlign: 'center' }}>
+                    <p style={{ fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px 0' }}>DOCUMENT GENERATED ON {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}</p>
+                    <p style={{ fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>BARANGAY 166, CALOOCAN CITY | OFFICIAL BARANGAY RECORDS</p>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', height: '48px', width: '100%' }}>
+                    <img src="/icon-analytics/analytics footerprint.png" alt="Bagong Pilipinas" style={{ height: '40px', objectFit: 'contain', zIndex: 10 }} />
+                </div>
+            </div>
+        </div>
+      );
+    }
+
+    // Monthly Transmittal List View for Blacklisted Cases
+    const combinedPrintData = filteredRows.map(item => ({
+      caseNo: item.caseNo,
+      title: item.type === 'CURFEW' ? `BARANGAY PATROL VS ${item.resident || 'N/A'}` : `${item.complainantName || 'N/A'} VS ${item.resident || item.respondentName || 'N/A'}`,
+      date: item.date || item.createdAt,
+      type: item.type
+    }));
+
+    return (
+      <div style={{ width: '100%', maxWidth: '100%', fontFamily: 'Arial, sans-serif', color: 'black', backgroundColor: 'white' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', borderSpacing: 0, tableLayout: 'fixed', wordWrap: 'break-word' }}>
+          <thead style={{ display: 'table-header-group' }}>
+            <tr>
+              <th colSpan="2" style={{ border: 'none', paddingBottom: '20px', fontWeight: 'normal' }}>
+                <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
+                    <img src="/icon-analytics/analyticsprint logo.png" alt="Republic Logo" style={{ width: '80px', height: '80px', margin: '0 auto 10px auto', display: 'block', objectFit: 'contain' }} />
+                    <p style={{ margin: '0 0 5px 0', fontSize: '14px' }}>Republic of the Philippines</p>
+                    <h1 style={{ margin: '4px 0', fontSize: '24px', fontWeight: '900', color: '#1d4ed8' }}>BARANGAY 166, CAYBIGA</h1>
+                    <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>ZONE 15 DISTRICT I, CALOOCAN CITY</p>
+                    <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>#1 GEN LUIS. ST, CAYBIGA CALOOCAN CITY</p>
+                </div>
+                
+                <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
+                    <h2 style={{ margin: '0', fontSize: '18px', fontWeight: 'bold', color: '#1f2937', letterSpacing: '0.05em' }}>TANGGAPAN NG LUPON TAGAMAPAYAMAPA</h2>
+                    <div style={{ textAlign: 'right', marginTop: '15px' }}>
+                      <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#1f2937' }}>{monthYearStringForPrint}</p>
+                    </div>
+                </div>
+                
+                <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px', borderTop: '4px double black', borderBottom: '4px double black', padding: '8px 0' }}>
+                    <h3 style={{ margin: '0', fontSize: '20px', fontWeight: '900', color: '#111827' }}>BLACKLISTED CASES TRANSMITTAL REPORT</h3>
+                </div>
+                
+                <div style={{ textAlign: 'left', fontSize: '14px', color: '#111827', marginBottom: '20px' }}>
+                    <div style={{ paddingLeft: '20px', marginBottom: '15px' }}>
+                        <span style={{ fontWeight: 'bold', marginRight: '20px' }}>TO:</span>
+                        <span style={{ display: 'inline-block', verticalAlign: 'top' }}>
+                          <p style={{ margin: '0', fontWeight: 'bold' }}>City / Municipal Judge</p>
+                          <p style={{ margin: '0' }}>Caloocan City</p>
+                        </span>
+                    </div>
+                    <p style={{ margin: '0', textIndent: '40px', lineHeight: '1.6' }}>
+                      Enclosed herewith are the blacklisted residents permanently banned from Barangay 166:
+                    </p>
+                </div>
+              </th>
+            </tr>
+            
+            <tr style={{ backgroundColor: '#d1d5db' }}>
+                <th style={{ border: '1px solid black', padding: '12px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', width: '35%', color: 'black' }}>
+                  Barangay Case No.
+                </th>
+                <th style={{ border: '1px solid black', padding: '12px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', width: '65%', color: 'black' }}>
+                  Blacklisted Resident / Case Record
+                  <span style={{ display: 'block', fontSize: '10px', fontWeight: 'normal', fontStyle: 'italic', marginTop: '4px' }}>(Complainant vs Respondent)</span>
+                </th>
+            </tr>
+          </thead>
+  
+          <tbody style={{ display: 'table-row-group' }}>
+              {combinedPrintData.length > 0 ? combinedPrintData.map((item, index) => (
+                  <tr key={index} style={{ pageBreakInside: 'avoid' }}>
+                      <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase' }}>{item.caseNo}</td>
+                      <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase' }}>{item.title}</td>
+                   </tr>
+              )) : (
+                  <tr style={{ pageBreakInside: 'avoid' }}><td colSpan="2" style={{ border: '1px solid black', padding: '30px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#6b7280' }}>No blacklisted cases recorded for the selected filter period.</td></tr>
+              )}
+          </tbody>
+  
+          <tfoot style={{ display: 'table-footer-group' }}>
+            <tr>
+              <td colSpan="2" style={{ border: 'none', paddingTop: '50px', paddingBottom: '20px' }}>
+                  <div style={{ textAlign: 'right', marginBottom: '30px', width: '100%' }}>
+                      <div style={{ display: 'inline-block', textAlign: 'center', width: '250px' }}>
+                          <div style={{ borderBottom: '1px solid black', marginBottom: '8px', width: '100%' }}></div>
+                          <p style={{ margin: '0', fontWeight: 'bold', fontSize: '14px' }}>Clerk of Court</p>
+                      </div>
+                  </div>
+                  <div style={{ width: '100%', textAlign: 'left', marginBottom: '20px' }}>
+                      <p style={{ margin: '0', fontSize: '10px', color: '#374151', fontWeight: 'bold' }}>
+                        IMPORTANT: <span style={{ fontWeight: 'normal' }}>This transmittal contains records of permanently blacklisted residents.</span>
+                      </p>
+                  </div>
+                  <div style={{ width: '100%', textAlign: 'center', marginTop: '20px' }}>
+                      <img src="/icon-analytics/analytics footerprint.png" alt="Bagong Pilipinas" style={{ height: '70px', objectFit: 'contain', display: 'inline-block' }} />
+                  </div>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    );
+  };
+
+  const getNotesForCurrentCase = () => {
+    return additionalNotes.filter(note => note.caseNo === selected?.caseNo);
+  };
+
+  const renderPrintModal = () => {
+    if (!isPrintModalOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[1050] bg-black/60 backdrop-blur-sm flex justify-center items-center overflow-y-auto py-10 print-hide">
+        <div className="bg-white relative flex flex-col shrink-0 w-[210mm] min-h-[297mm] p-[15mm_20mm] mx-auto shadow-2xl">
+            
+            {getPrintContent()}
+            
+            <div className="mt-12 flex justify-end gap-4 z-[1060] print-hide w-full border-t border-gray-200 pt-4">
+                <button 
+                  onClick={handleCancelPrint} 
+                  className="px-6 py-2.5 text-sm rounded-xl border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 shadow-md font-bold transition-colors"
+                >
+                    {t('cancel') || 'Cancel'}
+                </button>
+                <button 
+                  onClick={handlePrintSubmit} 
+                  className="px-8 py-2.5 text-sm rounded-xl tracking-wide shadow-md font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-2"
+                >
+                    <Printer size={16} /> PRINT REPORT
+                </button>
+            </div>
+        </div>
+      </div>
+    );
   };
 
   // Open Add Notes Modal
@@ -447,10 +757,6 @@ export default function Blacklisted() {
     });
   };
 
-  const getNotesForCurrentCase = () => {
-    return additionalNotes.filter(note => note.caseNo === selected?.caseNo);
-  };
-
   // Calendar Calculation logic
   const calYear = calendarViewDate.getFullYear();
   const calMonth = calendarViewDate.getMonth();
@@ -489,7 +795,7 @@ export default function Blacklisted() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-slate-50 p-8 relative" onClick={() => { setIsDateFilterOpen(false); setIsTypeSortOpen(false); }}>
+    <div className="flex flex-col h-full w-full bg-slate-50 p-8" onClick={() => { setIsDateFilterOpen(false); setIsTypeSortOpen(false); }}>
       
       <style>{`
   .rich-text-content b, .rich-text-content strong { font-weight: 900 !important; }
@@ -503,7 +809,96 @@ export default function Blacklisted() {
   }
 `}</style>
 
-      <div className="flex-1 flex flex-col h-full min-h-0 w-full max-w-[1600px] mx-auto">
+      {/* THE ACTUAL PRINT DOCUMENT: ONLY VISIBLE DURING PRINTING */}
+      <div id="real-print-doc" className="hidden print:block w-full m-0 p-0 absolute top-0 left-0 bg-white z-[99999]">
+        {getPrintContent()}
+      </div>
+
+      {renderPrintModal()}
+
+      <style>{`
+          @media print {
+            /* 1. Nuke React layout locks */
+            html, body, #root {
+              display: block !important;
+              height: auto !important;
+              min-height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
+              position: static !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              box-sizing: border-box !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background-color: white !important;
+            }
+
+            /* 2. Hide everything by default */
+            body * {
+              visibility: hidden !important;
+            }
+
+            /* 3. Show only the print doc and all its children */
+            #real-print-doc, #real-print-doc * {
+              visibility: visible !important;
+              box-sizing: border-box !important;
+            }
+
+            /* 4. Position print doc at top-left, full width — browser @page margin handles centering */
+            #real-print-doc {
+              display: block !important;
+              position: absolute !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              height: auto !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            /* 5. Allow natural word wrapping — break-all causes squishing */
+            #real-print-doc div,
+            #real-print-doc p,
+            #real-print-doc span,
+            #real-print-doc td,
+            #real-print-doc th {
+              word-wrap: break-word !important;
+              white-space: normal !important;
+              overflow-wrap: break-word !important;
+            }
+
+            /* 6. Table multi-page support */
+            table {
+              width: 100% !important;
+              max-width: 100% !important;
+              border-collapse: collapse !important;
+              page-break-inside: auto !important;
+              table-layout: fixed !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            tr { page-break-inside: avoid !important; page-break-after: auto !important; }
+            td, th {
+              page-break-inside: avoid !important;
+              word-wrap: break-word !important;
+              overflow-wrap: break-word !important;
+            }
+            thead { display: table-header-group !important; }
+            tfoot { display: table-footer-group !important; }
+            .print-hide { display: none !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+            /* 7. size:auto restores browser Paper Size dropdown and prevents forced shrink-to-fit */
+            @page {
+              size: auto;
+              margin: 15mm 20mm;
+            }
+          }
+      `}</style>
+
+      <div className="flex-1 flex flex-col h-full min-h-0 w-full max-w-[1600px] mx-auto print-hide">
         {view === 'DETAILS' && selected ? (
           <div className="flex-1 flex flex-col w-full rounded-xl overflow-hidden bg-white shadow-md animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-200">
             <div className="bg-[#0044CC] px-6 py-4 text-white shadow-md shrink-0 rounded-t-xl flex items-center gap-3">
@@ -590,16 +985,16 @@ export default function Blacklisted() {
                       <p className="text-gray-500 text-sm italic py-4 uppercase">NO SUMMONS WERE ISSUED FOR THIS CASE.</p>
                     )}
                   </div>
-                    {/* Button at bottom right of Summons section */}
-                    <div className="flex justify-end mt-6">
-                      <button 
-                        onClick={openAddNotesModal}
-                        className="bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white text-sm font-bold px-5 py-2.5 rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-2 uppercase"
-                      >
-                        <Plus size={18} />
-                        <span>Add Additional Notes</span>
-                      </button>
-                    </div>
+                                    {/* Button at bottom right of Summons section */}
+                  <div className="flex justify-end mt-6">
+                    <button 
+                      onClick={openAddNotesModal}
+                      className="bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white text-sm font-bold px-5 py-2.5 rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-2 uppercase"
+                    >
+                      <Plus size={18} />
+                      <span>Add Additional Notes</span>
+                    </button>
+                  </div>
 
                   {/* Additional Notes Section - ONLY appears if notes exist */}
                   {getNotesForCurrentCase().length > 0 && (
@@ -648,6 +1043,25 @@ export default function Blacklisted() {
                   )}
                 </>
               )}
+                  {/* Export & Print Buttons */}
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Download size={20} className="text-blue-600" />
+                      <h3 className="text-lg font-bold text-[#0044CC] uppercase">Export Blacklisted Case</h3>
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={handleDownloadPDFClick} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 uppercase">
+                        <Download size={18} />
+                        Download as PDF
+                      </button>
+                      <button onClick={handleOpenPrintModal} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2 uppercase">
+                        <Printer size={18} />
+                        Print Case Report
+                      </button>
+                    </div>
+                  </div>
+
+
             </div>
           </div>
         ) : (
@@ -739,7 +1153,7 @@ export default function Blacklisted() {
                   <tr className="border-b-2 border-blue-100 text-blue-900">
                     <th className="px-4 py-4 text-left font-bold uppercase w-[12%]">{t('report_type')}</th>
                     <th className="px-4 py-4 text-left font-bold uppercase w-[15%]">{t('case_number')}</th>
-                    <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('resident_name')}</th>
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('complainant_name')}</th>
                     <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('Reason')}</th>
                     <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('action')}</th>
                   </tr>
@@ -761,9 +1175,6 @@ export default function Blacklisted() {
                         <div className="flex gap-2">
                           <BlacklistedButton actionType="restore" onClick={() => handleRestore(row)}>{t('restore')}</BlacklistedButton>
                           <BlacklistedButton actionType="view" onClick={() => handleViewDetails(row)}>{t('view')}</BlacklistedButton>
-                          <button onClick={() => handleArchive(row)} className="px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all shadow-sm border border-amber-500 text-amber-600 bg-amber-50 hover:bg-amber-100 uppercase tracking-wide">
-                            {t('archive') || 'Archive'}
-                          </button>
                         </div>
                       </td>
                     </tr>

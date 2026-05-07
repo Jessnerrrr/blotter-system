@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 import { useLanguage } from './LanguageContext'; 
 import { useLogo } from './LogoContext'; 
 import { CaseLogsButton } from "./buttons/Buttons"; 
-import { casesAPI, summonsAPI, residentsAPI } from "../services/api";
+import { casesAPI, summonsAPI, residentsAPI, blacklistAPI } from "../services/api";
 import ResidentAutocomplete from './ResidentAutocomplete';
 import { getLoggedInUserName } from '../utils/userAuth';
 
@@ -54,6 +54,34 @@ const fetchResidentAge = async (name) => {
   } catch (error) {
     console.error('Error fetching resident age by name:', error);
     return '';
+  }
+};
+
+// Check if a resident is blacklisted as a RESPONDENT - then block from both fields
+const checkIfBlacklisted = async (name) => {
+  if (!name || typeof name !== 'string' || name.trim().length === 0) return false;
+  try {
+    // Check main cases for BLACKLISTED status - ONLY check if person is the RESPONDENT (resident)
+    const allCases = await casesAPI.getAll();
+    const isBlacklistedInCases = allCases.some(c => 
+      c.status === 'BLACKLISTED' && 
+      c.resident && 
+      c.resident.trim().toLowerCase() === name.trim().toLowerCase()  // Case-insensitive comparison
+    );
+    
+    if (isBlacklistedInCases) return true;
+    
+    // Check manual blacklist entries - ONLY check if person is the RESPONDENT
+    const manualBlacklists = await blacklistAPI.getAll();
+    const isManuallyBlacklisted = manualBlacklists.some(b => 
+      b.resident && 
+      b.resident.trim().toLowerCase() === name.trim().toLowerCase()  // Case-insensitive comparison
+    );
+    
+    return isManuallyBlacklisted;
+  } catch (error) {
+    console.error('Error checking blacklist status:', error);
+    return false;
   }
 };
 
@@ -182,6 +210,8 @@ export default function CaseLogs() {
   const [formErrors, setFormErrors] = useState({});
   const [summonErrors, setSummonErrors] = useState({});
   const [takenSummons, setTakenSummons] = useState([]); 
+  const [complainantBlacklistError, setComplainantBlacklistError] = useState('');
+  const [respondentBlacklistError, setRespondentBlacklistError] = useState('');
 
   const realToday = new Date();
   const currentYear = realToday.getFullYear();
@@ -255,6 +285,8 @@ export default function CaseLogs() {
     setAttachedFiles([]);
     setPreviewFile(null);
     setFormErrors({});
+    setComplainantBlacklistError('');
+    setRespondentBlacklistError('');
     setIsModalOpen(false);
     setIsModeratorModalOpen(false);
     setView('FORM');
@@ -455,8 +487,25 @@ export default function CaseLogs() {
 
   const handleCancelNewCase = () => { setView('TABLE'); };
 
+  // Check for blacklisted status when selecting complainant
   const handleComplainantSelect = async (resident) => {
     const selectedName = resident.full_name || '';
+    
+    const isBlacklisted = await checkIfBlacklisted(selectedName);
+    if (isBlacklisted) {
+      setComplainantBlacklistError(`${selectedName} is blacklisted and cannot be added as a complainant.`);
+      setFormData(prev => ({
+        ...prev,
+        complainantName: '',
+        complainantContact: '',
+        complainantAddress: '',
+        complainantAge: ''
+      }));
+      return;
+    }
+    
+    setComplainantBlacklistError('');
+    
     const resolvedAge = resident.age !== undefined && resident.age !== null
       ? String(resident.age)
       : resident.birthdate
@@ -479,19 +528,12 @@ export default function CaseLogs() {
     }
   };
 
-  const handleComplainantBlur = async (value) => {
-    const normalizedValue = value?.trim();
-    if (!normalizedValue) return;
-    if (formData.complainantName === normalizedValue && formData.complainantAge) return;
-
-    setAgeLoading(prev => ({ ...prev, complainant: true }));
-    const fetchedAge = await fetchResidentAge(normalizedValue);
-    setFormData(prev => ({ ...prev, complainantAge: fetchedAge }));
-    setAgeLoading(prev => ({ ...prev, complainant: false }));
-  };
-
+  // Check for blacklisted status when selecting respondent
   const handleRespondentSelect = async (resident) => {
     const selectedName = resident.full_name || '';
+    
+    setRespondentBlacklistError('');
+    
     const resolvedAge = resident.age !== undefined && resident.age !== null
       ? String(resident.age)
       : resident.birthdate
@@ -514,9 +556,39 @@ export default function CaseLogs() {
     }
   };
 
+  const handleComplainantBlur = async (value) => {
+    const normalizedValue = value?.trim();
+    if (!normalizedValue) return;
+    
+    const isBlacklisted = await checkIfBlacklisted(normalizedValue);
+    if (isBlacklisted) {
+      setComplainantBlacklistError(`${normalizedValue} is blacklisted and cannot be added as a complainant.`);
+      setFormData(prev => ({ 
+        ...prev, 
+        complainantName: '',
+        complainantAge: '',
+        complainantContact: '',
+        complainantAddress: ''
+      }));
+      return;
+    }
+    
+    setComplainantBlacklistError('');
+    
+    if (formData.complainantName === normalizedValue && formData.complainantAge) return;
+
+    setAgeLoading(prev => ({ ...prev, complainant: true }));
+    const fetchedAge = await fetchResidentAge(normalizedValue);
+    setFormData(prev => ({ ...prev, complainantAge: fetchedAge }));
+    setAgeLoading(prev => ({ ...prev, complainant: false }));
+  };
+
   const handleRespondentBlur = async (value) => {
     const normalizedValue = value?.trim();
     if (!normalizedValue) return;
+    
+    setRespondentBlacklistError('');
+    
     if (formData.respondentName === normalizedValue && formData.respondentAge) return;
 
     setAgeLoading(prev => ({ ...prev, respondent: true }));
@@ -525,7 +597,8 @@ export default function CaseLogs() {
     setAgeLoading(prev => ({ ...prev, respondent: false }));
   };
 
-  const handleSubmitCase = () => {
+  // Validate blacklisted status before submitting
+  const handleSubmitCase = async () => {
     const errors = {};
     const fieldsToValidate = [
         'complainantName', 'complainantContact', 'complainantAddress', 
@@ -548,6 +621,17 @@ export default function CaseLogs() {
       });
       return;
     }
+
+    // Check for blacklist errors
+   if (complainantBlacklistError) {
+  Swal.fire({ 
+    title: 'Blacklisted Person Detected', 
+    text: complainantBlacklistError, 
+    icon: 'error', 
+    confirmButtonColor: '#d33' 
+  });
+  return;
+}
 
     Swal.fire({ title: t('confirm_save_title'), text: t('confirm_save_text'), icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('yes_save'), cancelButtonText: t('cancel') }).then(async (result) => {
         if(result.isConfirmed) {
@@ -576,9 +660,9 @@ export default function CaseLogs() {
               setView('TABLE');
               window.dispatchEvent(new Event('caseDataUpdated'));
               
-              Swal.fire({ title: 'Success!', text: 'Case saved to database successfully!', icon: 'success' });
+              Swal.fire({ title: 'Success!', text: 'Case saved to case logs successfully!', icon: 'success' });
             } catch (err) {
-              Swal.fire({ title: 'Error!', text: 'Failed to save case to database. Please try again.', icon: 'error' });
+              Swal.fire({ title: 'Error!', text: 'Failed to save case to case logs. Please try again.', icon: 'error' });
             }
         }
     });
@@ -640,7 +724,6 @@ export default function CaseLogs() {
       <div className="flex-1 overflow-y-auto bg-slate-50 p-8 relative">
         <style>{`
           @media print { 
-            /* 1. Nuke React layout locks to allow multi-page scrolling */
             html, body, #root, .h-screen, .overflow-hidden, .overflow-y-auto, .flex-1 {
               height: auto !important;
               min-height: 0 !important;
@@ -649,17 +732,11 @@ export default function CaseLogs() {
               position: static !important;
               display: block !important;
             }
-
-            /* 2. Hide everything else on the page */
             body * { visibility: hidden !important; } 
-            
-            /* 3. Make only the print section visible */
             #printable-overview, #printable-overview * { 
               visibility: visible !important; 
               box-sizing: border-box !important;
             } 
-
-            /* 4. Force the print section to overlay everything at 100% width */
             #printable-overview { 
               position: absolute !important; 
               top: 0 !important; 
@@ -669,11 +746,7 @@ export default function CaseLogs() {
               margin: 0 !important; 
               background-color: white !important;
             } 
-
-            /* 5. Trigger browser paper size options */
             @page { size: auto; margin: 12mm; }
-
-            /* 6. Table pagination logic */
             table { 
               width: 100% !important; 
               border-collapse: collapse !important; 
@@ -683,20 +756,16 @@ export default function CaseLogs() {
             thead { display: table-header-group !important; }
             tr { page-break-inside: avoid !important; page-break-after: auto !important; }
             td, th { page-break-inside: avoid !important; }
-            
             .align-left-print { text-align: left !important; }
             .print-hide { display: none !important; }
           }
         `}</style>
 
-        {/* --- PRINTABLE CONTENT START --- */}
         <div id="printable-overview" className="hidden print:block text-black font-sans">
           <table>
-            {/* THEAD forces the header to print on every new page if the content gets too long */}
             <thead>
               <tr>
                 <th colSpan="4" style={{ border: 'none', paddingBottom: '20px', fontWeight: 'normal' }}>
-                  {/* DASHBOARD LETTERHEAD */}
                   <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px' }}>
                       <img 
                         src="/icon-analytics/analyticsprint logo.png" 
@@ -708,7 +777,6 @@ export default function CaseLogs() {
                       <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase' }}>Zone 15 District I, Caloocan City</p>
                       <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#4b5563' }}>#1 GEN LUIS ST., CAYBIGA, CALOOCAN CITY</p>
                   </div>
-
                   <div style={{ textAlign: 'center', width: '100%', marginBottom: '30px', borderTop: '4px double black', borderBottom: '4px double black', padding: '12px 0' }}>
                       <h2 style={{ margin: '0', fontSize: '22px', fontWeight: '900', color: '#111827', textTransform: 'uppercase', letterSpacing: '1px' }}>
                         {t('case_report_overview')}
@@ -717,8 +785,6 @@ export default function CaseLogs() {
                 </th>
               </tr>
             </thead>
-
-            {/* TBODY contains the actual data */}
             <tbody style={{ display: 'table-row-group' }}>
               <tr style={{ height: '50px' }}>
                 <td className="border border-black p-3 font-bold bg-gray-100 w-1/4 uppercase align-left-print">{t('report_type')}</td>
@@ -783,8 +849,6 @@ export default function CaseLogs() {
               </tr>
             </tbody>
           </table>
-
-          {/* MOVED OUTSIDE THE TABLE SO IT ONLY PRINTS ONCE AT THE VERY END */}
           <div style={{ paddingTop: '50px', pageBreakInside: 'avoid' }}>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: '40px' }}>
@@ -794,7 +858,6 @@ export default function CaseLogs() {
                    <p style={{ margin: '0', fontSize: '10px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Lupon Secretary / Chairperson</p>
                  </div>
                </div>
-               
                <div style={{ width: '100%', textAlign: 'center', marginTop: '20px' }}>
                   <img 
                     src="/icon-analytics/analytics footerprint.png" 
@@ -804,11 +867,8 @@ export default function CaseLogs() {
                </div>
             </div>
           </div>
-          
         </div>
-        {/* --- PRINTABLE CONTENT END --- */}
 
-        {/* ON-SCREEN UI (NOT PRINTED) */}
         <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 print:hidden">
           <div className="bg-blue-700 p-8 text-white text-center">
             <h2 className="text-3xl font-bold">{t('case_report_overview')}</h2>
@@ -1060,14 +1120,17 @@ export default function CaseLogs() {
                             value={formData.complainantName}
                             onChange={(value) => {
                                 handleInputChange({ target: { name: 'complainantName', value } });
+                                setComplainantBlacklistError('');
                             }}
                             onSelect={handleComplainantSelect}
                             onBlur={handleComplainantBlur}
                             placeholder={t('full_name')}
                             label=""
                             required={false}
+                            className={complainantBlacklistError ? 'border-red-500 ring-2 ring-red-100' : ''}
                         />
                         {formErrors.complainantName && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.complainantName}</p>}
+                        {complainantBlacklistError && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{complainantBlacklistError}</p>}
                     </div>
                     <div>
                         <input 
@@ -1097,14 +1160,17 @@ export default function CaseLogs() {
                             value={formData.respondentName}
                             onChange={(value) => {
                                 handleInputChange({ target: { name: 'respondentName', value } });
+                                setRespondentBlacklistError('');
                             }}
                             onSelect={handleRespondentSelect}
                             onBlur={handleRespondentBlur}
                             placeholder={t('full_name')}
                             label=""
                             required={false}
+                            className={respondentBlacklistError ? 'border-red-500 ring-2 ring-red-100' : ''}
                         />
                         {formErrors.respondentName && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{formErrors.respondentName}</p>}
+                        {respondentBlacklistError && <p className="text-red-500 text-xs mt-1 ml-1 font-bold">{respondentBlacklistError}</p>}
                     </div>
                     <div>
                         <input 

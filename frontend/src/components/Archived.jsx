@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Swal from 'sweetalert2';
-import { ChevronLeft, Calendar, Filter, ChevronDown, Folder, FileText, Gavel, Clock, Download, Printer, Search, ChevronRight } from 'lucide-react'; 
+import { ChevronLeft, Calendar, Filter, ChevronDown, Folder, FileText, Gavel, Clock, Download, Printer, Search, ChevronRight, Layers } from 'lucide-react'; 
 import { useLanguage } from './LanguageContext'; 
 import { ArchivedButton } from './buttons/Buttons';
 import { casesAPI, summonsAPI, curfewsAPI } from '../services/api';
@@ -45,10 +45,15 @@ export default function Archived() {
   
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
+  // Filter States
   const allTypesText = t('all_types') || 'All Types';
+  const allStatusText = 'Status';
 
   const [isTypeSortOpen, setIsTypeSortOpen] = useState(false);
   const [sortType, setSortType] = useState(allTypesText);
+
+  const [isStatusSortOpen, setIsStatusSortOpen] = useState(false);
+  const [sortStatus, setSortStatus] = useState(allStatusText);
 
   // Custom Calendar Dropdown States
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
@@ -65,14 +70,20 @@ export default function Archived() {
 
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+  // Separated Options for Dropdowns
   const typeOptions = [
     { label: allTypesText, color: 'bg-gray-400' },
     { label: 'LUPON', color: 'bg-green-600' },
     { label: 'VAWC', color: 'bg-purple-600' },
     { label: 'BLOTTER', color: 'bg-red-600' },
     { label: 'COMPLAIN', color: 'bg-blue-600' },
-    { label: 'CURFEW', color: 'bg-pink-600' },
-    { label: 'ESCALATED', color: 'bg-red-500' }, 
+    { label: 'CURFEW', color: 'bg-pink-600' }
+  ];
+
+  const statusOptions = [
+    { label: allStatusText, color: 'bg-gray-400' },
+    { label: 'SETTLED', color: 'bg-green-600' },
+    { label: 'ESCALATED', color: 'bg-red-500' }
   ];
 
   useEffect(() => {
@@ -86,7 +97,6 @@ export default function Archived() {
         
         const archivedCases = allCases.filter(c => {
             const s = String(c.status || '').toUpperCase();
-            // Strictly fetch SETTLED and ESCALATED cases only
             return s === 'SETTLED' || s === 'ESCALATED';
         });
         
@@ -113,7 +123,6 @@ export default function Archived() {
             };
         });
         
-        // Sort strictly by updatedAt first so newly escalated cases sit at the VERY TOP
         const sorted = [...archivedCases, ...archivedCurfews].sort((a, b) => {
             const dateA = new Date(a.updatedAt || a.date || a.createdAt).getTime();
             const dateB = new Date(b.updatedAt || b.date || b.createdAt).getTime();
@@ -140,7 +149,6 @@ export default function Archived() {
   const filteredRows = rows.filter((row) => {
     const searchLower = search.toLowerCase();
     
-    // searchLower === '' ensures the row doesn't get hidden if fields are empty
     const matchesSearch = searchLower === '' || 
         (row.caseNo && String(row.caseNo).toLowerCase().includes(searchLower)) ||
         (row.resident && String(row.resident).toLowerCase().includes(searchLower)) ||
@@ -150,21 +158,19 @@ export default function Archived() {
     let rowMonth = '';
     let rowDay = '';
 
-    // Advanced Date Extraction for Filtering
     if (row.date) {
         const itemDateParts = row.date.split('-');
         if (itemDateParts.length === 3) {
-            if (itemDateParts[2].length === 4) { // MM-DD-YYYY
+            if (itemDateParts[2].length === 4) { 
                 rowYear = itemDateParts[2];
                 rowMonth = itemDateParts[0].padStart(2, '0');
                 rowDay = itemDateParts[1].padStart(2, '0');
-            } else { // YYYY-MM-DD
+            } else { 
                 rowYear = itemDateParts[0];
                 rowMonth = itemDateParts[1].padStart(2, '0');
                 rowDay = itemDateParts[2].padStart(2, '0');
             }
         } else {
-            // Fallback
             const d = new Date(row.date);
             if (!isNaN(d.getTime())) {
                 rowYear = d.getFullYear().toString();
@@ -178,16 +184,10 @@ export default function Archived() {
     const matchesMonth = filterMonth === 'All Months' || rowMonth === filterMonth.padStart(2, '0');
     const matchesDay = filterDay === 'All Days' || rowDay === filterDay.padStart(2, '0');
     
-    let matchesType = true;
-    if (sortType !== allTypesText) {
-        if (sortType === 'ESCALATED') {
-            matchesType = String(row.status || '').toUpperCase() === 'ESCALATED';
-        } else {
-            matchesType = String(row.type || '').toUpperCase() === sortType;
-        }
-    }
+    const matchesType = sortType === allTypesText || String(row.type || '').toUpperCase() === sortType;
+    const matchesStatus = sortStatus === allStatusText || String(row.status || '').toUpperCase() === sortStatus;
 
-    return matchesSearch && matchesYear && matchesMonth && matchesDay && matchesType;
+    return matchesSearch && matchesYear && matchesMonth && matchesDay && matchesType && matchesStatus;
   });
 
   const handleViewDetails = async (row) => { 
@@ -306,9 +306,6 @@ export default function Archived() {
     const printDate = new Date();
     const monthYearStringForPrint = printDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
 
-    // ==========================================
-    // LAYOUT 1: SINGLE CASE DETAILED PRINT VIEW
-    // ==========================================
     if (view === 'DETAILS' && selected) {
       const sortedSummons = [...selectedSummons].sort((a, b) => parseInt(a.summonType) - parseInt(b.summonType));
       const isEscalated = String(selected.status || '').toUpperCase() === 'ESCALATED';
@@ -334,7 +331,6 @@ export default function Archived() {
                 <h3 style={{ margin: '0', fontSize: '20px', fontWeight: '900', color: '#111827' }}>CASE REPORT AND RESOLUTION</h3>
             </div>
 
-            {/* Case Info Grid */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '12px', border: '1px solid black', backgroundColor: '#f9fafb', marginBottom: '24px', fontSize: '13px' }}>
                 <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>CASE NUMBER:</span> <b style={{ color: '#111827' }}>{selected.caseNo}</b></div>
                 <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>CASE TYPE:</span> <b style={{ color: '#1d4ed8' }}>{selected.type}</b></div>
@@ -342,7 +338,6 @@ export default function Archived() {
                 <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>STATUS:</span> <b style={{ color: isEscalated ? '#dc2626' : '#16a34a' }}>{isEscalated ? 'ESCALATED & ARCHIVED' : 'SETTLED & ARCHIVED'}</b></div>
             </div>
 
-            {/* I. Parties Involved */}
             <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>I. Parties Involved</h4>
             <div style={{ display: 'flex', marginBottom: '24px', fontSize: '13px' }}>
                 <div style={{ width: '50%', paddingRight: '12px' }}>
@@ -357,7 +352,6 @@ export default function Archived() {
                 </div>
             </div>
 
-            {/* II. Incident Details */}
             <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>II. Incident Details</h4>
             <div style={{ fontSize: '13px', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', marginBottom: '12px' }}>
@@ -371,7 +365,6 @@ export default function Archived() {
                 </div>
             </div>
 
-            {/* III. Summons Issued */}
             {selected.type !== 'CURFEW' && (
                 <>
                     <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>III. Summons Issued</h4>
@@ -398,7 +391,6 @@ export default function Archived() {
                 </>
             )}
 
-            {/* Timeline */}
             <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px', pageBreakInside: 'avoid' }}>{selected.type !== 'CURFEW' ? 'IV.' : 'III.'} Case Timeline</h4>
             <div style={{ marginBottom: '24px', paddingLeft: '16px', borderLeft: '2px solid #d1d5db', marginLeft: '8px', fontSize: '12px', pageBreakInside: 'avoid' }}>
                 <div style={{ marginBottom: '16px', position: 'relative' }}>
@@ -420,7 +412,6 @@ export default function Archived() {
                 </div>
             </div>
 
-            {/* Resolution Text */}
             <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px', pageBreakInside: 'avoid' }}>{selected.type !== 'CURFEW' ? 'V.' : 'IV.'} Resolution</h4>
             <div style={{ border: '2px solid black', padding: '16px', fontSize: '13px', textAlign: 'justify', lineHeight: '1.6', marginBottom: '24px', backgroundColor: 'white', fontWeight: '500', pageBreakInside: 'avoid', textTransform: 'uppercase' }}>
                 {isEscalated 
@@ -429,7 +420,6 @@ export default function Archived() {
                 }
             </div>
 
-            {/* Footer with Signatures */}
             <div style={{ marginTop: '24px', paddingTop: '16px', width: '100%', pageBreakInside: 'avoid', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', borderTop: '1px solid #d1d5db' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', textAlign: 'center', fontSize: '12px', marginBottom: '32px', marginTop: '8px' }}>
                     <div style={{ width: '40%' }}>
@@ -473,9 +463,6 @@ export default function Archived() {
       );
     }
 
-    // ==========================================
-    // LAYOUT 2: MONTHLY TRANSMITTAL LIST VIEW
-    // ==========================================
     const combinedPrintData = filteredRows.map(item => ({
       caseNo: item.caseNo,
       title: item.type === 'CURFEW' ? `BARANGAY PATROL VS ${item.resident || 'N/A'}` : `${item.complainantName || 'N/A'} VS ${item.resident || item.respondentName || 'N/A'}`,
@@ -596,7 +583,6 @@ export default function Archived() {
     );
   };
 
-  // Calendar Calculation logic
   const calYear = calendarViewDate.getFullYear();
   const calMonth = calendarViewDate.getMonth();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -627,10 +613,17 @@ export default function Archived() {
     displayDate = filterYear;
   }
 
+  // Updated click handler to close all dropdowns
+  const closeAllDropdowns = () => {
+    setIsDateFilterOpen(false);
+    setIsTypeSortOpen(false);
+    setIsStatusSortOpen(false);
+  };
+
   return (
-    <div className="flex flex-col h-full w-full bg-slate-50 p-8" onClick={() => { setIsDateFilterOpen(false); setIsTypeSortOpen(false); }}>
+    <div className="flex flex-col h-full w-full bg-slate-50 p-8" onClick={closeAllDropdowns}>
       
-      {/* 🔥 THE ACTUAL PRINT DOCUMENT: ONLY VISIBLE DURING PRINTING 🔥 */}
+      {/* THE ACTUAL PRINT DOCUMENT */}
       <div id="real-print-doc" className="hidden print:block w-full m-0 p-0 absolute top-0 left-0 bg-white z-[99999]">
         {getPrintContent()}
       </div>
@@ -639,7 +632,6 @@ export default function Archived() {
 
       <style>{`
           @media print {
-            /* 1. Nuke React layout locks */
             html, body, #root {
               display: block !important;
               height: auto !important;
@@ -654,19 +646,11 @@ export default function Archived() {
               padding: 0 !important;
               background-color: white !important;
             }
-
-            /* 2. Hide everything by default */
-            body * {
-              visibility: hidden !important;
-            }
-
-            /* 3. Show only the print doc and all its children */
+            body * { visibility: hidden !important; }
             #real-print-doc, #real-print-doc * {
               visibility: visible !important;
               box-sizing: border-box !important;
             }
-
-            /* 4. Position print doc at top-left, full width — browser @page margin handles centering */
             #real-print-doc {
               display: block !important;
               position: absolute !important;
@@ -678,8 +662,6 @@ export default function Archived() {
               margin: 0 !important;
               padding: 0 !important;
             }
-
-            /* 5. Allow natural word wrapping — break-all causes squishing */
             #real-print-doc div,
             #real-print-doc p,
             #real-print-doc span,
@@ -689,8 +671,6 @@ export default function Archived() {
               white-space: normal !important;
               overflow-wrap: break-word !important;
             }
-
-            /* 6. Table multi-page support */
             table {
               width: 100% !important;
               max-width: 100% !important;
@@ -710,12 +690,7 @@ export default function Archived() {
             tfoot { display: table-footer-group !important; }
             .print-hide { display: none !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-
-            /* 7. size:auto restores browser Paper Size dropdown and prevents forced shrink-to-fit */
-            @page {
-              size: auto;
-              margin: 15mm 20mm;
-            }
+            @page { size: auto; margin: 15mm 20mm; }
           }
       `}</style>
 
@@ -873,29 +848,25 @@ export default function Archived() {
                 <Folder size={24} className="text-white" strokeWidth={2} />
                 <h1 className="text-2xl font-bold uppercase tracking-wide text-white">{t('archived_cases') || 'Archived Cases'}</h1>
               </div>
-              <p className="text-sm font-medium text-white/80 mt-1">{t('archived_subtitle') || 'Browse settled cases'}</p>
+              <p className="text-sm font-medium text-white/80 mt-1">{t('archived_subtitle') || 'Browse settled and escalated cases'}</p>
             </div>
 
             <div className="border-b border-gray-200 bg-white px-6 py-6 md:px-8 shrink-0 relative z-20">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <p className="text-sm font-bold text-gray-700 whitespace-nowrap">{t('total_settled') || 'Total Records'}: {filteredRows.length}</p>
+                <p className="text-sm font-bold text-gray-700 whitespace-nowrap">Total Records: {filteredRows.length}</p>
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
                   
-                  {/* Beautiful Calendar Dropdown Filter */}
+                  {/* Calendar Dropdown Filter */}
                   <div className="relative w-full sm:w-auto" onClick={e => e.stopPropagation()}>
-                    <button type="button" onClick={() => { setIsDateFilterOpen(!isDateFilterOpen); setIsTypeSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button type="button" onClick={() => { setIsDateFilterOpen(!isDateFilterOpen); setIsTypeSortOpen(false); setIsStatusSortOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
                       <div className="flex items-center"><Calendar size={18} className="mr-2 text-blue-500" /><span>{displayDate}</span></div>
                       <ChevronDown size={16} className={`ml-3 text-gray-400 transition-transform ${isDateFilterOpen ? 'rotate-180' : ''}`} />
                     </button>
 
                     {isDateFilterOpen && (
                       <div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-[340px] bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 p-5 animate-in fade-in zoom-in-95 duration-200">
-                        
                         <div className="flex justify-between items-center mb-5">
-                          <button 
-                            onClick={() => setCalendarViewDate(new Date(calYear, calMonth - 1, 1))} 
-                            className="p-2 hover:bg-slate-100 rounded-xl text-gray-500 hover:text-blue-600 transition-colors"
-                          >
+                          <button onClick={() => setCalendarViewDate(new Date(calYear, calMonth - 1, 1))} className="p-2 hover:bg-slate-100 rounded-xl text-gray-500 hover:text-blue-600 transition-colors">
                             <ChevronLeft size={18} strokeWidth={2.5} />
                           </button>
                           
@@ -1005,9 +976,21 @@ export default function Archived() {
                     )}
                   </div>
                   
+                  {/* Status Filter */}
+                  <div className="relative w-full sm:w-auto">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsStatusSortOpen(!isStatusSortOpen); setIsTypeSortOpen(false); setIsDateFilterOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center"><Layers size={18} className="mr-2 text-gray-500" /><span>{sortStatus}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
+                    </button>
+                    {isStatusSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                      {statusOptions.map(o => (<div key={o.label} onClick={() => { setSortStatus(o.label); setIsStatusSortOpen(false); }} className="px-4 py-3 text-sm font-bold hover:bg-blue-50 cursor-pointer flex items-center text-gray-700 border-b last:border-0">
+                        <span className={`w-2.5 h-2.5 rounded-full ${o.color} mr-3`} />{o.label}
+                      </div>))}
+                    </div>)}
+                  </div>
+
                   {/* Type Filter */}
                   <div className="relative w-full sm:w-auto">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsDateFilterOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setIsTypeSortOpen(!isTypeSortOpen); setIsStatusSortOpen(false); setIsDateFilterOpen(false); }} className="flex w-full sm:w-auto items-center justify-between bg-white px-4 py-3 rounded-xl border border-gray-300 shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
                       <div className="flex items-center"><Filter size={18} className="mr-2 text-gray-500" /><span>{sortType}</span></div><ChevronDown size={16} className="ml-3 text-gray-500" />
                     </button>
                     {isTypeSortOpen && (<div className="absolute top-full left-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
@@ -1031,10 +1014,11 @@ export default function Archived() {
                 <table className="w-full border-collapse text-sm relative">
                   <thead className="sticky top-0 z-30 shadow-[0_2px_4px_rgba(0,0,0,0.05)]">
                     <tr className="border-b-2 border-blue-100 text-blue-900 bg-white">
+                      <th className="px-4 py-4 text-left font-bold uppercase w-[12%] bg-white">Status</th>
                       <th className="px-4 py-4 text-left font-bold uppercase w-[12%] bg-white">{t('report_type')}</th>
-                      <th className="px-4 py-4 text-left font-bold uppercase w-[18%] bg-white">{t('case_number')}</th>
-                      <th className="px-4 py-4 text-left font-bold uppercase w-[30%] bg-white">{t('complainant_name') || 'Complainant / Resident'}</th>
-                      <th className="px-4 py-4 text-left font-bold uppercase w-[40%] bg-white">{t('action')}</th>
+                      <th className="px-4 py-4 text-left font-bold uppercase w-[20%] bg-white">{t('case_number')}</th>
+                      <th className="px-4 py-4 text-left font-bold uppercase w-[31%] bg-white">{t('complainant_name') || 'Complainant / Resident'}</th>
+                      <th className="px-4 py-4 text-left font-bold uppercase w-[25%] bg-white">{t('action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -1043,8 +1027,13 @@ export default function Archived() {
                       return (
                       <tr key={row.id || row.caseNo} className="hover:bg-blue-50/50 transition-colors">
                         <td className="px-4 py-5">
-                          <span className={`inline-block rounded px-3 py-1 text-[10px] font-bold shadow-sm uppercase tracking-wide ${isEscalated ? 'bg-red-500 text-white' : getTypeStyle(row.type)}`}>
-                            {isEscalated ? 'ESCALATED' : row.type}
+                          <span className={`inline-block rounded px-2 py-1 text-[10px] font-bold shadow-sm uppercase tracking-wide ${isEscalated ? 'bg-red-500 text-white' : 'bg-green-600 text-white'}`}>
+                            {isEscalated ? 'ESCALATED' : 'SETTLED'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-5">
+                          <span className={`inline-block rounded px-2 py-1 text-[10px] font-bold shadow-sm uppercase tracking-wide ${getTypeStyle(row.type)}`}>
+                            {row.type}
                           </span>
                         </td>
                         <td className="px-4 py-5">
@@ -1070,7 +1059,7 @@ export default function Archived() {
                     )})}
                     {filteredRows.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="py-12 text-center text-gray-400 font-bold bg-white uppercase">
+                        <td colSpan={5} className="py-12 text-center text-gray-400 font-bold bg-white uppercase">
                           {t('no_settled_cases') || 'No archived folders found.'}
                         </td>
                       </tr>

@@ -301,7 +301,6 @@ export default function Blacklisted() {
     });
   };
 
-  // Print functionality
   const handleOpenPrintModal = () => {
     setIsPrintModalOpen(true);
   };
@@ -360,7 +359,9 @@ export default function Blacklisted() {
     const printDate = new Date();
     const monthYearStringForPrint = printDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
 
-    // Single case detailed print view
+    // ==========================================
+    // LAYOUT 1: SINGLE CASE DETAILED PRINT VIEW
+    // ==========================================
     if (view === 'DETAILS' && selected) {
       const sortedSummons = [...selectedSummons].sort((a, b) => parseInt(a.summonType) - parseInt(b.summonType));
 
@@ -389,7 +390,7 @@ export default function Blacklisted() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '12px', border: '1px solid black', backgroundColor: '#f9fafb', marginBottom: '24px', fontSize: '13px' }}>
                 <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>CASE NUMBER:</span> <b style={{ color: '#111827' }}>{selected.caseNo}</b></div>
                 <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>CASE TYPE:</span> <b style={{ color: '#1d4ed8' }}>{selected.type}</b></div>
-                <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>DATE FILED:</span> <b style={{ color: '#111827' }}>{formatDate(selected.date)}</b></div>
+                <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>DATE FILED:</span> <b style={{ color: '#111827' }}>{formatDate(selected.date || selected.fullData?.dateFiled)}</b></div>
                 <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>STATUS:</span> <b style={{ color: '#dc2626' }}>BLACKLISTED</b></div>
                 {selected.blacklistedAt && (
                   <div style={{ width: '48%' }}><span style={{ fontWeight: 'bold', color: '#4b5563', marginRight: '8px' }}>BLACKLISTED DATE:</span> <b style={{ color: '#111827' }}>{formatBlacklistedDateTime(selected.blacklistedAt)}</b></div>
@@ -416,7 +417,7 @@ export default function Blacklisted() {
             <div style={{ fontSize: '13px', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', marginBottom: '12px' }}>
                     <div style={{ width: '50%', paddingRight: '12px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>DATE OF INCIDENT</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px' }}>{formatDate(selected.fullData?.incidentDate || selected.date)}</div></div>
-                    <div style={{ width: '50%', paddingLeft: '12px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>LOCATION</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.fullData?.incidentLocation || '166, Caloocan City'}</div></div>
+                    <div style={{ width: '50%', paddingLeft: '12px' }}><span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block' }}>LOCATION</span> <div style={{ borderBottom: '1px solid #9ca3af', fontWeight: 'bold', paddingBottom: '2px', textTransform: 'uppercase' }}>{selected.fullData?.incidentLocation || 'Barangay 166, Caloocan City'}</div></div>
                 </div>
                 <div>
                     <span style={{ fontWeight: 'bold', fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>DESCRIPTION OF INCIDENT</span>
@@ -426,22 +427,16 @@ export default function Blacklisted() {
                 </div>
             </div>
 
-            {/* III. Blacklisting Reason */}
-            <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>III. Blacklisting Action</h4>
-            <div style={{ border: '2px solid #dc2626', padding: '16px', fontSize: '13px', textAlign: 'justify', lineHeight: '1.6', marginBottom: '24px', backgroundColor: '#fef2f2', fontWeight: '500', pageBreakInside: 'avoid', textTransform: 'uppercase' }}>
-                THIS RESIDENT HAS BEEN PERMANENTLY BLACKLISTED FROM BARANGAY 166 DUE TO THE ABOVE-MENTIONED INCIDENT. ALL PRIVILEGES AND SERVICES ARE HEREBY REVOKED. THIS RECORD SHALL REMAIN IN THE BARANGAY BLACKLIST DATABASE INDEFINITELY.
-            </div>
-
-            {/* Summons Section */}
-            {selected.type !== 'CURFEW' && selectedSummons.length > 0 && (
+            {/* III. Summons Issued */}
+            {selected.type !== 'CURFEW' && (
                 <>
-                    <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>IV. Summons Issued</h4>
+                    <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>III. Summons Issued</h4>
                     <div style={{ marginBottom: '24px' }}>
-                        {sortedSummons.map((summon, idx) => (
+                        {sortedSummons.length > 0 ? sortedSummons.map((summon, idx) => (
                             <div key={idx} style={{ border: '1px solid #9ca3af', padding: '12px', marginBottom: '8px', backgroundColor: '#fff7ed', borderLeft: '4px solid #f97316', borderRadius: '4px', pageBreakInside: 'avoid' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #d1d5db', paddingBottom: '6px', marginBottom: '6px' }}>
                                     <span style={{ fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase' }}>{summon.summonType === '1' ? 'First' : summon.summonType === '2' ? 'Second' : 'Third'} Summon</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', color: '#15803d' }}>{summon.status}</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', color: summon.status === 'Active' ? '#15803d' : '#1d4ed8' }}>{summon.status}</span>
                                 </div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', fontSize: '12px', color: '#1f2937' }}>
                                     <div style={{ width: '50%', marginBottom: '4px' }}><span style={{ fontWeight: 'bold', color: '#6b7280', marginRight: '4px' }}>TO:</span> <b style={{ textTransform: 'uppercase' }}>{summon.residentName}</b></div>
@@ -455,15 +450,49 @@ export default function Blacklisted() {
                                     </div>
                                 )}
                             </div>
-                        ))}
+                        )) : <p style={{ fontSize: '13px', fontStyle: 'italic', color: '#6b7280', padding: '12px', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>NO SUMMONS WERE ISSUED FOR THIS CASE.</p>}
                     </div>
                 </>
             )}
 
+            {/* Timeline */}
+            <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px', pageBreakInside: 'avoid' }}>
+              {selected.type !== 'CURFEW' ? 'IV.' : 'III.'} Case Timeline
+            </h4>
+            <div style={{ marginBottom: '24px', paddingLeft: '16px', borderLeft: '2px solid #d1d5db', marginLeft: '8px', fontSize: '12px', pageBreakInside: 'avoid' }}>
+                <div style={{ marginBottom: '16px', position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', backgroundColor: '#2563eb', borderRadius: '50%', border: '2px solid white' }}></div>
+                    <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>{selected.type === 'CURFEW' ? 'VIOLATION RECORDED' : 'CASE FILED'}</b>
+                    <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{formatDate(selected.date)}</span>
+                </div>
+                {sortedSummons.map((summon, idx) => (
+                    <div key={idx} style={{ marginBottom: '16px', position: 'relative' }}>
+                        <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', backgroundColor: '#f97316', borderRadius: '50%', border: '2px solid white' }}></div>
+                        <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>{summon.summonType === '1' ? '1ST' : summon.summonType === '2' ? '2ND' : '3RD'} SUMMON ISSUED</b>
+                        <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{formatDate(summon.summonDate)} AT {summon.summonTime}</span>
+                    </div>
+                ))}
+                <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid white', backgroundColor: '#dc2626' }}></div>
+                    <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>RESIDENT BLACKLISTED</b>
+                    <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{selected.blacklistedAt ? formatBlacklistedDateTime(selected.blacklistedAt) : formatDate(selected.updatedAt || selected.date)}</span>
+                </div>
+            </div>
+
+            {/* Blacklisting Action Text */}
+            <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px', pageBreakInside: 'avoid' }}>
+              {selected.type !== 'CURFEW' ? 'V.' : 'IV.'} Blacklisting Action
+            </h4>
+            <div style={{ border: '2px solid black', padding: '16px', fontSize: '13px', textAlign: 'justify', lineHeight: '1.6', marginBottom: '24px', backgroundColor: 'white', fontWeight: '500', pageBreakInside: 'avoid', textTransform: 'uppercase' }}>
+                THIS RESIDENT HAS BEEN PERMANENTLY BLACKLISTED FROM BARANGAY 166 DUE TO THE ABOVE-MENTIONED INCIDENT. ALL PRIVILEGES AND SERVICES ARE HEREBY REVOKED. THIS RECORD SHALL REMAIN IN THE BARANGAY BLACKLIST DATABASE INDEFINITELY.
+            </div>
+
             {/* Additional Notes Section */}
             {getNotesForCurrentCase().length > 0 && (
                 <>
-                    <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>V. Additional Notes</h4>
+                    <h4 style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', textTransform: 'uppercase', borderBottom: '2px solid black', paddingBottom: '4px' }}>
+                      {selected.type !== 'CURFEW' ? 'VI.' : 'V.'} Additional Notes
+                    </h4>
                     <div style={{ marginBottom: '24px' }}>
                         {getNotesForCurrentCase().map((note) => (
                             <div key={note.id} style={{ border: '1px solid #9ca3af', padding: '12px', marginBottom: '8px', backgroundColor: '#f9fafb', borderRadius: '4px', pageBreakInside: 'avoid' }}>
@@ -526,12 +555,13 @@ export default function Blacklisted() {
       );
     }
 
-    // Monthly Transmittal List View for Blacklisted Cases
+    // ==========================================
+    // LAYOUT 2: MONTHLY TRANSMITTAL LIST VIEW
+    // ==========================================
     const combinedPrintData = filteredRows.map(item => ({
       caseNo: item.caseNo,
       title: item.type === 'CURFEW' ? `BARANGAY PATROL VS ${item.resident || 'N/A'}` : `${item.complainantName || 'N/A'} VS ${item.resident || item.respondentName || 'N/A'}`,
-      date: item.date || item.createdAt,
-      type: item.type
+      date: item.date || item.createdAt
     }));
 
     return (
@@ -556,7 +586,7 @@ export default function Blacklisted() {
                 </div>
                 
                 <div style={{ textAlign: 'center', width: '100%', marginBottom: '20px', borderTop: '4px double black', borderBottom: '4px double black', padding: '8px 0' }}>
-                    <h3 style={{ margin: '0', fontSize: '20px', fontWeight: '900', color: '#111827' }}>BLACKLISTED CASES TRANSMITTAL REPORT</h3>
+                    <h3 style={{ margin: '0', fontSize: '20px', fontWeight: '900', color: '#111827' }}>MONTHLY TRANSMITTAL OF BLACKLISTED CASES</h3>
                 </div>
                 
                 <div style={{ textAlign: 'left', fontSize: '14px', color: '#111827', marginBottom: '20px' }}>
@@ -590,7 +620,7 @@ export default function Blacklisted() {
                   <tr key={index} style={{ pageBreakInside: 'avoid' }}>
                       <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase' }}>{item.caseNo}</td>
                       <td style={{ border: '1px solid black', padding: '12px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase' }}>{item.title}</td>
-                   </tr>
+                  </tr>
               )) : (
                   <tr style={{ pageBreakInside: 'avoid' }}><td colSpan="2" style={{ border: '1px solid black', padding: '30px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#6b7280' }}>No blacklisted cases recorded for the selected filter period.</td></tr>
               )}
@@ -628,7 +658,7 @@ export default function Blacklisted() {
   const renderPrintModal = () => {
     if (!isPrintModalOpen) return null;
     return (
-      <div className="fixed inset-0 z-[1050] bg-black/60 backdrop-blur-sm flex justify-center items-center overflow-y-auto py-10 print-hide">
+      <div className="fixed inset-0 z-[1050] bg-black/60 backdrop-blur-sm flex justify-center items-start overflow-y-auto py-10 print-hide">
         <div className="bg-white relative flex flex-col shrink-0 w-[210mm] min-h-[297mm] p-[15mm_20mm] mx-auto shadow-2xl">
             
             {getPrintContent()}

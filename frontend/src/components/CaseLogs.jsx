@@ -321,6 +321,30 @@ export default function CaseLogs() {
       finalValue = rawNumbers;
     }
 
+    const namesMatch = (a, b) => {
+      return a && b && a.trim().toLowerCase() === b.trim().toLowerCase();
+    };
+
+    if (name === 'respondentName' && namesMatch(finalValue, formData.complainantName)) {
+      Swal.fire({
+        title: 'Invalid Selection',
+        text: 'The respondent cannot be the same person as the complainant.',
+        icon: 'error',
+        confirmButtonColor: '#d33'
+      });
+      setFormErrors(prev => ({ ...prev, respondentName: 'Respondent cannot be the same as complainant.' }));
+      finalValue = '';
+    } else if (name === 'complainantName' && namesMatch(finalValue, formData.respondentName)) {
+      Swal.fire({
+        title: 'Invalid Selection',
+        text: 'The complainant cannot be the same person as the respondent.',
+        icon: 'error',
+        confirmButtonColor: '#d33'
+      });
+      setFormErrors(prev => ({ ...prev, complainantName: 'Complainant cannot be the same as respondent.' }));
+      finalValue = '';
+    }
+
     setFormData(prev => ({ ...prev, [name]: finalValue }));
 
     if (formErrors[name]) {

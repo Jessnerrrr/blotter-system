@@ -27,7 +27,7 @@ export default function DashboardLayout({ children }) {
             onClick={() => {
               // Logout logic
               localStorage.removeItem('saved_active_page');
-              window.location.replace('https://barangay-profiling-private.vercel.app/portal.html');
+              window.location.replace('https://barangay-profiling-private.vercel.app/portal.html?member=1');
             }}
             title={!isExpanded ? "Logout" : ""}
             className="w-full flex items-center px-3 py-3 rounded-lg cursor-pointer transition-all duration-300 overflow-hidden text-red-600 hover:bg-red-50 font-medium"

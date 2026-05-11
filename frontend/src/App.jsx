@@ -90,7 +90,7 @@ function MainLayout() {
                     localStorage.removeItem('saved_active_page');
                     
                     // Redirect to the deployed system (replace current history entry)
-                    window.location.replace('https://barangay-profiling-private.vercel.app/portal.html'); 
+                    window.location.replace('https://barangay-profiling-private.vercel.app/portal.html?member=1'); 
                   }
                 });
               }}

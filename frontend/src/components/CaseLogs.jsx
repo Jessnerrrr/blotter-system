@@ -333,7 +333,17 @@ export default function CaseLogs() {
         confirmButtonColor: '#d33'
       });
       setFormErrors(prev => ({ ...prev, respondentName: 'Respondent cannot be the same as complainant.' }));
-      finalValue = '';
+      
+      // Wipe the ENTIRE respondent block empty
+      setFormData(prev => ({ 
+        ...prev, 
+        respondentName: '', 
+        respondentAge: '', 
+        respondentContact: '', 
+        respondentAddress: '' 
+      }));
+      return; // Stop right here so nothing else updates
+      
     } else if (name === 'complainantName' && namesMatch(finalValue, formData.respondentName)) {
       Swal.fire({
         title: 'Invalid Selection',
@@ -342,7 +352,16 @@ export default function CaseLogs() {
         confirmButtonColor: '#d33'
       });
       setFormErrors(prev => ({ ...prev, complainantName: 'Complainant cannot be the same as respondent.' }));
-      finalValue = '';
+      
+      // Wipe the ENTIRE complainant block empty
+      setFormData(prev => ({ 
+        ...prev, 
+        complainantName: '', 
+        complainantAge: '', 
+        complainantContact: '', 
+        complainantAddress: '' 
+      }));
+      return; // Stop right here so nothing else updates
     }
 
     setFormData(prev => ({ ...prev, [name]: finalValue }));
@@ -511,10 +530,32 @@ export default function CaseLogs() {
 
   const handleCancelNewCase = () => { setView('TABLE'); };
 
-  // Check for blacklisted status when selecting complainant
+  // --- UPDATED: Protect handleComplainantSelect ---
   const handleComplainantSelect = async (resident) => {
     const selectedName = resident.full_name || '';
     
+    // 1. Block if same as respondent
+    if (formData.respondentName && selectedName.trim().toLowerCase() === formData.respondentName.trim().toLowerCase()) {
+      Swal.fire({
+        title: 'Invalid Selection',
+        text: 'The complainant cannot be the same person as the respondent.',
+        icon: 'error',
+        confirmButtonColor: '#d33'
+      });
+      setFormErrors(prev => ({ ...prev, complainantName: 'Complainant cannot be the same as respondent.' }));
+      
+      // Force clear the state
+      setFormData(prev => ({
+        ...prev,
+        complainantName: '',
+        complainantContact: '',
+        complainantAddress: '',
+        complainantAge: ''
+      }));
+      return; 
+    }
+
+    // 2. Blacklist check
     const isBlacklisted = await checkIfBlacklisted(selectedName);
     if (isBlacklisted) {
       setComplainantBlacklistError(`${selectedName} is blacklisted and cannot be added as a complainant.`);
@@ -547,15 +588,44 @@ export default function CaseLogs() {
     if (!resolvedAge && selectedName) {
       setAgeLoading(prev => ({ ...prev, complainant: true }));
       const fetchedAge = await fetchResidentAge(selectedName);
-      setFormData(prev => ({ ...prev, complainantAge: fetchedAge }));
+      
+      // SAFEGUARD: Only apply the fetched age if the name wasn't wiped out!
+      setFormData(prev => {
+        if (prev.complainantName === selectedName) {
+          return { ...prev, complainantAge: fetchedAge };
+        }
+        return prev;
+      });
+      
       setAgeLoading(prev => ({ ...prev, complainant: false }));
     }
   };
 
-  // Check for blacklisted status when selecting respondent
+  // --- UPDATED: Protect handleRespondentSelect ---
   const handleRespondentSelect = async (resident) => {
     const selectedName = resident.full_name || '';
     
+    // 1. Block if same as complainant
+    if (formData.complainantName && selectedName.trim().toLowerCase() === formData.complainantName.trim().toLowerCase()) {
+      Swal.fire({
+        title: 'Invalid Selection',
+        text: 'The respondent cannot be the same person as the complainant.',
+        icon: 'error',
+        confirmButtonColor: '#d33'
+      });
+      setFormErrors(prev => ({ ...prev, respondentName: 'Respondent cannot be the same as complainant.' }));
+      
+      // Force clear the state
+      setFormData(prev => ({
+        ...prev,
+        respondentName: '',
+        respondentContact: '',
+        respondentAddress: '',
+        respondentAge: ''
+      }));
+      return; 
+    }
+
     setRespondentBlacklistError('');
     
     const resolvedAge = resident.age !== undefined && resident.age !== null
@@ -575,15 +645,44 @@ export default function CaseLogs() {
     if (!resolvedAge && selectedName) {
       setAgeLoading(prev => ({ ...prev, respondent: true }));
       const fetchedAge = await fetchResidentAge(selectedName);
-      setFormData(prev => ({ ...prev, respondentAge: fetchedAge }));
+      
+      // SAFEGUARD: Only apply the fetched age if the name wasn't wiped out!
+      setFormData(prev => {
+        if (prev.respondentName === selectedName) {
+          return { ...prev, respondentAge: fetchedAge };
+        }
+        return prev;
+      });
+      
       setAgeLoading(prev => ({ ...prev, respondent: false }));
     }
   };
 
+  // --- UPDATED: Protect handleComplainantBlur ---
   const handleComplainantBlur = async (value) => {
     const normalizedValue = value?.trim();
     if (!normalizedValue) return;
     
+    // 1. Block if same as respondent on blur
+    if (formData.respondentName && normalizedValue.toLowerCase() === formData.respondentName.trim().toLowerCase()) {
+      Swal.fire({
+        title: 'Invalid Input',
+        text: 'The complainant cannot be the same person as the respondent.',
+        icon: 'error',
+        confirmButtonColor: '#d33'
+      });
+      setFormErrors(prev => ({ ...prev, complainantName: 'Complainant cannot be the same as respondent.' }));
+      setFormData(prev => ({ 
+        ...prev, 
+        complainantName: '', 
+        complainantAge: '', 
+        complainantContact: '', 
+        complainantAddress: '' 
+      }));
+      return;
+    }
+
+    // 2. Blacklist check
     const isBlacklisted = await checkIfBlacklisted(normalizedValue);
     if (isBlacklisted) {
       setComplainantBlacklistError(`${normalizedValue} is blacklisted and cannot be added as a complainant.`);
@@ -603,26 +702,82 @@ export default function CaseLogs() {
 
     setAgeLoading(prev => ({ ...prev, complainant: true }));
     const fetchedAge = await fetchResidentAge(normalizedValue);
-    setFormData(prev => ({ ...prev, complainantAge: fetchedAge }));
+    
+    // SAFEGUARD: Only apply the fetched age if the name wasn't wiped out!
+    setFormData(prev => {
+      if (prev.complainantName === normalizedValue) {
+        return { ...prev, complainantAge: fetchedAge };
+      }
+      return prev;
+    });
+    
     setAgeLoading(prev => ({ ...prev, complainant: false }));
   };
 
+  // --- UPDATED: Protect handleRespondentBlur ---
   const handleRespondentBlur = async (value) => {
     const normalizedValue = value?.trim();
     if (!normalizedValue) return;
     
+    // 1. Block if same as complainant on blur
+    if (formData.complainantName && normalizedValue.toLowerCase() === formData.complainantName.trim().toLowerCase()) {
+      Swal.fire({
+        title: 'Invalid Input',
+        text: 'The respondent cannot be the same person as the complainant.',
+        icon: 'error',
+        confirmButtonColor: '#d33'
+      });
+      setFormErrors(prev => ({ ...prev, respondentName: 'Respondent cannot be the same as complainant.' }));
+      setFormData(prev => ({ 
+        ...prev, 
+        respondentName: '', 
+        respondentAge: '', 
+        respondentContact: '', 
+        respondentAddress: '' 
+      }));
+      return;
+    }
+
     setRespondentBlacklistError('');
     
     if (formData.respondentName === normalizedValue && formData.respondentAge) return;
 
     setAgeLoading(prev => ({ ...prev, respondent: true }));
     const fetchedAge = await fetchResidentAge(normalizedValue);
-    setFormData(prev => ({ ...prev, respondentAge: fetchedAge }));
+    
+    // SAFEGUARD: Only apply the fetched age if the name wasn't wiped out!
+    setFormData(prev => {
+      if (prev.respondentName === normalizedValue) {
+        return { ...prev, respondentAge: fetchedAge };
+      }
+      return prev;
+    });
+    
     setAgeLoading(prev => ({ ...prev, respondent: false }));
   };
 
   // Validate blacklisted status before submitting
   const handleSubmitCase = async () => {
+    // Hard stop if complainant and respondent are the same
+    if (
+      formData.complainantName && 
+      formData.respondentName && 
+      formData.complainantName.trim().toLowerCase() === formData.respondentName.trim().toLowerCase()
+    ) {
+      Swal.fire({
+        title: 'Invalid Input',
+        text: 'The complainant and respondent cannot be the same person. Please change one of the names before saving.',
+        icon: 'error',
+        confirmButtonColor: '#d33'
+      });
+      setFormErrors(prev => ({
+        ...prev,
+        complainantName: 'Cannot be the same as respondent.',
+        respondentName: 'Cannot be the same as complainant.'
+      }));
+      return; // This immediately stops the save process!
+    }
+
     const errors = {};
     const fieldsToValidate = [
         'complainantName', 'complainantContact', 'complainantAddress', 
@@ -648,14 +803,14 @@ export default function CaseLogs() {
 
     // Check for blacklist errors
    if (complainantBlacklistError) {
-  Swal.fire({ 
-    title: 'Blacklisted Person Detected', 
-    text: complainantBlacklistError, 
-    icon: 'error', 
-    confirmButtonColor: '#d33' 
-  });
-  return;
-}
+      Swal.fire({ 
+        title: 'Blacklisted Person Detected', 
+        text: complainantBlacklistError, 
+        icon: 'error', 
+        confirmButtonColor: '#d33' 
+      });
+      return;
+    }
 
     Swal.fire({ title: t('confirm_save_title'), text: t('confirm_save_text'), icon: 'question', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: t('yes_save'), cancelButtonText: t('cancel') }).then(async (result) => {
         if(result.isConfirmed) {
@@ -1292,7 +1447,26 @@ export default function CaseLogs() {
             </div>
 
           </div>
-          <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4"><button onClick={handleCancelNewCase} className="px-8 py-3 border font-bold rounded-lg hover:bg-white transition-colors">{t('cancel')}</button><button onClick={handleSubmitCase} className="px-10 py-3 rounded-lg font-bold bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white shadow-md transition-all active:scale-95">{t('submit_case')}</button></div>
+          <div className="bg-slate-50 p-8 border-t flex justify-end space-x-4">
+            <button onClick={handleCancelNewCase} className="px-8 py-3 border font-bold rounded-lg hover:bg-white transition-colors">{t('cancel')}</button>
+            <button 
+              onClick={handleSubmitCase} 
+              disabled={
+                formData.complainantName && 
+                formData.respondentName && 
+                formData.complainantName.trim().toLowerCase() === formData.respondentName.trim().toLowerCase()
+              }
+              className={`px-10 py-3 rounded-lg font-bold shadow-md transition-all ${
+                formData.complainantName && 
+                formData.respondentName && 
+                formData.complainantName.trim().toLowerCase() === formData.respondentName.trim().toLowerCase()
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-800 hover:to-blue-600 text-white active:scale-95'
+              }`}
+            >
+              {t('submit_case')}
+            </button>
+          </div>
         </div>
       </div>
     );

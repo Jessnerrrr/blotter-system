@@ -728,7 +728,7 @@ export default function Archived() {
                <div className="grid grid-cols-2 gap-y-6">
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('case_number')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.caseNo}</p></div>
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('complainant')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.complainantName || 'N/A'}</p></div>
-    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('resident_name')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
+    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('respondent_name') || 'Respondent Name'}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800 uppercase">{formatDate(selected.date)}</p></div>
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800 uppercase">{formatDate(selected.fullData?.incidentDate || selected.date)}</p></div>
     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('location')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.incidentLocation || 'Barangay 166, Caloocan City'}</p></div>
@@ -761,7 +761,7 @@ export default function Archived() {
                           <div className="flex justify-between items-start mb-3">
                             <div>
                               <h4 className="font-bold text-gray-900 uppercase">{summon.summonType === '1' ? '1st Summon' : summon.summonType === '2' ? '2nd Summon' : '3rd Summon'}</h4>
-                              <p className="text-xs text-gray-600 font-semibold uppercase">Resident: {summon.residentName}</p>
+                              <p className="text-xs text-gray-600 font-semibold uppercase">Respondent Name: {summon.residentName}</p>
                             </div>
                             <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
                               summon.status === 'Active' ? 'bg-green-100 text-green-700' : 
@@ -1017,7 +1017,7 @@ export default function Archived() {
                       <th className="px-4 py-4 text-left font-bold uppercase w-[12%] bg-white">Status</th>
                       <th className="px-4 py-4 text-left font-bold uppercase w-[12%] bg-white">{t('report_type')}</th>
                       <th className="px-4 py-4 text-left font-bold uppercase w-[20%] bg-white">{t('case_number')}</th>
-                      <th className="px-4 py-4 text-left font-bold uppercase w-[31%] bg-white">{t('complainant_name') || 'Complainant / Resident'}</th>
+                      <th className="px-4 py-4 text-left font-bold uppercase w-[31%] bg-white">{t('complainant_name') || 'Complainant / Respondent'}</th>
                       <th className="px-4 py-4 text-left font-bold uppercase w-[25%] bg-white">{t('action')}</th>
                     </tr>
                   </thead>

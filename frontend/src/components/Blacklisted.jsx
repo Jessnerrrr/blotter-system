@@ -474,7 +474,7 @@ export default function Blacklisted() {
                 ))}
                 <div style={{ position: 'relative' }}>
                     <div style={{ position: 'absolute', left: '-23px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid white', backgroundColor: '#dc2626' }}></div>
-                    <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>RESIDENT BLACKLISTED</b>
+                    <b style={{ display: 'block', color: '#111827', fontSize: '13px', textTransform: 'uppercase' }}>RESPONDENT BLACKLISTED</b>
                     <span style={{ color: '#4b5563', fontSize: '11px', textTransform: 'uppercase' }}>{selected.blacklistedAt ? formatBlacklistedDateTime(selected.blacklistedAt) : formatDate(selected.updatedAt || selected.date)}</span>
                 </div>
             </div>
@@ -484,7 +484,7 @@ export default function Blacklisted() {
               {selected.type !== 'CURFEW' ? 'V.' : 'IV.'} Blacklisting Action
             </h4>
             <div style={{ border: '2px solid black', padding: '16px', fontSize: '13px', textAlign: 'justify', lineHeight: '1.6', marginBottom: '24px', backgroundColor: 'white', fontWeight: '500', pageBreakInside: 'avoid', textTransform: 'uppercase' }}>
-                THIS RESIDENT HAS BEEN PERMANENTLY BLACKLISTED FROM BARANGAY 166 DUE TO THE ABOVE-MENTIONED INCIDENT. ALL PRIVILEGES AND SERVICES ARE HEREBY REVOKED. THIS RECORD SHALL REMAIN IN THE BARANGAY BLACKLIST DATABASE INDEFINITELY.
+                THIS RESPONDENT HAS BEEN PERMANENTLY BLACKLISTED FROM BARANGAY 166 DUE TO THE ABOVE-MENTIONED INCIDENT. ALL PRIVILEGES AND SERVICES ARE HEREBY REVOKED. THIS RECORD SHALL REMAIN IN THE BARANGAY BLACKLIST DATABASE INDEFINITELY.
             </div>
 
             {/* Additional Notes Section */}
@@ -598,7 +598,7 @@ export default function Blacklisted() {
                         </span>
                     </div>
                     <p style={{ margin: '0', textIndent: '40px', lineHeight: '1.6' }}>
-                      Enclosed herewith are the blacklisted residents permanently banned from Barangay 166:
+                      Enclosed herewith are the blacklisted respondents permanently banned from Barangay 166:
                     </p>
                 </div>
               </th>
@@ -609,7 +609,7 @@ export default function Blacklisted() {
                   Barangay Case No.
                 </th>
                 <th style={{ border: '1px solid black', padding: '12px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', width: '65%', color: 'black' }}>
-                  Blacklisted Resident / Case Record
+                  Blacklisted Respondent / Case Record
                   <span style={{ display: 'block', fontSize: '10px', fontWeight: 'normal', fontStyle: 'italic', marginTop: '4px' }}>(Complainant vs Respondent)</span>
                 </th>
             </tr>
@@ -945,7 +945,7 @@ export default function Blacklisted() {
                 </div>
                 <div className="grid grid-cols-2 gap-y-6">
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('case_number')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.caseNo}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('resident_name')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('respondent_name') || 'Respondent Name'}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('date_filed')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.date}</p></div>
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('moderator')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.selectedRole || 'Admin'}</p></div>
                 </div>
@@ -954,7 +954,7 @@ export default function Blacklisted() {
                 <div className="border-l-4 border-[#0044CC] pl-3 mb-6"><h3 className="text-lg font-bold text-[#0044CC] uppercase">{t('case_details_title')}</h3></div>
                 <div className="grid grid-cols-2 gap-y-6 mb-6">
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('complainant')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.complainantName || 'N/A'}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('respondents')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
+                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('respondent')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.resident}</p></div>
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{t('incident_date')}</p><p className="text-sm font-bold text-gray-800 uppercase">{selected.fullData?.incidentDate || selected.date}</p></div>
                     {selected.blacklistedAt && (
                       <div>
@@ -989,7 +989,7 @@ export default function Blacklisted() {
                                 <h4 className="font-bold text-gray-900 uppercase">
                                   {summon.summonType === '1' ? '1st Summon' : summon.summonType === '2' ? '2nd Summon' : '3rd Summon'}
                                 </h4>
-                                <p className="text-xs text-gray-600 font-semibold uppercase">Resident: {summon.residentName}</p>
+                                <p className="text-xs text-gray-600 font-semibold uppercase">Respondent Name: {summon.residentName}</p>
                               </div>
                               <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
                                 summon.status === 'Active' ? 'bg-green-100 text-green-700' : 
@@ -1098,7 +1098,7 @@ export default function Blacklisted() {
           <section className="flex-1 flex flex-col w-full overflow-hidden rounded-2xl bg-white shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-200">
             <div className="bg-gradient-to-br from-blue-800 to-blue-500 px-6 py-5 text-white shadow-md shrink-0">
               <h1 className="text-2xl font-bold uppercase">{t('blacklisted_case_records') || 'BLACKLISTED CASES'}</h1>
-              <p className="text-sm text-white/80">{t('blacklisted_subtitle') || 'View residents permanently blacklisted from the community.'}</p>
+              <p className="text-sm text-white/80">{t('blacklisted_subtitle') || 'View respondents permanently blacklisted from the community.'}</p>
             </div>
 
             <div className="border-b border-gray-200 bg-white px-6 py-6 md:px-8 shrink-0 relative z-20">
@@ -1183,7 +1183,7 @@ export default function Blacklisted() {
                   <tr className="border-b-2 border-blue-100 text-blue-900">
                     <th className="px-4 py-4 text-left font-bold uppercase w-[12%]">{t('report_type')}</th>
                     <th className="px-4 py-4 text-left font-bold uppercase w-[15%]">{t('case_number')}</th>
-                    <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('complainant_name')}</th>
+                    <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('complainant_name') || 'Complainant / Respondent'}</th>
                     <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('Reason')}</th>
                     <th className="px-4 py-4 text-left font-bold uppercase w-[20%]">{t('action')}</th>
                   </tr>
